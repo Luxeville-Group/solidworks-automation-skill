@@ -37,6 +37,19 @@ async function waitUntil(check, label, timeout = 90_000, health = () => null) {
   throw new Error(`timeout: ${label}${lastError ? `; last error: ${lastError.message}` : ""}`);
 }
 
+/** @brief CDP can connect before WebView2 creates a page or injects the Tauri bridge. */
+async function waitForTauriPage(browser, health = () => null, timeout = 90_000) {
+  return waitUntil(async () => {
+    for (const context of browser.contexts()) {
+      for (const page of context.pages()) {
+        const ready = await page.evaluate(() => typeof window.__TAURI_INTERNALS__?.invoke === "function");
+        if (ready) return page;
+      }
+    }
+    return null;
+  }, "portable Tauri page and IPC readiness", timeout, health);
+}
+
 async function main() {
   if (!fs.existsSync(executable)) throw new Error(`Portable executable does not exist: ${executable}`);
   [isolatedHome, queue, webviewData].forEach(assertSafeTestPath);
@@ -72,8 +85,7 @@ async function main() {
       return (await fetch("http://127.0.0.1:9227/json/version", { signal: AbortSignal.timeout(1_000) })).ok;
     }, "portable Tauri CDP start", 90_000, health);
     browser = await chromium.connectOverCDP("http://127.0.0.1:9227");
-    const page = browser.contexts()[0].pages()[0];
-    await page.waitForTimeout(2_000);
+    const page = await waitForTauriPage(browser, health);
     const invoke = (command, args = {}) => page.evaluate(
       ([activeCommand, activeArgs]) => window.__TAURI_INTERNALS__.invoke(activeCommand, activeArgs),
       [command, args],
@@ -116,7 +128,7 @@ async function main() {
   }
 }
 
-module.exports = { waitUntil };
+module.exports = { waitUntil, waitForTauriPage };
 if (require.main === module) {
   main().catch((error) => {
     console.error(error);

@@ -16,7 +16,7 @@ This change localizes upstream commit `f9d6efbecf297bcdfffc451de81ba3a7bdea6a0d`
 | Check | Result |
 |---|---|
 | `python -m pytest tests apps/desktop/tests -q` | 879 passed, 15 skipped |
-| Node installer/startup regressions | 6 passed |
+| Node installer/startup regressions | 11 passed |
 | Frontend TypeScript/Vite build | Passed |
 | Rust 1.88.0 formatter (edition 2021) | Passed |
 | Frontend Vitest | 32 passed |
@@ -29,11 +29,11 @@ This change localizes upstream commit `f9d6efbecf297bcdfffc451de81ba3a7bdea6a0d`
 | Tracked/new text scan | No literal Han characters remaining |
 | Root guide links / Git whitespace check | Passed |
 
-New regressions cover Turkish review-check and artifact matching across case variants, unknown-artifact handling, Turkish uppercase routing, Turkish/English feature selection, Unicode retrieval, localized CAD aliases, non-default VibeCAD dimensions, fork-only installer updates, and Turkish PDF title extraction with unchanged vector geometry.
+New regressions cover delayed WebView2 page/bridge readiness, Turkish review-check and artifact matching across case variants, unknown-artifact handling, Turkish uppercase routing, Turkish/English feature selection, Unicode retrieval, localized CAD aliases, non-default VibeCAD dimensions, fork-only installer updates, and Turkish PDF title extraction with unchanged vector geometry.
 
 ## Boundaries
 
-Native SolidWorks/AutoCAD modeling was not run on this machine. Rust/Cargo was unavailable, so native Tauri compilation and live packaged-app acceptance remain unverified locally. Browser checks exercised the frontend. Optional environment-dependent Python cases were skipped.
+Native SolidWorks/AutoCAD modeling was not run on this machine. Rust/Cargo was unavailable locally. Windows CI on commit `875de33` passed all 24 Rust tests, Clippy, native package construction and updater signature verification. Full packaged-app acceptance results are recorded on the pull request. Browser checks exercised the frontend. Optional environment-dependent Python cases were skipped.
 
 Automatic desktop updates are disabled until the fork has its own trusted signing and release configuration; signature verification remains intact. No localized installer binary is published by this change. The existing npm installer now refuses to update an installation from another repository and retains files on a failed update.
 
