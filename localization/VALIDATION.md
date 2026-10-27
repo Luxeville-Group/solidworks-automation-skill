@@ -18,7 +18,8 @@ This change localizes upstream commit `f9d6efbecf297bcdfffc451de81ba3a7bdea6a0d`
 | `python -m pytest tests apps/desktop/tests -q` | 879 passed, 15 skipped |
 | Node installer/startup regressions | 6 passed |
 | Frontend TypeScript/Vite build | Passed |
-| Frontend Vitest | 9 passed |
+| Rust 1.88.0 formatter (edition 2021) | Passed |
+| Frontend Vitest | 32 passed |
 | Browser delivery-gate scenarios | Desktop, compact and incomplete cases passed |
 | Browser preview scenarios | Desktop, compact/mobile, DXF, seven demos and WebGL-to-PNG fallback passed |
 | `scripts/validate_skill.py` | 245 Python files and 9 JSON schemas valid |
@@ -28,7 +29,7 @@ This change localizes upstream commit `f9d6efbecf297bcdfffc451de81ba3a7bdea6a0d`
 | Tracked/new text scan | No literal Han characters remaining |
 | Root guide links / Git whitespace check | Passed |
 
-New regressions cover Turkish uppercase routing, Turkish/English feature selection, Unicode retrieval, localized CAD aliases, non-default VibeCAD dimensions, fork-only installer updates, and Turkish PDF title extraction with unchanged vector geometry.
+New regressions cover Turkish review-check and artifact matching across case variants, unknown-artifact handling, Turkish uppercase routing, Turkish/English feature selection, Unicode retrieval, localized CAD aliases, non-default VibeCAD dimensions, fork-only installer updates, and Turkish PDF title extraction with unchanged vector geometry.
 
 ## Boundaries
 

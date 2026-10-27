@@ -23,12 +23,12 @@ export function artifactKindLabel(kind?: string, path?: string) {
 export type ArtifactGroup = "model" | "drawing" | "bom" | "preview" | "report" | "other";
 
 export function artifactGroup(artifact: ArtifactRecord): ArtifactGroup {
-  const text = `${artifact.kind ?? ""} ${artifact.path ?? ""}`.toLowerCase();
+  const text = `${artifact.kind ?? ""} ${artifact.path ?? ""}`.toUpperCase().replaceAll("İ", "I").toLowerCase();
   if (/sldprt|sldasm|step|stp|stl|obj|glb|gltf/.test(text)) return "model";
   if (/slddrw|dwg|dxf/.test(text)) return "drawing";
-  if (/bom|bill|Malzeme/.test(text)) return "bom";
-  if (/png|bmp|jpg|jpeg|webp|preview|Önizleme/.test(text)) return "preview";
-  if (/review|report|ledger|dfm|İncele|Rapor/.test(text)) return "report";
+  if (/bom|bill|malzeme/.test(text)) return "bom";
+  if (/png|bmp|jpg|jpeg|webp|preview|önizleme/.test(text)) return "preview";
+  if (/review|report|ledger|dfm|incele|rapor/.test(text)) return "report";
   return "other";
 }
 

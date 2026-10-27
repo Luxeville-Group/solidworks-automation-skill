@@ -56,9 +56,10 @@ function requiresArtifacts(job: AutomationJob) {
 }
 
 function artifactMatchesRequirement(artifact: ArtifactRecord, requirement: string) {
-  const token = requirement.trim().toLowerCase();
+  const normalize = (text: string) => text.toUpperCase().replaceAll("İ", "I").toLowerCase();
+  const token = normalize(requirement.trim());
   if (!token) return true;
-  const descriptor = `${artifact.kind ?? ""} ${artifact.path ?? ""}`.toLowerCase();
+  const descriptor = normalize(`${artifact.kind ?? ""} ${artifact.path ?? ""}`);
   if (descriptor.includes(token)) return true;
   const aliases: Record<string, string[]> = {
     model: ["model", "Model", "sldprt", "sldasm", "step", "stp", "stl"],
@@ -67,7 +68,7 @@ function artifactMatchesRequirement(artifact: ArtifactRecord, requirement: strin
     preview: ["preview", "Önizleme", "png", "bmp", "jpg", "jpeg", "webp"],
     report: ["review", "report", "ledger", "İncele", "Rapor"],
   };
-  return aliases[artifactGroup(artifact)].some((alias) => token.includes(alias));
+  return (aliases[artifactGroup(artifact)] ?? []).some((alias) => token.includes(normalize(alias)));
 }
 
 export function assessDelivery(job?: AutomationJob): DeliveryAssessment {

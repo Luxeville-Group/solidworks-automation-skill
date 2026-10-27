@@ -467,7 +467,8 @@ fn validate_preview_extension(path: &Path) -> Result<(), String> {
 fn read_preview_file(path: String) -> Result<tauri::ipc::Response, String> {
     let target = PathBuf::from(path);
     validate_preview_extension(&target)?;
-    let metadata = fs::metadata(&target).map_err(|error| format!("Önizleme dosyası okunamıyor: {error}"))?;
+    let metadata =
+        fs::metadata(&target).map_err(|error| format!("Önizleme dosyası okunamıyor: {error}"))?;
     if !metadata.is_file() {
         return Err("Önizleme hedefi bir dosya değil.".to_string());
     }
@@ -811,7 +812,9 @@ fn validate_new_queue_job(job: &Value) -> Result<(), String> {
                 .and_then(Value::as_str)
                 .unwrap_or_default();
             if !endpoint.starts_with("https://") {
-                return Err("Bulut bilgi tabanı etkinse endpoint bir HTTPS adresi olmalıdır.".to_string());
+                return Err(
+                    "Bulut bilgi tabanı etkinse endpoint bir HTTPS adresi olmalıdır.".to_string(),
+                );
             }
             if knowledge
                 .get("tokenEnv")
@@ -819,7 +822,10 @@ fn validate_new_queue_job(job: &Value) -> Result<(), String> {
                 .unwrap_or("CAD_STUDIO_RAG_TOKEN")
                 != "CAD_STUDIO_RAG_TOKEN"
             {
-                return Err("Bulut bilgi tabanı yalnızca şunu kullanabilir:  CAD_STUDIO_RAG_TOKEN.".to_string());
+                return Err(
+                    "Bulut bilgi tabanı yalnızca şunu kullanabilir:  CAD_STUDIO_RAG_TOKEN."
+                        .to_string(),
+                );
             }
         }
         if let Some(roots) = knowledge.get("localRoots") {
@@ -836,7 +842,10 @@ fn validate_new_queue_job(job: &Value) -> Result<(), String> {
                 })
                 .unwrap_or(false)
             {
-                return Err("knowledgeBase.localRoots  must contain at most  8  nonempty paths.".to_string());
+                return Err(
+                    "knowledgeBase.localRoots  must contain at most  8  nonempty paths."
+                        .to_string(),
+                );
             }
         }
     }
@@ -845,7 +854,9 @@ fn validate_new_queue_job(job: &Value) -> Result<(), String> {
             .as_array()
             .ok_or_else(|| "artifacts  must be an array.".to_string())?;
         if !artifacts.is_empty() {
-            return Err("Do not accept frontend-supplied artifact evidence when creating jobs.".to_string());
+            return Err(
+                "Do not accept frontend-supplied artifact evidence when creating jobs.".to_string(),
+            );
         }
     }
     for field in [
@@ -865,7 +876,9 @@ fn validate_new_queue_job(job: &Value) -> Result<(), String> {
         "result",
     ] {
         if object.contains_key(field) {
-            return Err(format!("Reject server-owned fields during job creation: {field}"));
+            return Err(format!(
+                "Reject server-owned fields during job creation: {field}"
+            ));
         }
     }
     Ok(())
@@ -1127,7 +1140,10 @@ fn prepare_job_for_retry(
     object.insert("updatedAt".to_string(), Value::String(updated_at));
     object.insert(
         "lastMessage".to_string(),
-        Value::String("Kullanıcı başarısız görevi yeniden başlattı; worker'ın görevi alması bekleniyor.".to_string()),
+        Value::String(
+            "Kullanıcı başarısız görevi yeniden başlattı; worker'ın görevi alması bekleniyor."
+                .to_string(),
+        ),
     );
     object.insert("artifacts".to_string(), Value::Array(Vec::new()));
     for field in [
@@ -1795,7 +1811,11 @@ fn collect_runtime_health(app: AppHandle) -> Result<Value, String> {
             let mut preflight = match program.as_str() {
                 "python" => Command::new("python"),
                 "py" => Command::new("py"),
-                other => return Err(format!("Untrusted input rejected:  Python Program: {other}")),
+                other => {
+                    return Err(format!(
+                        "Untrusted input rejected:  Python Program: {other}"
+                    ))
+                }
             };
             preflight
                 .args(&args)
@@ -2163,6 +2183,7 @@ fn database_provider_groups(connection: &Connection) -> Result<Value, String> {
 
 fn required_review_checks(job: &Value) -> Vec<&'static str> {
     let mut checks = vec!["native-open", "dimensions", "features", "artifacts"];
+    let normalize = |text: &str| text.to_uppercase().replace('İ', "I");
     let required_artifacts = job
         .get("requiredArtifacts")
         .and_then(Value::as_array)
@@ -2174,7 +2195,7 @@ fn required_review_checks(job: &Value) -> Vec<&'static str> {
                 .join(" ")
         })
         .unwrap_or_default();
-    let descriptor = format!(
+    let descriptor = normalize(&format!(
         "{} {} {} {}",
         job.get("kind").and_then(Value::as_str).unwrap_or_default(),
         job.get("expectedOutput")
@@ -2184,26 +2205,32 @@ fn required_review_checks(job: &Value) -> Vec<&'static str> {
             .and_then(Value::as_str)
             .unwrap_or_default(),
         required_artifacts
-    )
-    .to_uppercase();
+    ));
     if job.get("drawingEvidence").is_some()
         || ["DWG", "DXF", "PDF", "SLDDRW", "DRAWING", "Çizim"]
             .iter()
-            .any(|token| descriptor.contains(token))
+            .any(|token| descriptor.contains(normalize(token).as_str()))
     {
         checks.push("drawing");
     }
     if job.get("bomEvidence").is_some()
         || ["BOM", "Malzeme", "Ayrıntı tablosu"]
             .iter()
-            .any(|token| descriptor.contains(token))
+            .any(|token| descriptor.contains(normalize(token).as_str()))
     {
         checks.push("bom");
     }
     if job.get("dfmEvidence").is_some()
-        || ["DFM", "Üretim", "CNC", "SHEET_METAL", "LASER", "3D_PRINTING"]
-            .iter()
-            .any(|token| descriptor.contains(token))
+        || [
+            "DFM",
+            "Üretim",
+            "CNC",
+            "SHEET_METAL",
+            "LASER",
+            "3D_PRINTING",
+        ]
+        .iter()
+        .any(|token| descriptor.contains(normalize(token).as_str()))
     {
         checks.push("dfm");
     }
@@ -2241,12 +2268,16 @@ fn transition_review_job(
     let raw = fs::read_to_string(&path).map_err(|error| error.to_string())?;
     let mut job = serde_json::from_str::<Value>(&raw).map_err(|error| error.to_string())?;
     if job.get("status").and_then(Value::as_str) != Some("review_required") {
-        return Err("İnsan incelemesi yalnızca inceleme bekleyen görevlere uygulanabilir.".to_string());
+        return Err(
+            "İnsan incelemesi yalnızca inceleme bekleyen görevlere uygulanabilir.".to_string(),
+        );
     }
 
     let review_note = reason.trim().to_string();
     if review_note.chars().count() < if approved { 8 } else { 4 } {
-        return Err("Somut inceleme açıklaması yazın; boş veya varsayılan sonuç kullanmayın.".to_string());
+        return Err(
+            "Somut inceleme açıklaması yazın; boş veya varsayılan sonuç kullanmayın.".to_string(),
+        );
     }
     let review_checks = checks
         .into_iter()
@@ -2449,7 +2480,9 @@ fn delete_queue_job(app: AppHandle, id: String) -> Result<Value, String> {
     let raw = fs::read_to_string(&path).map_err(|error| error.to_string())?;
     let job = serde_json::from_str::<Value>(&raw).map_err(|error| error.to_string())?;
     if !can_delete_job(&job) {
-        return Err("Görev hâlâ sırada, onayda veya çalışıyor; silmeden önce iptal edin.".to_string());
+        return Err(
+            "Görev hâlâ sırada, onayda veya çalışıyor; silmeden önce iptal edin.".to_string(),
+        );
     }
 
     for metadata_path in [
@@ -2475,12 +2508,16 @@ fn delete_queue_job(app: AppHandle, id: String) -> Result<Value, String> {
 fn import_wallpaper(app: AppHandle, source_path: String) -> Result<Value, String> {
     let source = PathBuf::from(source_path.trim());
     let kind = wallpaper_kind(&source)?;
-    let metadata = fs::metadata(&source).map_err(|error| format!("Duvar kâğıdı dosyası okunamıyor: {error}"))?;
+    let metadata = fs::metadata(&source)
+        .map_err(|error| format!("Duvar kâğıdı dosyası okunamıyor: {error}"))?;
     if !metadata.is_file() {
         return Err("Seçili duvar kâğıdı bir dosya değil.".to_string());
     }
     if metadata.len() > 256 * 1024 * 1024 {
-        return Err("Duvar kâğıdı dosyası sınırı aşıyor:  256 MB, İçe aktarmadan önce sıkıştırın.".to_string());
+        return Err(
+            "Duvar kâğıdı dosyası sınırı aşıyor:  256 MB, İçe aktarmadan önce sıkıştırın."
+                .to_string(),
+        );
     }
 
     let cache_dir = app
@@ -2581,7 +2618,11 @@ fn start_worker(
     let mut command = match python.as_str() {
         "python" => Command::new("python"),
         "py" => Command::new("py"),
-        other => return Err(format!("Untrusted input rejected:  Python Program: {other}")),
+        other => {
+            return Err(format!(
+                "Untrusted input rejected:  Python Program: {other}"
+            ))
+        }
     };
     command.args(python_args);
     command
@@ -2865,7 +2906,10 @@ fn cc_switch_file_path(root: &Path, file_name: &str) -> Result<PathBuf, String> 
     let canonical_root = fs::canonicalize(root).map_err(|error| error.to_string())?;
     let target = fs::canonicalize(root.join(file_name)).map_err(|error| error.to_string())?;
     if !target.starts_with(&canonical_root) || !target.is_file() {
-        return Err("CC Switch Configuration link resolves outside the root or is not a regular file".into());
+        return Err(
+            "CC Switch Configuration link resolves outside the root or is not a regular file"
+                .into(),
+        );
     }
     Ok(target)
 }
@@ -2889,7 +2933,9 @@ fn read_cc_switch_file(root: &Path, file_name: &str) -> Result<String, String> {
 fn sync_cc_switch_config() -> Result<Value, String> {
     let home = std::env::var("USERPROFILE")
         .or_else(|_| std::env::var("HOME"))
-        .map_err(|_| "Kullanıcı klasörü bulunamadı; okunamıyor:  CC Switch  configuration.".to_string())?;
+        .map_err(|_| {
+            "Kullanıcı klasörü bulunamadı; okunamıyor:  CC Switch  configuration.".to_string()
+        })?;
     let root = PathBuf::from(home).join(".cc-switch");
     let database_path = root.join("cc-switch.db");
     let config_path = root.join("config.json");
@@ -3251,6 +3297,29 @@ mod tests {
     }
 
     #[test]
+    fn english_and_turkish_descriptors_require_domain_review_checks() {
+        for descriptor in [
+            "drawing BOM DFM",
+            "Çizim Malzeme Üretim",
+            "çizim ayrıntı tablosu üretim",
+            "ÇİZİM MALZEME ÜRETİM",
+            "ÇIZIM AYRINTI TABLOSU ÜRETIM",
+        ] {
+            let mut job = queued_job();
+            job["expectedOutput"] = json!(descriptor);
+
+            let checks = required_review_checks(&job);
+
+            for required in ["drawing", "bom", "dfm"] {
+                assert!(
+                    checks.contains(&required),
+                    "{descriptor} must require {required} review"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn promoted_domain_evidence_requires_matching_manual_checks() {
         let mut job = queued_job();
         job["drawingEvidence"] = json!({"status": "warning"});
@@ -3349,8 +3418,14 @@ mod tests {
         assert_eq!(codex[0]["active"], true);
         assert_eq!(codex[0]["model"], "gpt-5.5");
         assert_eq!(codex[0]["endpoint"], "https://route.example/v1");
-        assert_eq!(codex[0]["authLabel"], "Kimlik bilgileri CC Switch tarafından yönetilir");
-        assert_eq!(groups["claude"][0]["authLabel"], "OAuth / Resmî oturum bilgisi");
+        assert_eq!(
+            codex[0]["authLabel"],
+            "Kimlik bilgileri CC Switch tarafından yönetilir"
+        );
+        assert_eq!(
+            groups["claude"][0]["authLabel"],
+            "OAuth / Resmî oturum bilgisi"
+        );
         assert!(!groups.to_string().contains("secret-must-not-leak"));
     }
 
