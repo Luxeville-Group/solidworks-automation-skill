@@ -1,5 +1,5 @@
 /** @file delivery-gate-e2e.cjs
- *  @brief 用真实 Chromium 验证交付门禁、版本记录与响应式布局。
+ *  @brief Validate delivery gates, version history, and responsive layout with real Chromium.
  */
 const { chromium } = require("../apps/workbench-ui/node_modules/playwright");
 const fs = require("fs");
@@ -20,8 +20,8 @@ function testJob(status = "review_required") {
     id: "delivery-gate-e2e",
     runId: "run-current",
     kind: "delivery_package",
-    title: "安装板工程图交付",
-    detail: "验证模型、工程图、BOM、预览和复核报告交付闭环",
+    title: "Montaj plakasıMühendislik çizimiTeslim",
+    detail: "Validate model, drawing, BOM, preview, and review-report delivery traceability",
     status,
     progress: 100,
     createdAt: now,
@@ -29,7 +29,7 @@ function testJob(status = "review_required") {
     requestedBy: "e2e",
     createdByAppVersion: "0.3.1",
     projectId: "project-default",
-    expectedOutput: "STEP / DWG / BOM / PNG / 复核报告",
+    expectedOutput: "STEP / DWG / BOM / PNG / İnceleme raporu",
     requiredArtifacts: ["model", "drawing", "bom", "preview", "report"],
     artifacts: [
       { kind: "model", path: "D:/delivery/v2/install-plate.step", exists: true, producedThisRun: true, sizeBytes: 12000, sha256: "model-v2" },
@@ -40,15 +40,15 @@ function testJob(status = "review_required") {
     ],
     artifactLedgerPath: "D:/delivery/v2/artifact-ledger.json",
     reviewGatePath: "D:/delivery/v2/review-report.json",
-    reviewGate: { status: manualReviewRequired ? "warning" : "pass", checks: [{ id: "artifacts", status: "pass", message: "本轮产物完整" }] },
+    reviewGate: { status: manualReviewRequired ? "warning" : "pass", checks: [{ id: "artifacts", status: "pass", message: "Bu çalıştırmanın çıktıları eksiksiz" }] },
     drawingEvidence: { status: "pass", stage: "review", manual_review_required: manualReviewRequired },
     bomEvidence: { status: "pass", stage: "review", manual_review_required: manualReviewRequired },
     artifactRelations: [
-      { from: "D:/delivery/v2/install-plate.step", to: "D:/delivery/v2/install-plate.dwg", type: "生成工程图" },
-      { from: "D:/delivery/v2/install-plate.dwg", to: "D:/delivery/v2/install-plate.png", type: "导出预览" },
+      { from: "D:/delivery/v2/install-plate.step", to: "D:/delivery/v2/install-plate.dwg", type: "OluşturMühendislik çizimi" },
+      { from: "D:/delivery/v2/install-plate.dwg", to: "D:/delivery/v2/install-plate.png", type: "Dışa aktarÖnizleme" },
     ],
     backendDiagnostics: {
-      autocad_dotnet: { backend: "autocad_dotnet", status: "pilot", stage: "review", limitations: ["AutoCAD 2024 白名单命令"] },
+      autocad_dotnet: { backend: "autocad_dotnet", status: "pilot", stage: "review", limitations: ["AutoCAD 2024 allowlisted commands"] },
       autocad_com: { backend: "autocad_com", status: "blocked", stage: "preflight", error_code: "AUTOCAD_COM_UNSTABLE" },
     },
     runHistory: [{
@@ -60,7 +60,7 @@ function testJob(status = "review_required") {
         { kind: "drawing", path: "D:/delivery/v1/install-plate.dwg", exists: true, producedThisRun: true, sha256: "drawing-v1" },
         { kind: "report", path: "D:/delivery/v1/legacy-review-report.json", exists: true, producedThisRun: true, sha256: "legacy-report-v1" },
       ],
-      error: "工程图尺寸需要复核",
+      error: "Mühendislik çizimiÖlçülerGerekliİncele",
     }],
     retryPolicy: { previousRunId: "run-v1", retryFromStage: "drawing-bom", scope: "failed_stage_and_downstream", preservePreviousArtifacts: true, overwrite: false },
     reviewDecision: status === "passed" ? "approved" : undefined,
@@ -88,7 +88,7 @@ async function inspect(page, baseUrl, width, height, status, screenshotName, mut
   await page.addInitScript(([key, value]) => localStorage.setItem(key, JSON.stringify([value])), [queueKey, job]);
   await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
   await page.emulateMedia({ reducedMotion: "reduce" });
-  const deliveryButton = page.getByRole("button", { name: "交付", exact: true });
+  const deliveryButton = page.getByRole("button", { name: "Teslim", exact: true });
   await deliveryButton.waitFor({ state: "visible", timeout: 15_000 });
   await deliveryButton.click();
   await page.locator(".delivery-gate").waitFor({ state: "visible" });
@@ -106,12 +106,12 @@ async function inspect(page, baseUrl, width, height, status, screenshotName, mut
 }
 
 async function main() {
-  if (!fs.existsSync(path.join(dist, "index.html"))) throw new Error("请先执行 npm run build");
+  if (!fs.existsSync(path.join(dist, "index.html"))) throw new Error("Önce çalıştırın:  npm run build");
   fs.mkdirSync(output, { recursive: true });
   const server = createServer();
   await new Promise((resolve, reject) => server.listen(0, "127.0.0.1", resolve).once("error", reject));
   const address = server.address();
-  if (!address || typeof address === "string") throw new Error("无法取得临时 UI 端口");
+  if (!address || typeof address === "string") throw new Error("Cannot obtain the temporary UI port");
   const baseUrl = `http://127.0.0.1:${address.port}`;
   const browser = await chromium.launch({ headless: true });
   try {
@@ -123,16 +123,16 @@ async function main() {
     });
     const result = { desktop, compact, incomplete };
     fs.writeFileSync(path.join(output, "metrics.json"), JSON.stringify(result, null, 2));
-    if (desktop.overflowX || compact.overflowX) throw new Error("交付页存在横向溢出");
-    if (!desktop.disposition.includes("review_required") || !desktop.gateText.includes("等待人工复核")) throw new Error("待复核门禁未正确显示");
-    if (desktop.gateText.includes("本轮可交付")) throw new Error("待复核任务被错误标成可交付");
-    if (!desktop.retryText.includes("从工程图与 BOM重新生成")) throw new Error("局部重跑阶段未显示");
-    if (!desktop.versionText.includes("run-v1") || !desktop.diagnosticText.includes("AUTOCAD_COM_UNSTABLE")) throw new Error("版本或后端诊断缺失");
-    if (!desktop.versionText.includes("删除 1")) throw new Error("版本删除产物未正确统计");
-    if (!compact.disposition.includes("ready") || !compact.gateText.includes("本轮可交付")) throw new Error("已批准任务未显示可交付");
-    if (!incomplete.disposition.includes("incomplete") || !incomplete.gateText.includes("缺少要求产物：bom")) throw new Error("缺少 BOM 的任务被错误标成可交付");
-    if (desktop.traceRows !== 2 || compact.traceRows !== 2) throw new Error("产物关系未完整显示");
-    if (desktop.previewCount !== 1 || compact.previewCount !== 1) throw new Error("交付页重复渲染了文件预览");
+    if (desktop.overflowX || compact.overflowX) throw new Error("Delivery page has horizontal overflow");
+    if (!desktop.disposition.includes("review_required") || !desktop.gateText.includes("İnsan incelemesi bekleniyor")) throw new Error("Review-required gate was not displayed correctly");
+    if (desktop.gateText.includes("Bu yürütme teslim edilebilir")) throw new Error("Review-required task was incorrectly marked deliverable");
+    if (!desktop.retryText.includes("Mühendislik çizimi ve BOM aşamasından yeniden üret")) throw new Error("Partial rerun stage was not displayed");
+    if (!desktop.versionText.includes("run-v1") || !desktop.diagnosticText.includes("AUTOCAD_COM_UNSTABLE")) throw new Error("Version or backend diagnostics missing");
+    if (!desktop.versionText.includes("Sil 1")) throw new Error("Deleted artifacts were not counted correctly in version history");
+    if (!compact.disposition.includes("ready") || !compact.gateText.includes("Bu yürütme teslim edilebilir")) throw new Error("Approved task was not shown as deliverable");
+    if (!incomplete.disposition.includes("incomplete") || !incomplete.gateText.includes("Gerekli çıktı eksik: bom")) throw new Error("Task missing a BOM was incorrectly marked deliverable");
+    if (desktop.traceRows !== 2 || compact.traceRows !== 2) throw new Error("Artifact relationships were not displayed completely");
+    if (desktop.previewCount !== 1 || compact.previewCount !== 1) throw new Error("Delivery page rendered a duplicate file preview");
     console.log(JSON.stringify(result, null, 2));
   } finally {
     await browser.close();

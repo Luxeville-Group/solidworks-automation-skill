@@ -1,11 +1,11 @@
-"""@brief 2026 特征错误/警告、文档类型和领域证据的复核契约。"""
+'Review contracts for 2026 feature errors/warnings, document types and domain evidence.'
 from types import SimpleNamespace
 import pytest
 from scripts import sw_review
 
 
 def report(**changes):
-    """@brief 只构造复核输入，不宣称真实几何。"""
+    'Construct review inputs without claiming real geometry.'
     data = {"model":{"type":1}, "cad_spec":{"envelope_mm":{"length":10,"width":10,"height":10}},
         "checks":{"model_available":True,"previews_created":True,"previews_not_blank":True,
             "expected_outputs_exist":True,"feature_summary_available":True,"rebuild_succeeded":True},
@@ -53,14 +53,14 @@ def test_assembly_does_not_call_part_measurement_members():
     {"length": 10, "width": 10},
 ])
 def test_invalid_envelope_is_reported_instead_of_crashing(envelope):
-    """@brief 损坏的复核输入必须返回失败，不能中断诊断。"""
+    'Corrupt review inputs return failure without interrupting diagnosis.'
     evaluated = sw_review.evaluate_review_report(report(cad_spec={"envelope_mm": envelope}))
     assert "degenerate_envelope" in {item["code"] for item in evaluated["issues"]}
     assert evaluated["status"] == "fail"
 
 
 def test_empty_successful_drawing_structure_does_not_pass():
-    """@brief 结构读取成功仍必须存在模型视图。"""
+    'A successful structure read still requires a model view.'
     evaluated = sw_review.evaluate_review_report(report(model={"type": 3}, drawing_structure={"status": "pass", "views": []}))
     assert "drawing_views_missing" in {item["code"] for item in evaluated["issues"]}
 

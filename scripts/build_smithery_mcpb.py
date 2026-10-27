@@ -1,4 +1,4 @@
-"""为 Smithery 构建带完整 MCP 工具 schema 的 MCPB 发布包。"""
+"""Build a Smithery MCPB release package with complete MCP tool schemas."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from pathlib import Path
 
 
 def collect_tool_cards(repo_root: Path) -> list[dict[str, object]]:
-    """@brief 从 FastMCP 注册表读取工具名称、说明和真实 inputSchema。"""
+    """@brief Read tool names, descriptions and actual inputSchema from the FastMCP registry."""
     server_dir = repo_root / "mcp-server"
     if str(server_dir) not in sys.path:
         sys.path.insert(0, str(server_dir))
@@ -27,11 +27,11 @@ def collect_tool_cards(repo_root: Path) -> list[dict[str, object]]:
 
 
 def build_smithery_bundle(source: Path, target: Path) -> int:
-    """@brief 将标准 MCPB 的工具清单替换为 Smithery 所需的完整工具卡。"""
+    """@brief Replace standard MCPB tool entries with the complete tool cards required by Smithery."""
     repo_root = source.resolve().parent.parent
     tools = collect_tool_cards(repo_root)
     if not tools:
-        raise RuntimeError("MCP Server 未注册任何工具")
+        raise RuntimeError("MCP Server içinde kayıtlı araç yok")
 
     with zipfile.ZipFile(source, "r") as archive:
         manifest = json.loads(archive.read("manifest.json").decode("utf-8"))
@@ -50,13 +50,13 @@ def build_smithery_bundle(source: Path, target: Path) -> int:
 
 
 def main() -> int:
-    """@brief 执行 Smithery MCPB 构建命令。"""
+    """@brief Run the Smithery MCPB build command."""
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("source", type=Path, help="mcpb pack 生成的标准 MCPB")
-    parser.add_argument("target", type=Path, help="供 Smithery 发布的 MCPB")
+    parser.add_argument("source", type=Path, help="mcpb pack tarafından oluşturulan standart MCPB")
+    parser.add_argument("target", type=Path, help="Smithery yayını için MCPB")
     args = parser.parse_args()
     count = build_smithery_bundle(args.source, args.target)
-    print(f"Smithery MCPB 已生成: {args.target} ({count} 个工具 schema)")
+    print(f"Smithery MCPB oluşturuldu: {args.target} ({count} araç schema)")
     return 0
 
 

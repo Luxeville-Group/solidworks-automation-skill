@@ -1,8 +1,6 @@
-"""OCCT/OCP 无头几何隔离服务。
+"""OCCT/OCP headless geometry isolation service.
 
-该脚本在独立 Python 进程中构造基础 B-Rep、执行布尔运算并写出
-STEP/IGES/BREP/STL/OBJ/GLB。调用方通过 result JSON 读取结构化结果，
-避免 OCCT 原生输出污染 stdio 协议。
+A separate Python process constructs basic B-Rep, performs boolean operations, and writes STEP/IGES/BREP/STL/OBJ/GLB. Callers read structured results from result JSON so native OCCT output cannot corrupt the stdio protocol.
 """
 from __future__ import annotations
 
@@ -20,7 +18,7 @@ if str(DESKTOP) not in sys.path:
 
 
 class UnsupportedFeatureError(ValueError):
-    """@brief 当前 OCCT 路由无法表达输入特征。"""
+    """@brief The current OCCT route cannot represent the input feature."""
 
 
 def _params(feature: dict[str, Any]) -> dict[str, Any]:
@@ -30,12 +28,12 @@ def _params(feature: dict[str, Any]) -> dict[str, Any]:
 def _positive(params: dict[str, Any], key: str, default: float) -> float:
     value = float(params.get(key, default))
     if value <= 0:
-        raise ValueError(f"{key} 必须大于 0。")
+        raise ValueError(f"{key} sıfırdan büyük olmalı.")
     return value
 
 
 def _versioned_target(out_dir: Path, name: str, extension: str, overwrite: bool) -> Path:
-    """@brief 默认生成新版本文件，避免覆盖旧交付物。"""
+    """@brief Create a new file version by default to preserve earlier deliverables."""
     target = out_dir / f"{name}.{extension}"
     if overwrite or not target.exists():
         return target
@@ -57,7 +55,7 @@ def _document_height(document: dict[str, Any]) -> float:
 
 
 def build_shape(document: dict[str, Any]):
-    """@brief 从 NeutralCadDocument 构造 OCCT TopoDS_Shape。"""
+    """@brief Build an OCCT TopoDS_Shape from NeutralCadDocument."""
     from OCP.BRepAlgoAPI import BRepAlgoAPI_Cut, BRepAlgoAPI_Fuse
     from OCP.BRepPrimAPI import BRepPrimAPI_MakeBox, BRepPrimAPI_MakeCylinder
     from OCP.gp import gp_Ax2, gp_Dir, gp_Pnt
@@ -95,16 +93,16 @@ def build_shape(document: dict[str, Any]):
                 height,
             ).Shape()
         else:
-            raise UnsupportedFeatureError(f"OCCT 后端暂不支持特征: {feature_id} ({kind})")
+            raise UnsupportedFeatureError(f"OCCT backend bu özelliği henüz desteklemiyor: {feature_id} ({kind})")
 
         is_subtractive = kind == "hole" or operation in {"subtract", "cut", "remove"}
         if is_subtractive:
             if shape is None:
-                raise UnsupportedFeatureError(f"减材特征 {feature_id} 之前没有基础实体。")
+                raise UnsupportedFeatureError(f"Malzeme çıkaran özellik {feature_id} öncesinde temel katı yok.")
             algorithm = BRepAlgoAPI_Cut(shape, primitive)
             algorithm.Build()
             if not algorithm.IsDone():
-                raise RuntimeError(f"OCCT 布尔切除失败: {feature_id}")
+                raise RuntimeError(f"OCCT boolean cut başarısız: {feature_id}")
             shape = algorithm.Shape()
         elif shape is None:
             shape = primitive
@@ -112,18 +110,18 @@ def build_shape(document: dict[str, Any]):
             algorithm = BRepAlgoAPI_Fuse(shape, primitive)
             algorithm.Build()
             if not algorithm.IsDone():
-                raise RuntimeError(f"OCCT 布尔合并失败: {feature_id}")
+                raise RuntimeError(f"OCCT boolean union başarısız: {feature_id}")
             shape = algorithm.Shape()
         else:
-            raise UnsupportedFeatureError(f"OCCT 后端暂不支持操作: {feature_id} ({operation})")
+            raise UnsupportedFeatureError(f"OCCT backend bu işlemi henüz desteklemiyor: {feature_id} ({operation})")
 
     if shape is None:
-        raise UnsupportedFeatureError("NeutralCadDocument 没有可构造的实体特征。")
+        raise UnsupportedFeatureError("NeutralCadDocument içinde oluşturulabilir katı özellik yok.")
     return shape
 
 
 def collect_evidence(shape) -> dict[str, Any]:
-    """@brief 回读有效性、体积、包围盒和拓扑数量。"""
+    """@brief Read back validity, volume, bounding box, and topology counts."""
     from OCP.BRepBndLib import BRepBndLib
     from OCP.BRepCheck import BRepCheck_Analyzer
     from OCP.BRepGProp import BRepGProp
@@ -167,7 +165,7 @@ def _mesh_shape(shape, linear_deflection: float = 0.2, angular_deflection: float
     mesher = BRepMesh_IncrementalMesh(shape, linear_deflection, False, angular_deflection, True)
     mesher.Perform()
     if not mesher.IsDone():
-        raise RuntimeError("OCCT 网格化失败。")
+        raise RuntimeError("OCCT mesh oluşturma başarısız.")
 
 
 def export_occt(
@@ -177,7 +175,7 @@ def export_occt(
     *,
     overwrite: bool = False,
 ) -> dict[str, Any]:
-    """@brief 执行真实 OCCT 写入并返回结构化证据。"""
+    """@brief Perform an actual OCCT write and return structured evidence."""
     from OCP.BRepTools import BRepTools
     from OCP.IGESControl import IGESControl_Writer
     from OCP.IFSelect import IFSelect_RetDone
@@ -192,7 +190,7 @@ def export_occt(
     shape = build_shape(document)
     evidence = collect_evidence(shape)
     if not evidence["valid"] or evidence["topology"]["solids"] < 1 or evidence["volume"] <= 0:
-        raise RuntimeError("OCCT 结果未通过实体有效性、拓扑或体积门禁。")
+        raise RuntimeError("OCCT sonucu katı geçerliliği, topoloji veya hacim denetiminden geçemedi.")
 
     normalized_formats = [item.lower().lstrip(".") for item in formats]
     artifacts: list[dict[str, Any]] = []
@@ -206,20 +204,20 @@ def export_occt(
                 target = _versioned_target(out_dir, name, "step", overwrite)
                 writer = STEPControl_Writer()
                 if writer.Transfer(shape, STEPControl_AsIs) != IFSelect_RetDone or writer.Write(str(target)) != IFSelect_RetDone:
-                    raise RuntimeError("STEP 写入失败。")
+                    raise RuntimeError("STEP yazılamadı.")
             elif normalized == "iges":
                 target = _versioned_target(out_dir, name, "iges", overwrite)
                 writer = IGESControl_Writer()
                 if not writer.AddShape(shape) or not writer.Write(str(target)):
-                    raise RuntimeError("IGES 写入失败。")
+                    raise RuntimeError("IGES yazılamadı.")
             elif normalized == "brep":
                 target = _versioned_target(out_dir, name, "brep", overwrite)
                 if not BRepTools.Write_s(shape, str(target)):
-                    raise RuntimeError("BREP 写入失败。")
+                    raise RuntimeError("BREP yazılamadı.")
             elif normalized in {"stl", "obj", "glb"}:
                 continue
             else:
-                raise UnsupportedFeatureError(f"OCCT 后端不支持输出格式: {normalized}")
+                raise UnsupportedFeatureError(f"OCCT backend çıktı biçimini desteklemiyor: {normalized}")
             artifacts.append(
                 {
                     "kind": normalized,
@@ -238,7 +236,7 @@ def export_occt(
             else:
                 stl_path = Path(temp_context.name) / f"{name}.stl"
             if not StlAPI_Writer().Write(shape, str(stl_path)) or not stl_path.is_file():
-                raise RuntimeError("STL 写入失败。")
+                raise RuntimeError("STL yazılamadı.")
             if "stl" in mesh_formats:
                 artifacts.append(
                     {
@@ -256,7 +254,7 @@ def export_occt(
 
                 mesh = trimesh.load_mesh(str(stl_path), force="mesh")
                 if mesh.is_empty or len(mesh.vertices) < 3 or len(mesh.faces) < 1:
-                    raise RuntimeError("OCCT 网格为空，拒绝写出 OBJ/GLB。")
+                    raise RuntimeError("OCCT mesh boş; OBJ/GLB yazımı reddedildi.")
                 if "obj" in mesh_formats:
                     target = _versioned_target(out_dir, name, "obj", overwrite)
                     mesh.export(str(target), file_type="obj")
@@ -292,7 +290,7 @@ def export_occt(
         "stage": "save",
         "artifacts": artifacts,
         "geometryEvidence": evidence,
-        "limitations": ["FEA、安全认证和制造性结论不由几何写入器提供。"],
+        "limitations": ["Geometri yazıcısı FEA, güvenlik sertifikası veya üretilebilirlik sonucu sağlamaz."],
         "retryable": False,
     }
 
@@ -303,8 +301,8 @@ def _write_result(path: Path, payload: dict[str, Any]) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """@brief 独立子进程 CLI 入口。"""
-    parser = argparse.ArgumentParser(description="CAD Studio OCCT/OCP 隔离几何服务")
+    """@brief CLI entry point for an isolated subprocess."""
+    parser = argparse.ArgumentParser(description="CAD Studio OCCT/OCP yalıtılmış geometri servisi")
     parser.add_argument("--input", type=Path, required=True)
     parser.add_argument("--out-dir", type=Path, required=True)
     parser.add_argument("--formats", nargs="+", required=True)

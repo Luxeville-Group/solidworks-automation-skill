@@ -1,8 +1,8 @@
-"""@brief NeutralCadDocument 的轻量 DFM 规则复核。
+"""@brief Lightweight DFM rule review for NeutralCadDocument.
 
-本模块只做可追溯的制造风险检查，不输出制造认证结论。即使所有机器规则通过，
-顶层状态仍保持 review_required，由工程师对材料、工艺、公差和供应商能力做
-最终确认。
+Perform traceable manufacturing-risk checks, not manufacturing certification.
+Even if every machine rule passes, keep review_required until an engineer
+confirms materials, processes, tolerances and supplier capabilities.
 """
 from __future__ import annotations
 
@@ -18,13 +18,13 @@ from typing import Any
 
 try:
     from .dfm_profiles import DfmProfileError, load_profiles, merge_profiles
-except ImportError:  # pragma: no cover - 兼容直接执行 scripts/dfm_review.py
+except ImportError:  # pragma: no cover - support direct execution of scripts/dfm_review.py
     from dfm_profiles import DfmProfileError, load_profiles, merge_profiles
 
 
 DFM_PROCESSES = {"machining", "sheet_metal", "laser_cutting", "3d_printing", "injection_molding"}
 PROCESS_ALIASES = {
-    "injection_molding": "injection_molding", "injection": "injection_molding", "注塑": "injection_molding",
+    "injection_molding": "injection_molding", "injection": "injection_molding", "enjeksiyon": "injection_molding", "\u6ce8\u5851": "injection_molding",
     "auto": "auto",
     "cnc": "machining",
     "machining": "machining",
@@ -57,12 +57,12 @@ MANUFACTURING_LENGTH_FIELDS = {
 
 
 def _now_iso() -> str:
-    """@brief 返回 UTC 秒级时间戳。"""
+    """@brief Return a UTC timestamp with second precision."""
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
 def _sha256_file(path: Path) -> str:
-    """@brief 计算文件 SHA-256。"""
+    """@brief Compute a file SHA-256."""
     import hashlib
 
     digest = hashlib.sha256()
@@ -73,7 +73,7 @@ def _sha256_file(path: Path) -> str:
 
 
 def _versioned_target(path: Path) -> Path:
-    """@brief 返回不会覆盖既有文件的版本化输出路径。"""
+    """@brief Return a versioned output path without overwriting existing files."""
     target = Path(path)
     if not target.exists():
         return target
@@ -86,28 +86,28 @@ def _versioned_target(path: Path) -> Path:
 
 
 def _load_document(path: Path) -> dict[str, Any]:
-    """@brief 读取并做 NeutralCadDocument 最小结构校验。"""
+    """@brief Read and minimally validate NeutralCadDocument structure."""
     document = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(document, dict):
-        raise ValueError("NeutralCadDocument 必须是 JSON object。")
+        raise ValueError("NeutralCadDocument bir JSON object olmalıdır.")
     if not str(document.get("documentId") or "").strip():
-        raise ValueError("NeutralCadDocument 缺少 documentId。")
+        raise ValueError("NeutralCadDocument documentId içermiyor.")
     features = document.get("features", [])
     if not isinstance(features, list):
-        raise ValueError("NeutralCadDocument.features 必须是数组。")
+        raise ValueError("NeutralCadDocument.features bir array olmalıdır.")
     for feature in features:
         if not isinstance(feature, dict):
-            raise ValueError("NeutralCadDocument.features 只能包含 object。")
+            raise ValueError("NeutralCadDocument.features yalnızca object içerebilir.")
         if not str(feature.get("id") or "").strip() or not str(feature.get("type") or "").strip():
-            raise ValueError("每个 feature 必须包含非空 id 和 type。")
+            raise ValueError("Her feature boş olmayan id ve type içermelidir.")
     return document
 
 
 def _document_to_mm(document: dict[str, Any]) -> tuple[dict[str, Any], str]:
-    """@brief 将 DFM 涉及的 NeutralCadDocument 长度字段规范化为毫米。"""
+    """@brief Normalize DFM-related NeutralCadDocument lengths to millimeters."""
     source_units = str(document.get("units") or "mm").strip().lower()
     if source_units not in UNIT_TO_MM:
-        raise ValueError(f"DFM 不支持单位 {source_units}。")
+        raise ValueError(f"DFM bu birimi desteklemiyor: {source_units}.")
     normalized = copy.deepcopy(document)
     geometry_factor = UNIT_TO_MM[source_units]
     for feature in normalized.get("features", []):
@@ -122,7 +122,7 @@ def _document_to_mm(document: dict[str, Any]) -> tuple[dict[str, Any], str]:
     manufacturing = metadata.get("manufacturing") if isinstance(metadata.get("manufacturing"), dict) else {}
     manufacturing_units = str(manufacturing.get("unit") or source_units).strip().lower()
     if manufacturing_units not in UNIT_TO_MM:
-        raise ValueError(f"DFM 不支持制造元数据单位 {manufacturing_units}。")
+        raise ValueError(f"DFM üretim metadata birimini desteklemiyor: {manufacturing_units}.")
     manufacturing_factor = UNIT_TO_MM[manufacturing_units]
     for key in MANUFACTURING_LENGTH_FIELDS:
         if key in manufacturing and isinstance(manufacturing[key], (int, float)) and not isinstance(manufacturing[key], bool):
@@ -138,20 +138,20 @@ def _document_to_mm(document: dict[str, Any]) -> tuple[dict[str, Any], str]:
 
 
 def _manufacturing(document: dict[str, Any]) -> dict[str, Any]:
-    """@brief 提取制造元数据。"""
+    """@brief Extract manufacturing metadata."""
     metadata = document.get("metadata") if isinstance(document.get("metadata"), dict) else {}
     value = metadata.get("manufacturing") if isinstance(metadata.get("manufacturing"), dict) else {}
     return dict(value)
 
 
 def _normalize_process(value: Any) -> str:
-    """@brief 将 UI、Skill 和 CLI 的工艺名称归一到 DFM 白名单。"""
+    """@brief Normalize UI/Skill/CLI process names to the DFM allowlist."""
     token = str(value or "auto").strip().lower().replace(" ", "_")
     return PROCESS_ALIASES.get(token, token)
 
 
 def _number(value: Any) -> float | None:
-    """@brief 安全读取浮点数。"""
+    """@brief Safely read a floating-point number."""
     if value is None or value == "":
         return None
     try:
@@ -164,7 +164,7 @@ def _number(value: Any) -> float | None:
 
 
 def _sequence_numbers(value: Any) -> list[float] | None:
-    """@brief 安全读取数字数组。"""
+    """@brief Safely read a numeric array."""
     if not isinstance(value, (list, tuple)):
         return None
     numbers = [_number(item) for item in value]
@@ -174,7 +174,7 @@ def _sequence_numbers(value: Any) -> list[float] | None:
 
 
 def _material(document: dict[str, Any], manufacturing: dict[str, Any]) -> str:
-    """@brief 从制造元数据或材料表中提取材料名称。"""
+    """@brief Extract material names from manufacturing metadata or the material table."""
     direct = str(manufacturing.get("material") or "").strip()
     if direct and direct.lower() != "auto":
         return direct
@@ -188,12 +188,12 @@ def _material(document: dict[str, Any], manufacturing: dict[str, Any]) -> str:
 
 
 def _feature_params(feature: dict[str, Any]) -> dict[str, Any]:
-    """@brief 返回特征参数 object。"""
+    """@brief Return feature parameters as an object."""
     return feature.get("parameters") if isinstance(feature.get("parameters"), dict) else {}
 
 
 def _box_bounds(params: dict[str, Any]) -> tuple[float, float, float, float, float, float] | None:
-    """@brief 根据 box 参数估算包围盒。"""
+    """@brief Estimate a bounding box from box parameters."""
     length = _number(params.get("length"))
     width = _number(params.get("width"))
     height = _number(params.get("height"))
@@ -206,7 +206,7 @@ def _box_bounds(params: dict[str, Any]) -> tuple[float, float, float, float, flo
 
 
 def _cylinder_bounds(params: dict[str, Any]) -> tuple[float, float, float, float, float, float] | None:
-    """@brief 根据 cylinder/hole 参数估算包围盒。"""
+    """@brief Estimate a bounding box from cylinder/hole parameters."""
     radius = _number(params.get("radius"))
     diameter = _number(params.get("diameter"))
     radius = radius or (diameter / 2 if diameter else None)
@@ -220,7 +220,7 @@ def _cylinder_bounds(params: dict[str, Any]) -> tuple[float, float, float, float
 
 
 def _bounds(document: dict[str, Any], brep_evidence: dict[str, Any] | None = None) -> dict[str, Any]:
-    """@brief 优先使用已验证 B-Rep 证据，否则从基础特征估算包络尺寸。"""
+    """@brief Prefer validated B-Rep evidence, otherwise estimate the envelope from basic features."""
     if brep_evidence and brep_evidence.get("available") and brep_evidence.get("size"):
         return {
             "available": True,
@@ -256,13 +256,13 @@ def _bounds(document: dict[str, Any], brep_evidence: dict[str, Any] | None = Non
 
 
 def _canonical_sha256(payload: dict[str, Any]) -> str:
-    """@brief 对内存证据计算稳定 SHA-256。"""
+    """@brief Compute stable SHA-256 of in-memory evidence."""
     serialized = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
 
 
 def _brep_size(payload: dict[str, Any]) -> list[float] | None:
-    """@brief 从 SolidWorks 或 OCCT B-Rep 证据提取毫米包络。"""
+    """@brief Extract millimeter envelopes from SolidWorks/OCCT B-Rep evidence."""
     envelope = payload.get("envelope_mm")
     if isinstance(envelope, dict):
         values = [_number(envelope.get(key)) for key in ("length", "width", "height")]
@@ -290,9 +290,9 @@ def _load_brep_evidence(
     *,
     allowed_root: Path,
 ) -> dict[str, Any]:
-    """@brief 装载并验证 B-Rep 证据来源，不把普通参数声明冒充几何测量。"""
+    """@brief Validate B-Rep provenance; parameter declarations are not geometry measurements."""
     if value is None:
-        return {"available": False, "verifiedSource": False, "reason": "未提供 B-Rep 证据。"}
+        return {"available": False, "verifiedSource": False, "reason": "B-Rep kanıtı sağlanmadı."}
     evidence_path: Path | None = None
     if isinstance(value, dict):
         payload = dict(value)
@@ -303,64 +303,64 @@ def _load_brep_evidence(
             try:
                 evidence_path.relative_to(allowed_root.resolve())
             except ValueError as exc:
-                raise ValueError("相对 B-Rep 证据路径逃逸模型目录，已拒绝。") from exc
+                raise ValueError("Göreli B-Rep kanıt yolu model dizini dışına çıkıyor; reddedildi.") from exc
         else:
             evidence_path = raw.resolve()
         if evidence_path.suffix.lower() != ".json" or not evidence_path.is_file():
-            raise ValueError("B-Rep 证据必须是存在的 JSON 文件。")
+            raise ValueError("B-Rep kanıtı mevcut bir JSON dosyası olmalıdır.")
         if evidence_path.stat().st_size > 4 * 1024 * 1024:
-            raise ValueError("B-Rep 证据超过 4 MiB 安全上限。")
+            raise ValueError("B-Rep kanıtı 4 MiB güvenlik sınırını aşıyor.")
         payload = json.loads(evidence_path.read_text(encoding="utf-8"))
         if not isinstance(payload, dict):
-            raise ValueError("B-Rep 证据必须是 JSON object。")
+            raise ValueError("B-Rep kanıtı bir JSON object olmalıdır.")
 
     backend = str(payload.get("backend") or "")
     evidence = payload.get("measurements") if isinstance(payload.get("measurements"), dict) else None
     if backend == "solidworks_brep":
         if not evidence:
-            raise ValueError("SolidWorks B-Rep 证据必须包含 measurements。")
+            raise ValueError("SolidWorks B-Rep kanıtı measurements içermelidir.")
         if str(evidence.get("units") or "").lower() != "mm":
-            raise ValueError("SolidWorks B-Rep measurements 必须明确声明 units=mm。")
+            raise ValueError("SolidWorks B-Rep measurements açıkça units=mm belirtmelidir.")
         measurement_source = str(evidence.get("measurement_source") or "")
         if "solidworks api" not in measurement_source.lower() or "b-rep" not in measurement_source.lower():
-            raise ValueError("SolidWorks B-Rep measurements 缺少受认可的 API 测量来源。")
+            raise ValueError("SolidWorks B-Rep measurements kabul edilen API ölçüm kaynağı içermiyor.")
         allowed_extensions = {".sldprt"}
     elif backend == "headless_occt":
         evidence = payload.get("geometryEvidence") if isinstance(payload.get("geometryEvidence"), dict) else None
         if not evidence:
-            raise ValueError("OCCT B-Rep 证据必须包含 geometryEvidence。")
+            raise ValueError("OCCT B-Rep kanıtı geometryEvidence içermelidir.")
         if str(payload.get("units") or evidence.get("units") or "").lower() != "mm":
-            raise ValueError("OCCT B-Rep 证据必须明确声明 units=mm。")
+            raise ValueError("OCCT B-Rep kanıtı açıkça units=mm belirtmelidir.")
         measurement_source = "OCCT B-Rep topology"
         allowed_extensions = {".brep", ".step", ".stp"}
     else:
-        raise ValueError("B-Rep 证据后端未经认可；不得把普通参数或手工 JSON 标记为 SolidWorks B-Rep。")
+        raise ValueError("B-Rep kanıt backend onaylı değil; sıradan parametre veya elle yazılan JSON SolidWorks B-Rep olarak etiketlenemez.")
     if payload.get("producedThisRun") is not True:
-        raise ValueError("B-Rep 证据未标记 producedThisRun=true，不能用于本轮制造判断。")
+        raise ValueError("B-Rep kanıtında producedThisRun=true yok; bu çalıştırmanın üretim kararında kullanılamaz.")
     artifact_raw = payload.get("sourceArtifact")
     if not str(artifact_raw or "").strip():
-        raise ValueError("B-Rep 证据缺少 sourceArtifact。")
+        raise ValueError("B-Rep kanıtında sourceArtifact eksik.")
     artifact_path = Path(str(artifact_raw)).expanduser()
     if not artifact_path.is_absolute():
         artifact_path = (allowed_root / artifact_path).resolve()
         try:
             artifact_path.relative_to(allowed_root.resolve())
         except ValueError as exc:
-            raise ValueError("B-Rep sourceArtifact 路径逃逸模型目录，已拒绝。") from exc
+            raise ValueError("B-Rep sourceArtifact yolu model dizini dışına çıkıyor; reddedildi.") from exc
     else:
         artifact_path = artifact_path.resolve()
     if artifact_path.suffix.lower() not in allowed_extensions or not artifact_path.is_file():
-        raise ValueError("B-Rep sourceArtifact 不存在或格式与后端不匹配。")
+        raise ValueError("B-Rep sourceArtifact yok veya formatı backend ile uyuşmuyor.")
     expected_artifact_hash = str(payload.get("sourceSha256") or "").lower()
     actual_artifact_hash = _sha256_file(artifact_path)
     if len(expected_artifact_hash) != 64 or expected_artifact_hash != actual_artifact_hash:
-        raise ValueError("B-Rep sourceArtifact SHA-256 不匹配，证据已失去绑定。")
+        raise ValueError("B-Rep sourceArtifact SHA-256 uyuşmuyor; kanıt bağı kopmuş.")
     size = _brep_size(evidence)
     topology = evidence.get("topology") if isinstance(evidence.get("topology"), dict) else {}
     if size is None:
-        raise ValueError("B-Rep 证据缺少有效的三轴包络。")
+        raise ValueError("B-Rep kanıtında geçerli üç eksenli envelope yok.")
     if backend == "headless_occt" and int(topology.get("solids") or 0) < 1:
-        raise ValueError("OCCT B-Rep 证据未证明存在实体。")
+        raise ValueError("OCCT B-Rep kanıtı katı varlığını göstermiyor.")
     sha256 = _sha256_file(evidence_path) if evidence_path else _canonical_sha256(payload)
     return {
         "available": True,
@@ -379,7 +379,7 @@ def _load_brep_evidence(
 
 
 def _hole_diameters(document: dict[str, Any]) -> list[dict[str, Any]]:
-    """@brief 提取孔类特征直径证据。"""
+    """@brief Extract diameter evidence for hole features."""
     holes: list[dict[str, Any]] = []
     for feature in document.get("features", []):
         if not isinstance(feature, dict):
@@ -396,14 +396,14 @@ def _hole_diameters(document: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def _check(check_id: str, status: str, severity: str, message: str, **extra: Any) -> dict[str, Any]:
-    """@brief 构造稳定检查项。"""
+    """@brief Construct a stable check."""
     payload: dict[str, Any] = {"id": check_id, "status": status, "severity": severity, "message": message}
     payload.update({key: value for key, value in extra.items() if value is not None})
     return payload
 
 
 def _critical_missing(document: dict[str, Any], manufacturing: dict[str, Any], process: str) -> list[str]:
-    """@brief 返回特定工艺缺失的关键输入。"""
+    """@brief Return process-specific missing critical inputs."""
     missing: list[str] = []
     if not _material(document, manufacturing):
         missing.append("metadata.manufacturing.material")
@@ -426,7 +426,7 @@ def _common_checks(
     manufacturing: dict[str, Any],
     brep_evidence: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
-    """@brief 所有工艺共用的材料、包络和孔径证据检查。"""
+    """@brief Check material, envelope and hole-diameter evidence shared by all processes."""
     material = _material(document, manufacturing)
     bounds = _bounds(document, brep_evidence)
     checks = [
@@ -434,14 +434,14 @@ def _common_checks(
             "material_declared",
             "pass" if material else "fail",
             "critical",
-            f"材料已声明: {material}" if material else "缺少材料，不能进行制造风险判断。",
+            f"Malzeme belirtildi: {material}" if material else "Malzeme eksik; üretim riski değerlendirilemiyor.",
             material=material or None,
         ),
         _check(
             "bounds_available",
             "pass" if bounds.get("available") else "warning",
             "medium",
-            "已提取基础包络尺寸。" if bounds.get("available") else "未能从基础特征估算包络尺寸。",
+            "Temel envelope boyutları alındı." if bounds.get("available") else "Temel feature verilerinden envelope boyutları tahmin edilemedi.",
             bounds=bounds,
         ),
     ]
@@ -453,12 +453,12 @@ def _common_checks(
                 "hole_diameter_inventory",
                 "pass",
                 "medium",
-                f"已识别 {len(holes)} 个孔类特征，最小孔径 {min_hole:g} mm。",
+                f"Tanımlanan {len(holes)} delik özelliği; en küçük çap {min_hole:g} mm.",
                 holes=holes,
             )
         )
     else:
-        checks.append(_check("hole_diameter_inventory", "warning", "low", "未识别孔类特征；如零件含孔槽，应补齐规格和定位证据。"))
+        checks.append(_check("hole_diameter_inventory", "warning", "low", "Delik feature tanınmadı; parçada delik veya slot varsa özellik ve konum kanıtını tamamlayın."))
     return checks
 
 
@@ -467,7 +467,7 @@ def _machining_checks(
     manufacturing: dict[str, Any],
     brep_evidence: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
-    """@brief CNC/机加工基础 DFM 检查。"""
+    """@brief Basic CNC/machining DFM checks."""
     checks = _common_checks(document, manufacturing, brep_evidence)
     wall = _number(manufacturing.get("wallThickness"))
     min_wall = _number(manufacturing.get("minimumWallThickness")) or 1.5
@@ -476,7 +476,7 @@ def _machining_checks(
             "machining_min_wall",
             "pass" if wall is not None and wall >= min_wall else "fail",
             "high",
-            f"最小壁厚/筋厚 {wall:g} mm，大于建议阈值 {min_wall:g} mm。" if wall is not None and wall >= min_wall else f"机加工壁厚低于建议阈值 {min_wall:g} mm 或缺失。",
+            f"En küçük duvar/rib kalınlığı {wall:g} mm; önerilen eşikten büyük: {min_wall:g} mm." if wall is not None and wall >= min_wall else f"İşleme duvar kalınlığı önerilen eşikten düşük: {min_wall:g} mm veya belirtilmemiş.",
             wallThickness=wall,
             minimumWallThickness=min_wall,
         )
@@ -488,15 +488,15 @@ def _machining_checks(
             "machining_min_drill",
             "warning" if small_holes else "pass",
             "medium",
-            f"{len(small_holes)} 个孔径低于建议最小钻孔 {min_drill:g} mm。" if small_holes else f"孔径未低于建议最小钻孔 {min_drill:g} mm。",
+            f"{len(small_holes)} delik çapı önerilen minimum drill çapından küçük: {min_drill:g} mm." if small_holes else f"Delik çapları önerilen minimum drill çapından küçük değil: {min_drill:g} mm.",
             minimumDrillDiameter=min_drill,
             smallHoles=small_holes or None,
         )
     )
     if _number(manufacturing.get("internalCornerRadius")) is None:
-        checks.append(_check("machining_internal_corner_radius", "warning", "medium", "未声明内角半径/刀具半径，方形内角可能无法按模型直接加工。"))
+        checks.append(_check("machining_internal_corner_radius", "warning", "medium", "İç köşe/takım yarıçapı belirtilmedi; kare iç köşeler modeldeki gibi doğrudan işlenemeyebilir."))
     else:
-        checks.append(_check("machining_internal_corner_radius", "pass", "medium", "已声明内角半径/刀具半径。", internalCornerRadius=_number(manufacturing.get("internalCornerRadius"))))
+        checks.append(_check("machining_internal_corner_radius", "pass", "medium", "İç köşe/takım yarıçapı belirtildi.", internalCornerRadius=_number(manufacturing.get("internalCornerRadius"))))
     return checks
 
 
@@ -505,7 +505,7 @@ def _sheet_metal_checks(
     manufacturing: dict[str, Any],
     brep_evidence: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
-    """@brief 钣金基础 DFM 检查。"""
+    """@brief Basic sheet-metal DFM checks."""
     checks = _common_checks(document, manufacturing, brep_evidence)
     thickness = _number(manufacturing.get("wallThickness"))
     bend = _number(manufacturing.get("bendRadius"))
@@ -515,7 +515,7 @@ def _sheet_metal_checks(
             "sheet_bend_radius",
             "pass" if thickness is not None and bend is not None and bend >= thickness * 0.8 else "warning",
             "high",
-            "折弯内半径与板厚比例在常见可制造范围内。" if thickness is not None and bend is not None and bend >= thickness * 0.8 else "折弯内半径小于 0.8 倍板厚或缺失，需要确认材料和折弯模具。",
+            "İç büküm yarıçapı/sac kalınlığı oranı yaygın üretilebilir aralıkta." if thickness is not None and bend is not None and bend >= thickness * 0.8 else "İç büküm yarıçapı eksik veya sac kalınlığının 0.8 katından küçük; malzemeyi ve büküm kalıbını doğrulayın.",
             wallThickness=thickness,
             bendRadius=bend,
         )
@@ -525,7 +525,7 @@ def _sheet_metal_checks(
             "sheet_k_factor",
             "pass" if k_factor is not None and 0.2 <= k_factor <= 0.55 else "fail",
             "critical",
-            "K 因子处于常见展开计算范围。" if k_factor is not None and 0.2 <= k_factor <= 0.55 else "K 因子缺失或超出常见范围，展开长度不可复核。",
+            "K-factor yaygın flat-pattern hesap aralığında." if k_factor is not None and 0.2 <= k_factor <= 0.55 else "K-factor eksik veya yaygın aralık dışında; açınım uzunluğu doğrulanamıyor.",
             kFactor=k_factor,
         )
     )
@@ -536,7 +536,7 @@ def _sheet_metal_checks(
             "sheet_hole_vs_thickness",
             "warning" if small_holes else "pass",
             "medium",
-            f"{len(small_holes)} 个孔径小于板厚/1mm 建议值。" if small_holes else "孔径未小于板厚/1mm 建议值。",
+            f"{len(small_holes)} delik çapı levha kalınlığı/1 mm önerisinden küçük." if small_holes else "Delik çapı sac kalınlığı/1 mm öneri değerinden küçük değil.",
             smallHoles=small_holes or None,
         )
     )
@@ -548,7 +548,7 @@ def _laser_checks(
     manufacturing: dict[str, Any],
     brep_evidence: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
-    """@brief 激光切割基础 DFM 检查。"""
+    """@brief Basic laser-cutting DFM checks."""
     checks = _common_checks(document, manufacturing, brep_evidence)
     thickness = _number(manufacturing.get("wallThickness"))
     kerf = _number(manufacturing.get("kerf"))
@@ -557,7 +557,7 @@ def _laser_checks(
             "laser_kerf_declared",
             "pass" if kerf is not None and kerf > 0 else "fail",
             "critical",
-            f"已声明割缝 {kerf:g} mm。" if kerf else "缺少割缝 kerf，无法复核孔槽补偿。",
+            f"Kerf belirtildi: {kerf:g} mm." if kerf else "Kerf eksik; delik/slot telafisi doğrulanamıyor.",
             kerf=kerf,
         )
     )
@@ -567,7 +567,7 @@ def _laser_checks(
                 "laser_kerf_ratio",
                 "warning" if kerf > thickness * 0.35 else "pass",
                 "medium",
-                "割缝相对板厚偏大，需要确认机台参数。" if kerf > thickness * 0.35 else "割缝相对板厚处于可复核范围。",
+                "Kerf sac kalınlığına göre büyük; makine parametrelerini doğrulayın." if kerf > thickness * 0.35 else "Kerf/sac kalınlığı oranı incelenebilir aralıkta.",
                 wallThickness=thickness,
                 kerf=kerf,
             )
@@ -579,7 +579,7 @@ def _laser_checks(
             "laser_min_hole_slot",
             "warning" if small_holes else "pass",
             "medium",
-            f"{len(small_holes)} 个孔/槽特征低于建议最小值 {min_slot:g} mm。" if small_holes else f"孔/槽特征未低于建议最小值 {min_slot:g} mm。",
+            f"{len(small_holes)} delik/slot özelliği önerilen minimumdan küçük: {min_slot:g} mm." if small_holes else f"Delik/slot özellikleri önerilen minimumdan küçük değil: {min_slot:g} mm.",
             minimumHoleOrSlot=min_slot,
             smallHoles=small_holes or None,
         )
@@ -592,7 +592,7 @@ def _printing_checks(
     manufacturing: dict[str, Any],
     brep_evidence: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
-    """@brief 3D 打印基础 DFM 检查。"""
+    """@brief Basic 3D-printing DFM checks."""
     checks = _common_checks(document, manufacturing, brep_evidence)
     wall = _number(manufacturing.get("wallThickness"))
     sub_process = str(manufacturing.get("subProcess") or manufacturing.get("process") or "").strip().lower()
@@ -602,7 +602,7 @@ def _printing_checks(
             "printing_min_wall",
             "pass" if wall is not None and wall >= recommended_wall else "warning",
             "high",
-            f"壁厚 {wall:g} mm 满足当前默认建议 {recommended_wall:g} mm。" if wall is not None and wall >= recommended_wall else f"壁厚低于当前默认建议 {recommended_wall:g} mm 或缺失。",
+            f"Duvar kalınlığı {wall:g} mm mevcut varsayılan öneriyi karşılıyor: {recommended_wall:g} mm." if wall is not None and wall >= recommended_wall else f"Duvar kalınlığı mevcut varsayılan öneriden düşük: {recommended_wall:g} mm veya belirtilmemiş.",
             wallThickness=wall,
             minimumWallThickness=recommended_wall,
         )
@@ -617,34 +617,34 @@ def _printing_checks(
                 "printing_build_volume",
                 "pass" if fits else "fail",
                 "critical",
-                "模型包络位于打印机成型空间内。" if fits else "模型包络超出打印机成型空间。",
+                "Model envelope yazıcı build volume içinde." if fits else "Model envelope yazıcı build volume dışında.",
                 modelSize=size,
                 buildVolume=build,
             )
         )
     else:
-        checks.append(_check("printing_build_volume", "fail", "critical", "缺少成型空间或模型包络，无法判断是否可打印。", buildVolume=build, bounds=bounds))
+        checks.append(_check("printing_build_volume", "fail", "critical", "Build volume veya model envelope eksik; baskı uygunluğu belirlenemiyor.", buildVolume=build, bounds=bounds))
     overhang = _number(manufacturing.get("maxUnsupportedOverhangDeg"))
     if overhang is None:
-        checks.append(_check("printing_overhang", "warning", "medium", "未声明悬垂角/支撑策略，需要人工检查打印方向和支撑。"))
+        checks.append(_check("printing_overhang", "warning", "medium", "Overhang açısı/destek stratejisi belirtilmedi; baskı yönünü ve destekleri elle inceleyin."))
     else:
-        checks.append(_check("printing_overhang", "warning" if overhang > 45 else "pass", "medium", "悬垂角超过 45°，通常需要支撑。" if overhang > 45 else "悬垂角处于常见免支撑范围。", maxUnsupportedOverhangDeg=overhang))
+        checks.append(_check("printing_overhang", "warning" if overhang > 45 else "pass", "medium", "Overhang açısı 45° üzerinde; genellikle destek gerekir." if overhang > 45 else "Overhang açısı yaygın desteksiz baskı aralığında.", maxUnsupportedOverhangDeg=overhang))
     return checks
 
 
 def _fits_envelope(size: list[float], capacity: list[float]) -> bool:
-    """@brief 判断三轴尺寸在允许旋转工件方向后是否能装入能力空间。"""
+    """@brief Check three-axis fit in the capability envelope allowing workpiece rotation."""
     return all(model <= machine for model, machine in zip(sorted(size), sorted(capacity)))
 
 
 def _injection_molding_checks(document, manufacturing, brep_evidence=None):
-    """@brief 声明型注塑筛查；不凭固定通用阈值声称可制造。
-    @param manufacturing 已归一化为毫米的制造声明与生效约束。
-    @return 复用既有 DFM Check；未声明约束或几何时仍需人工复核。
+    """@brief Declarative molding screening; universal fixed thresholds do not prove manufacturability.
+    @param manufacturing Millimeter-normalized declarations and active constraints.
+    @return Existing DFM checks; missing constraints or geometry still require manual review.
     """
     checks = _common_checks(document, manufacturing, brep_evidence)
     def declared_number(value):
-        """@brief 倒扣数/拔模角允许零；NaN、无限值和布尔值不是工程证据。"""
+        """@brief Undercut counts/draft angles may be zero; NaN, infinity and booleans are not evidence."""
         if value is None or isinstance(value, bool):
             return None
         try:
@@ -654,40 +654,40 @@ def _injection_molding_checks(document, manufacturing, brep_evidence=None):
             return None
     wall = declared_number(manufacturing.get("wallThickness"))
     if wall is None or wall <= 0:
-        checks.append(_check("injection_wall_positive", "fail", "critical", "注塑主壁厚必须是正数。"))
+        checks.append(_check("injection_wall_positive", "fail", "critical", "Injection molding ana duvar kalınlığı pozitif olmalıdır."))
 
     def compare(identifier, value, limit, minimum, label):
         if value is None or limit is None:
-            checks.append(_check(identifier, "warning", "high", label + "缺少声明或明确工艺阈值，无法复核。"))
+            checks.append(_check(identifier, "warning", "high", label + "Beyan veya açık süreç eşiği eksik; inceleme yapılamıyor."))
             return
         passed = value >= 0 and math.isfinite(value) and (value >= limit if minimum else value <= limit)
         checks.append(_check(identifier, "pass" if passed and limit > 0 else "fail", "critical",
-            label + ("满足声明工艺约束。" if passed and limit > 0 else "未满足声明工艺约束。"), value=value, limit=limit, evidenceSource="declared_metadata"))
+            label + ("Beyan edilen süreç koşulları sağlanıyor." if passed and limit > 0 else "Beyan edilen süreç koşulları sağlanmıyor."), value=value, limit=limit, evidenceSource="declared_metadata"))
 
     compare("injection_draft_angle", declared_number(manufacturing.get("draftAngleDeg")),
-        declared_number(manufacturing.get("minimumDraftAngleDeg")), True, "拔模角")
+        declared_number(manufacturing.get("minimumDraftAngleDeg")), True, "Çıkış açısı (Draft angle)")
     rib = declared_number(manufacturing.get("ribThickness"))
     compare("injection_rib_wall_ratio", rib / wall if rib is not None and wall and wall > 0 else None,
-        declared_number(manufacturing.get("maximumRibWallRatio")), False, "筋厚/主壁厚比例")
+        declared_number(manufacturing.get("maximumRibWallRatio")), False, "Rib/ana duvar kalınlığı oranı")
     maximum_wall = declared_number(manufacturing.get("maxWallThickness"))
     compare("injection_wall_uniformity", maximum_wall / wall if maximum_wall is not None and wall and wall > 0 else None,
-        declared_number(manufacturing.get("maximumWallThicknessVariation")), False, "最大壁厚变化")
-    # 带 Mm 后缀的历史字段明确是毫米；无后缀字段按 document.units 归一。
+        declared_number(manufacturing.get("maximumWallThicknessVariation")), False, "Maksimum duvar kalınlığı değişimi")
+    # Historical Mm-suffixed fields are explicitly millimeters; normalize unsuffixed fields using document.units.
     clearance = declared_number(manufacturing.get("ejectorWaterClearanceMm"))
     if clearance is None:
         clearance = declared_number(manufacturing.get("ejectorWaterClearance"))
     compare("injection_ejector_water_clearance", clearance,
-        declared_number(manufacturing.get("minimumEjectorWaterClearance")), True, "顶针与水路间距")
+        declared_number(manufacturing.get("minimumEjectorWaterClearance")), True, "Ejector pin ile soğutma kanalı aralığı")
     undercuts = declared_number(manufacturing.get("undercutCount"))
     if undercuts is None:
-        checks.append(_check("injection_undercut_side_action", "warning", "high", "未声明倒扣数量及侧向抽芯方案。"))
+        checks.append(_check("injection_undercut_side_action", "warning", "high", "Undercut sayısı ve side-action core stratejisi belirtilmedi."))
     elif undercuts < 0 or int(undercuts) != undercuts or (undercuts > 0 and manufacturing.get("sideActionDeclared") is not True):
-        checks.append(_check("injection_undercut_side_action", "fail", "critical", "倒扣数量无效或没有明确侧向抽芯方案。"))
+        checks.append(_check("injection_undercut_side_action", "fail", "critical", "Undercut sayısı geçersiz veya açık side-action core stratejisi yok."))
     else:
-        checks.append(_check("injection_undercut_side_action", "pass", "high", "倒扣数量与方案已有声明，真实脱模可行性仍需工程复核。"))
+        checks.append(_check("injection_undercut_side_action", "pass", "high", "Undercut sayısı ve strateji belirtildi; gerçek kalıptan çıkarma uygunluğu mühendislik incelemesi gerektirir."))
     gate = manufacturing.get("gateOnCosmeticFace")
     checks.append(_check("injection_gate_location", "pass" if gate is False else "warning", "high",
-        "声明浇口避开外观面。" if gate is False else "浇口与外观面的关系需人工确认。"))
+        "Gate konumunun görünür yüzeyden kaçındığı beyan edildi." if gate is False else "Gate ile görünür yüzey ilişkisi elle doğrulanmalıdır."))
     return checks
 
 
@@ -698,7 +698,7 @@ def _profile_checks(
     limits: dict[str, Any],
     brep_evidence: dict[str, Any],
 ) -> list[dict[str, Any]]:
-    """@brief 根据安全合并后的供应商、材料和设备能力生成违反项。"""
+    """@brief Generate violations from safely merged supplier, material and equipment capabilities."""
     checks: list[dict[str, Any]] = []
     material = _material(document, manufacturing)
     allowed = limits.get("allowedMaterials")
@@ -709,7 +709,7 @@ def _profile_checks(
                 "profile_material_capability",
                 "pass" if compatible else "fail",
                 "critical",
-                "材料在 Profile 能力范围内。" if compatible else f"供应商/设备 Profile 不支持材料 {material}。",
+                "Malzeme Profile capability kapsamında." if compatible else f"Tedarikçi/ekipman Profile bu malzemeyi desteklemiyor: {material}.",
                 material=material,
                 allowedMaterials=allowed,
             )
@@ -732,7 +732,7 @@ def _profile_checks(
                 "profile_equipment_envelope",
                 "pass" if fits else "fail",
                 "critical",
-                "模型包络位于设备能力空间内。" if fits else "模型包络超出供应商/设备能力空间，或缺少可核验包络。",
+                "Model envelope makine capability alanında." if fits else "Model envelope tedarikçi/makine capability alanı dışında veya doğrulanabilir envelope eksik.",
                 modelSize=size,
                 equipmentEnvelope=capacity,
                 evidenceSource=bounds.get("source"),
@@ -748,7 +748,7 @@ def _profile_checks(
                 "profile_minimum_wall",
                 "pass" if passed else "fail",
                 "high",
-                "壁厚满足 Profile 最小值。" if passed else "壁厚低于供应商/工艺 Profile 最小值。",
+                "Duvar kalınlığı Profile minimumunu sağlıyor." if passed else "Duvar kalınlığı tedarikçi/süreç Profile minimumundan düşük.",
                 wallThickness=wall,
                 minimumWallThickness=minimum_wall,
             )
@@ -768,7 +768,7 @@ def _profile_checks(
                 "profile_material_thickness",
                 "pass" if passed else "fail",
                 "critical",
-                "材料厚度位于 Profile 范围内。" if passed else "材料厚度超出供应商/设备 Profile 范围。",
+                "Malzeme kalınlığı Profile aralığında." if passed else "Malzeme kalınlığı tedarikçi/makine Profile aralığı dışında.",
                 wallThickness=thickness,
                 minimumThickness=minimum_thickness,
                 maximumThickness=maximum_thickness,
@@ -785,7 +785,7 @@ def _profile_checks(
                     "profile_minimum_drill",
                     "fail" if violations else "pass",
                     "high",
-                    f"{len(violations)} 个孔小于 Profile 最小钻孔直径。" if violations else "孔径满足 Profile 最小钻孔直径。",
+                    f"{len(violations)} delik Profile minimum drill çapından küçük." if violations else "Delik çapı Profile minimum drilling diameter değerini sağlıyor.",
                     minimumDrillDiameter=minimum_drill,
                     violations=violations or None,
                 )
@@ -798,7 +798,7 @@ def _profile_checks(
                     "profile_tool_inventory",
                     "fail" if unavailable else "pass",
                     "high",
-                    f"{len(unavailable)} 个孔没有匹配的钻具（直径容差 0.05 mm）。" if unavailable else "孔径均有匹配钻具。",
+                    f"{len(unavailable)} delik için eşleşen drill yok (çap toleransı 0.05 mm)." if unavailable else "Tüm delik çaplarına uygun matkap var.",
                     availableToolDiameters=tools,
                     violations=unavailable or None,
                 )
@@ -812,7 +812,7 @@ def _profile_checks(
                     "profile_internal_corner_tooling",
                     "pass" if passed else "fail",
                     "high",
-                    "内角半径适配可用刀具。" if passed else "内角半径小于 Profile 刀具能力或未声明。",
+                    "İç köşe yarıçapı mevcut takımlara uygun." if passed else "İç köşe yarıçapı Profile takım kapasitesinden küçük veya belirtilmedi.",
                     internalCornerRadius=actual_corner,
                     minimumInternalCornerRadius=minimum_corner,
                 )
@@ -833,7 +833,7 @@ def _profile_checks(
                     "profile_hole_depth_ratio",
                     "fail" if deep_holes else "pass",
                     "high",
-                    "深径比满足刀具能力。" if not deep_holes else f"{len(deep_holes)} 个孔超出最大深径比。",
+                    "Derinlik/çap oranı takım kapasitesine uygun." if not deep_holes else f"{len(deep_holes)} delik maksimum derinlik/çap oranını aşıyor.",
                     maximumHoleDepthDiameterRatio=max_ratio,
                     violations=deep_holes or None,
                 )
@@ -854,7 +854,7 @@ def _profile_checks(
                     "profile_bending_capability",
                     "pass" if passed else "fail",
                     "critical",
-                    "折弯半径满足模具 Profile。" if passed else "折弯半径不满足供应商模具能力。",
+                    "Büküm yarıçapı die Profile koşulunu sağlıyor." if passed else "Büküm yarıçapı tedarikçinin die kapasitesine uygun değil.",
                     bendRadius=bend,
                     minimumBendRadius=minimum_bend,
                     minimumBendRadiusRatio=minimum_ratio,
@@ -873,7 +873,7 @@ def _profile_checks(
                     "profile_laser_kerf",
                     "pass" if passed else "fail",
                     "high",
-                    "割缝位于机台 Profile 范围内。" if passed else "割缝超出机台 Profile 范围。",
+                    "Kerf makine Profile aralığında." if passed else "Kerf makine Profile aralığı dışında.",
                     kerf=kerf,
                     minimumKerf=lower,
                     maximumKerf=upper,
@@ -886,7 +886,7 @@ def _profile_checks(
                     "profile_laser_minimum_feature",
                     "fail" if violations else "pass",
                     "high",
-                    "孔槽尺寸满足激光工艺 Profile。" if not violations else f"{len(violations)} 个孔槽小于供应商能力。",
+                    "Delik/slot boyutları laser process Profile koşulunu sağlıyor." if not violations else f"{len(violations)} delik/slot tedarikçi kapasitesinden küçük.",
                     minimumHoleOrSlot=minimum_feature,
                     violations=violations or None,
                 )
@@ -901,7 +901,7 @@ def _profile_checks(
                 "profile_printing_overhang",
                 "pass" if passed else "fail",
                 "high",
-                "悬垂角满足打印机/材料 Profile。" if passed else "悬垂角超出打印机/材料 Profile 或未声明。",
+                "Overhang açısı yazıcı/malzeme Profile koşulunu sağlıyor." if passed else "Overhang açısı yazıcı/malzeme Profile dışında veya belirtilmedi.",
                 maxUnsupportedOverhangDeg=overhang,
                 profileMaximumOverhangDeg=maximum,
             )
@@ -916,10 +916,10 @@ def build_dfm_report(
     profiles: list[str | Path | dict[str, Any]] | None = None,
     brep_evidence: str | Path | dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """@brief 生成不依赖 CAD 软件的 DFM 复核报告。
+    """@brief Generate a CAD-independent DFM review report.
 
-    @param profiles 可选材料、设备或供应商能力 Profile；按能力交集合并。
-    @param brep_evidence 可选 SolidWorks/OCCT B-Rep 测量证据或其 JSON 路径。
+    @param profiles Optional material/equipment/supplier profiles, merged by capability intersection.
+    @param brep_evidence Optional SolidWorks/OCCT measurements or their JSON path.
     """
     source = Path(document_path).expanduser().resolve()
     try:
@@ -961,7 +961,7 @@ def build_dfm_report(
         "retryable": False,
         "error_code": None,
         "limitations": [
-            "DFM 规则检查不等于制造认证，必须由工程师结合供应商能力、材料批次、公差和载荷复核。",
+            "DFM kural denetimi üretim sertifikasyonu değildir; mühendis tedarikçi kapasitesi, malzeme partisi, toleranslar ve yükleri incelemelidir.",
         ],
         "profiles": [],
         "effectiveProfileLimits": {},
@@ -987,7 +987,7 @@ def build_dfm_report(
                         "dfm_process_selected",
                         "fail",
                         "critical",
-                        "未指定受支持的制造工艺；可选 machining、sheet_metal、laser_cutting、3d_printing。",
+                        "Desteklenen üretim süreci belirtilmedi; seçenekler machining, sheet_metal, laser_cutting, 3d_printing.",
                     )
                 ],
             }
@@ -1003,7 +1003,7 @@ def build_dfm_report(
                 "status": "blocked",
                 "error_code": "dfm_invalid_profile",
                 "checks": [_check("dfm_profile_validation", "fail", "critical", str(exc))],
-                "limitations": report["limitations"] + ["无效 Profile 未参与 DFM 判断。"],
+                "limitations": report["limitations"] + ["Geçersiz Profile DFM değerlendirmesine katılmadı."],
             }
         )
         return report
@@ -1018,7 +1018,7 @@ def build_dfm_report(
                 "status": "blocked",
                 "error_code": "dfm_invalid_brep_evidence",
                 "checks": [_check("dfm_brep_evidence", "fail", "critical", str(exc))],
-                "limitations": report["limitations"] + ["未经验证的 B-Rep 证据未参与 DFM 判断。"],
+                "limitations": report["limitations"] + ["Doğrulanmamış B-Rep kanıtı DFM değerlendirmesine katılmadı."],
             }
         )
         return report
@@ -1034,17 +1034,17 @@ def build_dfm_report(
                         "dfm_brep_evidence",
                         "fail",
                         "critical",
-                        "当前 Profile 要求真实 B-Rep 证据；未提供时不能进行该能力判断。",
+                        "Geçerli Profile gerçek B-Rep kanıtı gerektiriyor; eksikse bu capability değerlendirilemez.",
                     )
                 ],
-                "limitations": report["limitations"] + ["缺少真实 B-Rep，未把 NeutralCadDocument 参数估算冒充实体测量。"],
+                "limitations": report["limitations"] + ["Gerçek B-Rep eksik; NeutralCadDocument parametre tahminleri katı ölçümü sayılmadı."],
             }
         )
         return report
     if brep.get("available"):
-        report["limitations"].append("B-Rep 证据仅覆盖报告中记录的包络/拓扑范围，不等于完整制造认证。")
+        report["limitations"].append("B-Rep kanıtı yalnızca raporlanan envelope/topoloji kapsamını doğrular; tam üretim sertifikasyonu değildir.")
     else:
-        report["limitations"].append("未提供 B-Rep 证据；包络来自 NeutralCadDocument 参数估算，不能证明 SolidWorks 实体拓扑。")
+        report["limitations"].append("B-Rep kanıtı sağlanmadı; envelope NeutralCadDocument parametrelerinden tahmin edildi ve SolidWorks katı topolojisini kanıtlamaz.")
 
     missing = _critical_missing(document, manufacturing, normalized_process)
     if missing:
@@ -1058,7 +1058,7 @@ def build_dfm_report(
                         "dfm_required_inputs",
                         "fail",
                         "critical",
-                        "缺少关键制造输入，不能进行无人值守 DFM 判断。",
+                        "Kritik üretim girdileri eksik; gözetimsiz DFM değerlendirmesi yapılamaz.",
                         missingInputs=missing,
                     )
                 ],
@@ -1091,7 +1091,7 @@ def build_dfm_report(
         report["checks"] = _printing_checks(document, manufacturing_for_checks, brep)
     elif normalized_process == "injection_molding":
         report["checks"] = _injection_molding_checks(document, manufacturing_for_checks, brep)
-        report["limitations"].append("注塑检查基于声明元数据，不自动识别真实拔模、倒扣或模流；阈值来自明确工艺/供应商约束。")
+        report["limitations"].append("Injection molding denetimi beyan edilen metadata kullanır; gerçek draft, undercut veya mold flow otomatik algılanmaz. Eşikler açık süreç/tedarikçi koşullarından gelir.")
     report["checks"].extend(_profile_checks(document, manufacturing, normalized_process, effective_limits, brep))
     report["reviewFindings"] = [
         item for item in report["checks"] if item.get("status") in {"warning", "fail"}
@@ -1110,7 +1110,7 @@ def write_dfm_report(
     profiles: list[str | Path | dict[str, Any]] | None = None,
     brep_evidence: str | Path | dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """@brief 写出版本化 DFM 报告，并在返回值中附带 SHA-256 产物证据。"""
+    """@brief Write a versioned DFM report and attach SHA-256 artifact evidence."""
     report = build_dfm_report(document_path, process=process, profiles=profiles, brep_evidence=brep_evidence)
     target = _versioned_target(Path(output_path).expanduser().resolve())
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -1131,13 +1131,13 @@ def write_dfm_report(
 
 
 def main(argv: list[str] | None = None) -> int:
-    """@brief 命令行入口。"""
-    parser = argparse.ArgumentParser(description="CAD Studio NeutralCadDocument DFM 复核")
+    """@brief Command-line entry point."""
+    parser = argparse.ArgumentParser(description="CAD Studio NeutralCadDocument DFM incelemesi")
     parser.add_argument("--input", type=Path, required=True, help="NeutralCadDocument .cadstudio.json")
-    parser.add_argument("--output", type=Path, required=True, help="版本化 DFM report JSON 输出路径")
+    parser.add_argument("--output", type=Path, required=True, help="Sürümlendirilmiş DFM report JSON çıktı yolu")
     parser.add_argument("--process", choices=sorted(DFM_PROCESSES | {"auto", "CNC", "FDM", "SLA"}), default="auto")
-    parser.add_argument("--profile", action="append", default=[], help="可重复指定 DFM Profile JSON，按能力交集合并")
-    parser.add_argument("--brep-evidence", type=Path, help="可选 SolidWorks/OCCT B-Rep 证据 JSON")
+    parser.add_argument("--profile", action="append", default=[], help="DFM Profile JSON birden fazla belirtilir; capability kesişimi alınır")
+    parser.add_argument("--brep-evidence", type=Path, help="İsteğe bağlı SolidWorks/OCCT B-Rep kanıt JSON")
     args = parser.parse_args(argv)
     result = write_dfm_report(
         args.input,

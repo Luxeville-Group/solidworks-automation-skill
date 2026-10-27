@@ -1,30 +1,30 @@
 # V2 Release Notes (Draft)
 
-> SolidWorks Automation Skill V2 —— 内部可靠性架构升级。
+> SolidWorks Automation Skill V2 — internal reliability architecture upgrade.
 
 ## Added
 
-- **Execution Core**（`scripts/core/`）：把 State / Capability / Trace / Verification / Recovery
-  串成一条内部执行链，包裹现有 Handler 执行。
-- **State model**（`state.py`）：轻量 Run/Step/Execution/Verification/Recovery 状态模型。
-- **Capability Facade**（`capability.py`）：复用 `capabilities.yaml` 唯一真源的薄适配层。
-- **Verification Adapter**（`verification.py`）：把既有 Reviewer 结果统一为 PASS/WARN/FAIL/BLOCKED。
-- **Recovery Decision Layer**（`recovery.py`）：10 类错误分类 + 6 类恢复决策（只决策，不默认执行）。
-- **Trace integration**（`trace.py`）：复用 `queue/events/` 的 append-only 执行历史。
-- **Golden Workflow Reliability Eval**（`tests/evals/`）：deterministic 可靠性基准。
+- **Execution Core** (`scripts/core/`): connects State / Capability / Trace / Verification / Recovery
+  into an internal execution chain wrapping existing Handlers.
+- **State model** (`state.py`): lightweight Run/Step/Execution/Verification/Recovery states.
+- **Capability Facade** (`capability.py`): thin adapter reusing `capabilities.yaml` as the sole source of truth.
+- **Verification Adapter** (`verification.py`): normalizes existing Reviewer results to PASS/WARN/FAIL/BLOCKED.
+- **Recovery Decision Layer** (`recovery.py`): 10 error categories + six recovery decision types; decisions only, with no execution by default.
+- **Trace integration** (`trace.py`): reuses append-only execution history in `queue/events/`.
+- **Golden Workflow Reliability Eval** (`tests/evals/`): deterministic reliability benchmark.
 
 ## Preserved
 
-- 现有 Skill 使用方式、MCP Tool Name / Input Schema、CLI 命令、CAD Studio Queue 状态语义全部不变。
-- Worker / Reviewer / Artifact Ledger / Policy Gate 均未重写。
-- `capabilities.yaml` 仍唯一能力真源，`golden-workflows.yaml` 向后兼容。
-- 新增字段全部 additive / optional。
+- Existing Skill usage, MCP Tool Names / Input Schemas, CLI commands, and CAD Studio Queue state semantics remain unchanged.
+- Worker / Reviewer / Artifact Ledger / Policy Gate are not rewritten.
+- `capabilities.yaml` remains the sole capability source of truth; `golden-workflows.yaml` is backward-compatible.
+- All new fields are additive / optional.
 
-## Metrics（Deterministic Execution Reliability Benchmark，37 scenarios）
+## Metrics (Deterministic Execution Reliability Benchmark, 37 scenarios)
 
-| 指标 | 值 |
+| Metric | Value |
 |---|---|
-| Nominal First-Pass Success | 100% (10/10，基线 v3) |
+| Nominal First-Pass Success | 100% (10/10, baseline v3) |
 | Nominal Task Success | 100% |
 | Failure Detection | 100% |
 | Policy Block Accuracy | 100% |
@@ -35,13 +35,13 @@
 
 ## Limitations
 
-- 2026-10-08 方案 B 将 warning/manual review 改为 blocked，补充 SolidWorks 2026 真机草图、阵列、文档归属和远程产物验收，详见 [`scheme-b-reliability.md`](scheme-b-reliability.md)。旧版本不在当前支持与验收范围。
+- Scheme B on 2026-10-08 changed warning/manual review to blocked and added real SolidWorks 2026 sketch, pattern, document-ownership, and remote-artifact acceptance. See [`scheme-b-reliability.md`](scheme-b-reliability.md). Older versions are outside current support and acceptance scope.
 
-- 上述 benchmark 是 **synthetic / deterministic**（Fake Handler/Reviewer + 故障注入），
-  **不是**真实用户成功率、真实 SolidWorks 全场景成功率、LLM 智能水平或生产 SLA。
-- Execution Core 不做自动 LLM Planning（上层 Agent 继续负责 Planning）。
-- 不做自动 Web / API 能力发现（Capability Gap 交还上层 Agent）。
-- Recovery 只做**决策**，自动 retry / fallback / replan 动作仍由 Worker / 上层 Agent 控制，未默认开启。
+- This benchmark is **synthetic / deterministic** (Fake Handler/Reviewer + fault injection),
+  **not** a real-user success rate, all-scenario SolidWorks success rate, measure of LLM intelligence, or production SLA.
+- Execution Core does not perform automatic LLM Planning; higher-level Agents retain that responsibility.
+- It does not discover Web / API capabilities automatically; Capability Gaps return to the higher-level Agent.
+- Recovery makes **decisions** only. Automatic retry / fallback / replan actions remain controlled by Worker / higher-level Agents and are not enabled by default.
 
 ## Docs
 

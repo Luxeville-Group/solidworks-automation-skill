@@ -17,23 +17,23 @@ using AcApplication = Autodesk.AutoCAD.ApplicationServices.Application;
 
 namespace CadStudio.AutoCAD2024
 {
-    /// <summary>提供插件加载和卸载入口。</summary>
+    /// <summary>Provides plugin load and unload entry points.</summary>
     public sealed class CadStudioExtension : IExtensionApplication
     {
-        /// <summary>初始化插件；不注册任意脚本或代码执行入口。</summary>
+        /// <summary>Initializes the plugin without registering arbitrary script or code execution.</summary>
         public void Initialize()
         {
             AcApplication.DocumentManager.MdiActiveDocument?.Editor.WriteMessage(
                 "\nCAD Studio .NET bridge loaded. Commands: CADSTUDIOPROBE, CADSTUDIOCREATE\n");
         }
 
-        /// <summary>卸载插件。</summary>
+        /// <summary>Unloads the plugin.</summary>
         public void Terminate()
         {
         }
     }
 
-    /// <summary>AutoCAD 2024 白名单探测与黄金样件命令。</summary>
+    /// <summary>AutoCAD 2024 allowlisted probe and golden-specimen commands.</summary>
     public sealed class CadStudioCommands
     {
         private const string ReportEnvironmentVariable = "CAD_STUDIO_DOTNET_REPORT_PATH";
@@ -42,7 +42,7 @@ namespace CadStudio.AutoCAD2024
         private const string PngEnvironmentVariable = "CAD_STUDIO_DOTNET_OUTPUT_PNG";
         private const string ProbeLayerName = "CAD_STUDIO_PROBE";
 
-        /// <summary>回读活动文档、数据库和本机版本，并生成结构化证据。</summary>
+        /// <summary>Reads back the active document, database, and local version into structured evidence.</summary>
         [CommandMethod("CADSTUDIOPROBE", CommandFlags.Session)]
         public void Probe()
         {
@@ -65,7 +65,7 @@ namespace CadStudio.AutoCAD2024
             document.Editor.WriteMessage("\nCADSTUDIOPROBE PASS\n");
         }
 
-        /// <summary>创建固定图层、图元和真实尺寸，保存并重新打开 DWG 进行复核。</summary>
+        /// <summary>Creates fixed layers, entities, and real dimensions; saves and reopens DWG for review.</summary>
         [CommandMethod("CADSTUDIOCREATE", CommandFlags.Session)]
         public void CreateGoldenDrawing()
         {

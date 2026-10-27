@@ -1,24 +1,24 @@
-# SolidWorks C# Add-in 宿主
+# SolidWorks C# Add-in Host
 
-## 定位
+## Purpose
 
-`dotnet/CadStudio.SolidWorks.AddinHost` 是面向长期事件回调和原生 UI 生命周期的
-`net48/x64` 进程内宿主。它不替代 Python 的短生命周期建模脚本，也不冒充仅非托管
-C++ 可用的 `I*` 指针接口；路由由 `capabilities.yaml::solidworks_addin_ui_events` 决定。
+`dotnet/CadStudio.SolidWorks.AddinHost` is a `net48/x64` in-process host for
+long-lived event callbacks and native UI lifecycles. It does not replace short-lived Python modeling scripts or emulate
+unmanaged-C++-only `I*` pointer interfaces; `capabilities.yaml::solidworks_addin_ui_events` selects this route.
 
-当前宿主包含：
+The host includes:
 
-- `ISwAddin.ConnectToSW/DisconnectFromSW` 与 `SetAddinCallbackInfo2`；
-- `SldWorks` coclass 的活动文档、新建、打开和特殊关闭事件；
-- 三命令 `CommandGroup`；
-- WinForms `TaskPane`，使用 64 位窗口句柄；
-- 完整实现 SW2026 `IPropertyManagerPage2Handler9` 的 37 个回调；
-- `%LOCALAPPDATA%\CAD Studio\SolidWorksAddin\host-status.json` 诊断证据；
-- 强名称程序集身份、CurrentUser COM 冒烟和 Machine 正式注册两条部署路径。
+- `ISwAddin.ConnectToSW/DisconnectFromSW` and `SetAddinCallbackInfo2`;
+- `SldWorks` coclass active-document, new/open and special-close events;
+- A three-command `CommandGroup`;
+- A WinForms `TaskPane` with 64-bit window handles;
+- All 37 callbacks of SW2026 `IPropertyManagerPage2Handler9`;
+- Diagnostic evidence at `%LOCALAPPDATA%\CAD Studio\SolidWorksAddin\host-status.json`;
+- Strong-name assembly identity, CurrentUser COM smoke testing and Machine registration deployment paths.
 
-## 构建
+## Build
 
-本机 PIA 目录必须显式给出，避免误引用另一个 SolidWorks 主版本：
+Explicitly provide the local PIA directory to avoid referencing the wrong SolidWorks major version:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\sw_addin_host.ps1 `
@@ -26,77 +26,77 @@ powershell -ExecutionPolicy Bypass -File scripts\sw_addin_host.ps1 `
   -SolidWorksApiDir 'C:\Program Files\SOLIDWORKS Corp\SOLIDWORKS\api\redist'
 ```
 
-输出为程序集；Machine 注册时还会生成并注册同目录 TLB：
+Build output is an assembly; Machine registration also generates and registers a TLB in the same directory:
 
 ```text
 dotnet\CadStudio.SolidWorks.AddinHost\bin\Release\net48\CadStudio.SolidWorks.AddinHost.dll
 dotnet\CadStudio.SolidWorks.AddinHost\bin\Release\net48\CadStudio.SolidWorks.AddinHost.tlb
 ```
 
-## 注册与验证
+## Registration and verification
 
-CurrentUser 模式只验证 CLR/COM 激活，不会写入虚假的 SolidWorks Add-ins 发现项：
+CurrentUser mode verifies only CLR/COM activation; it does not create misleading SolidWorks Add-ins discovery entries:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\sw_addin_host.ps1 -Action Register -RegistrationScope CurrentUser -SolidWorksApiDir '<api\redist>'
 powershell -ExecutionPolicy Bypass -File scripts\sw_addin_host.ps1 -Action ComSmoke -RegistrationScope CurrentUser
 ```
 
-SolidWorks 进程内加载必须执行 Machine 注册。普通 PowerShell 会自动弹出一次 UAC，
-提升后的子进程只执行固定 GUID 的构建/注册动作：
+In-process SolidWorks loading requires Machine registration. A normal PowerShell session prompts once for UAC;
+the elevated subprocess performs only the fixed-GUID build/registration actions:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\sw_addin_host.ps1 -Action Register -RegistrationScope Machine -SolidWorksApiDir '<api\redist>'
 powershell -ExecutionPolicy Bypass -File scripts\sw_addin_host.ps1 -Action Probe -RegistrationScope Machine
 ```
 
-Machine 模式使用 64 位 `.NET Framework RegAsm /codebase /tlb`，同时写入 COM 类、类型库、
-`HKLM\SOFTWARE\SOLIDWORKS\Addins\{GUID}` 和当前用户启动项。卸载时使用同一程序集路径：
+Machine mode uses 64-bit `.NET Framework RegAsm /codebase /tlb` and registers COM classes, the type library,
+`HKLM\SOFTWARE\SOLIDWORKS\Addins\{GUID}` and the current-user startup entry. Uninstall with the same assembly path:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\sw_addin_host.ps1 -Action Unregister -RegistrationScope Machine
 ```
 
-## 验收门禁
+## Acceptance gates
 
-`ISldWorks.LoadAddIn()` 返回 `swSuccess=0` 仍不单独算通过。真实 Probe 还必须读取诊断文件并同时满足：
+`ISldWorks.LoadAddIn()` returning `swSuccess=0` alone is insufficient. A real probe must read diagnostics and verify:
 
-1. `status == connected`；
-2. `callbackRegistered == true`；
-3. CommandGroup、TaskPane、PropertyManagerPage 三项均为 `true`；
-4. 新建临时零件后 `file_new` 与活动文档事件计数增长，`CloseDoc` 后 `GetDocumentCount()==0`；
-5. `errors` 为空。
+1. `status == connected`;
+2. `callbackRegistered == true`;
+3. CommandGroup, TaskPane and PropertyManagerPage are all `true`;
+4. Creating a temporary part increments `file_new` and active-document event counts, and after `CloseDoc`, `GetDocumentCount()==0`;
+5. `errors` is empty.
 
-可调用 `python scripts/sw_addin_host.py` 或 MCP `solidworks_addin_host_status` 查看程序集、TLB、注册层级、
-诊断内容和精确阻塞码。当前用户 COM 注册不能替代上述 Machine 门禁。
+Use `python scripts/sw_addin_host.py` or MCP `solidworks_addin_host_status` to inspect the assembly, TLB, registration level,
+diagnostics and precise blocking codes. Current-user COM registration cannot replace these Machine gates.
 
-## SW2026 真机证据
+## Real SW2026 evidence
 
-本机 SW2026 SP1.1（Revision `34.1.1`）已经通过完整回归：
+The complete local SW2026 SP1.1 (Revision `34.1.1`) regression passed:
 
-- Add-in 由 `SLDWORKS.exe` 进程实例化，`LoadAddIn=0`；
-- `SetAddinCallbackInfo2`、应用事件、三命令 CommandGroup、TaskPane、PropertyManagerPage 全部就绪；
-- `IPropertyManagerPage2Handler9` 的 37 个回调由公开、COM 可见并提供 `AutoDispatch` 的处理器承载；
-- 新建事件计数为 1，临时零件关闭后打开文档数为 0，诊断错误列表为空；
-- 回归结果写入 `output/addin-host-real/addin_host_regression_result.json`。
+- The add-in was instantiated by `SLDWORKS.exe`, with `LoadAddIn=0`;
+- `SetAddinCallbackInfo2`, application events, three-command CommandGroup, TaskPane and PropertyManagerPage were ready;
+- All 37 `IPropertyManagerPage2Handler9` callbacks used a public, COM-visible handler exposing `AutoDispatch`;
+- New-document event count was 1, open-document count returned to 0 after closing the temporary part, and diagnostics contained no errors;
+- Results were written to `output/addin-host-real/addin_host_regression_result.json`.
 
-该回归还验证了两个门禁：缺少 TLB 时，SW2026 可能装入 DLL 并返回 `LoadAddIn=0`，但不会实例化
-`ISwAddin`；PMP Handler 只有 `IUnknown` 而不提供 `IDispatch` 时，`ICreatePropertyManagerPage`
-会抛 `InvalidCastException`。
+The regression also confirmed two gates: without a TLB, SW2026 may load the DLL and return `LoadAddIn=0` without instantiating
+`ISwAddin`; when the PMP handler exposes only `IUnknown` without `IDispatch`, `ICreatePropertyManagerPage`
+throws `InvalidCastException`.
 
-## 已知限制
+## Known limitations
 
-- 当前仓库程序集做了强名称签名，用于稳定程序集身份；它不是可信发布者的 Authenticode
-  代码签名。企业分发仍应由发布流水线签署 DLL/安装包。
-- SolidWorks 会锁定已加载 DLL；重建前应先 `UnloadAddIn` 或正常退出 SolidWorks，不要强行覆盖。
-- 应用级 `FileCloseNotify` 只在工程图 `CloseAndReopen` 后触发；普通零件/装配体关闭应检查文档数，或订阅对应文档事件。
-- CommandManager 布局会进入用户配置。GUID、命令组 ID 和命令用户 ID 发布后应保持稳定。
-- Add-in 适合 UI、事件和长期驻留回调；常规建模仍优先现有 Python Automation 封装。
+- Strong-name signing provides a stable assembly identity; it is not trusted-publisher Authenticode
+  code signing. Enterprise distribution should sign DLLs/installers in its release pipeline.
+- SolidWorks locks loaded DLLs. Before rebuilding, use `UnloadAddIn` or exit normally; do not force overwrite.
+- Application-level `FileCloseNotify` fires only after drawing `CloseAndReopen`; for ordinary parts/assemblies, inspect document count or subscribe to document events.
+- CommandManager layout persists in user settings. Keep the GUID, command-group ID and user command IDs stable after release.
+- Add-ins suit UI, events and persistent callbacks; use existing Python Automation wrappers for ordinary modeling.
 
-## 官方依据
+## Official references
 
-- [ISwAddin Members（SOLIDWORKS API Help 2026）](https://help.solidworks.com/2026/english/api/swpublishedapi/SolidWorks.Interop.swpublished~SolidWorks.Interop.swpublished.ISwAddin_members.html)
-- [Using the C# Add-in Wizard（SOLIDWORKS API Help 2026）](https://help.solidworks.com/2026/English/api/sldworksapiprogguide/Overview/Using_SolidWorks_C__Add-In_Wizard_to_Create_C__Add-In.htm)
-- [IPropertyManagerPage2Handler9 Members（SOLIDWORKS API Help 2026）](https://help.solidworks.com/2026/English/api/swpublishedapi/SolidWorks.Interop.swpublished~SolidWorks.Interop.swpublished.IPropertyManagerPage2Handler9_members.html)
-- [LoadAddIn Method（SOLIDWORKS API Help 2026）](https://help.solidworks.com/2026/English/api/sldworksapi/SolidWorks.Interop.sldworks~SolidWorks.Interop.sldworks.ISldWorks~LoadAddIn.html)
-- [FileCloseNotify Delegate（SOLIDWORKS API Help 2026）](https://help.solidworks.com/2026/english/api/sldworksapi/SolidWorks.Interop.sldworks~SolidWorks.Interop.sldworks.DSldWorksEvents_FileCloseNotifyEventHandler.html)
+- [ISwAddin Members (SOLIDWORKS API Help 2026)](https://help.solidworks.com/2026/english/api/swpublishedapi/SolidWorks.Interop.swpublished~SolidWorks.Interop.swpublished.ISwAddin_members.html)
+- [Using the C# Add-in Wizard (SOLIDWORKS API Help 2026)](https://help.solidworks.com/2026/English/api/sldworksapiprogguide/Overview/Using_SolidWorks_C__Add-In_Wizard_to_Create_C__Add-In.htm)
+- [IPropertyManagerPage2Handler9 Members (SOLIDWORKS API Help 2026)](https://help.solidworks.com/2026/English/api/swpublishedapi/SolidWorks.Interop.swpublished~SolidWorks.Interop.swpublished.IPropertyManagerPage2Handler9_members.html)
+- [LoadAddIn Method (SOLIDWORKS API Help 2026)](https://help.solidworks.com/2026/English/api/sldworksapi/SolidWorks.Interop.sldworks~SolidWorks.Interop.sldworks.ISldWorks~LoadAddIn.html)
+- [FileCloseNotify Delegate (SOLIDWORKS API Help 2026)](https://help.solidworks.com/2026/english/api/sldworksapi/SolidWorks.Interop.sldworks~SolidWorks.Interop.sldworks.DSldWorksEvents_FileCloseNotifyEventHandler.html)

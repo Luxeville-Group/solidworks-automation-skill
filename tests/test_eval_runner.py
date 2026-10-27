@@ -1,4 +1,4 @@
-"""@brief Eval Runner 单元测试（scenario 执行、report 输出、golden-workflows 兼容）。"""
+"""@brief Eval Runner tests for scenario execution, report output, and golden-workflows compatibility."""
 from __future__ import annotations
 
 import json
@@ -84,7 +84,7 @@ def test_run_scenario_verification_failure_false_completion():
     assert record.terminal_status == "failed"
     assert record.handler_success is True
     assert record.verification_status == "FAIL"
-    assert record.false_completion is True  # raw 假成功候选（被正确拦截）
+    assert record.false_completion is True  # Raw false-completion candidate, correctly intercepted.
 
 
 def test_run_scenario_transient_recovery():
@@ -110,12 +110,12 @@ def test_run_eval_report_grouped_metrics():
     assert report.workflow_count == 10
     assert report.scenario_count == 37
     assert report.target_first_pass_rate == 0.90
-    # 修正后：target 只与 Nominal first-pass 比较 → PASS
+    # Corrected comparison: target versus nominal first-pass only → PASS.
     assert report.first_pass_target_status == "PASS"
     assert report.metrics["nominal"]["first_pass_success_rate"] == 1.0
     assert report.metrics["safety"]["escaped_false_completion_rate"] == 0.0
     assert report.metrics["robustness"]["expected_outcome_accuracy"] == 1.0
-    # Overall raw completion 仅诊断，不用于 target
+    # Overall raw completion is diagnostic only, not compared with the target.
     assert report.metrics["overall"]["raw_task_completion_rate"] == 0.5676
 
 

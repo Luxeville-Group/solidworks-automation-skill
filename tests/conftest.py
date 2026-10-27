@@ -121,7 +121,7 @@ class FakeModel:
 @pytest.fixture
 def cut_model(monkeypatch):
     """Fake model with FeatureCut4 call recording and sketch selection bypassed."""
-    # 仅切除测试加载 Windows 后端，纯 core/eval 测试无需导入 COM。
+    # Only cut tests load Windows backends; pure core/eval tests need no COM imports.
     from scripts import sw_part
 
     model = FakeModel()

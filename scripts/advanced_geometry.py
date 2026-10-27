@@ -1,7 +1,8 @@
-"""@brief 复杂曲面与模具中性计划的结构校验和执行前置门禁。
+"""@brief Validate neutral plans for advanced surfaces and molds and enforce execution preconditions.
 
-本模块不把参数计划冒充真实几何。只有具体后端实现、生成并重新读取了几何产物后，
-后续专项执行器才可升级状态；当前输出固定为 pilot 或 blocked，并保留黄金失败证据。
+A parameter plan is not geometry. A specialized executor may promote status only after
+a concrete backend generates and reads back the geometry. Current output remains
+pilot or blocked and preserves evidence from golden failure cases.
 """
 from __future__ import annotations
 
@@ -28,12 +29,12 @@ _OP_FIELDS = {
 
 
 def _now_iso() -> str:
-    """@brief 返回 UTC 秒级时间戳。"""
+    """@brief Return a UTC timestamp with second precision."""
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
 def _versioned_target(path: Path) -> Path:
-    """@brief 返回不覆盖旧产物的版本化路径。"""
+    """@brief Return a versioned path without overwriting existing artifacts."""
     if not path.exists():
         return path
     index = 2
@@ -45,48 +46,48 @@ def _versioned_target(path: Path) -> Path:
 
 
 def _sha256(path: Path) -> str:
-    """@brief 计算文件 SHA-256。"""
+    """@brief Compute a file SHA-256."""
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def _id(value: Any, field: str) -> str:
-    """@brief 校验稳定实体或操作 ID。"""
+    """@brief Validate a stable entity or operation ID."""
     token = str(value or "")
     if not _ID.fullmatch(token):
-        raise ValueError(f"{field} 只能使用字母开头的 1-64 位字母、数字或下划线。")
+        raise ValueError(f"{field} yalnızca harfle başlayan 1–64 harf, rakam veya alt çizgi içerebilir.")
     return token
 
 
 def _positive(value: Any, field: str, *, maximum: float | None = None) -> float:
-    """@brief 校验有限正数及可选上限。"""
+    """@brief Validate a finite positive number and optional upper bound."""
     if isinstance(value, bool):
-        raise ValueError(f"{field} 必须是有限正数。")
+        raise ValueError(f"{field} sonlu pozitif sayı olmalı.")
     try:
         number = float(value)
     except (TypeError, ValueError) as exc:
-        raise ValueError(f"{field} 必须是有限正数。") from exc
+        raise ValueError(f"{field} sonlu pozitif sayı olmalı.") from exc
     if not math.isfinite(number) or number <= 0 or (maximum is not None and number > maximum):
-        raise ValueError(f"{field} 必须大于零" + (f"且不超过 {maximum:g}" if maximum is not None else "") + "。")
+        raise ValueError(f"{field} sıfırdan büyük olmalı" + (f" ve üst sınırı aşmamalı: {maximum:g}" if maximum is not None else "") + ".")
     return number
 
 
 def _load_plan(value: str | Path | dict[str, Any]) -> dict[str, Any]:
-    """@brief 从字典或最大 4 MiB JSON 文件读取中性计划。"""
+    """@brief Read a neutral plan from a dictionary or a JSON file up to 4 MiB."""
     if isinstance(value, dict):
         return dict(value)
     path = Path(value).expanduser().resolve()
     if path.suffix.lower() != ".json" or not path.is_file():
-        raise ValueError("复杂几何计划必须是存在的 JSON 文件。")
+        raise ValueError("Karmaşık geometri planı mevcut bir JSON dosyası olmalıdır.")
     if path.stat().st_size > 4 * 1024 * 1024:
-        raise ValueError("复杂几何计划超过 4 MiB 安全上限。")
+        raise ValueError("Karmaşık geometri planı 4 MiB güvenlik sınırını aşıyor.")
     payload = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(payload, dict):
-        raise ValueError("复杂几何计划必须是 JSON object。")
+        raise ValueError("Karmaşık geometri planı bir JSON object olmalıdır.")
     return payload
 
 
 def _refs(operation: dict[str, Any], field: str) -> list[str]:
-    """@brief 将单个或数组引用归一为字符串数组。"""
+    """@brief Normalize one reference or an array into a string array."""
     value = operation.get(field)
     if value is None:
         return []
@@ -95,80 +96,80 @@ def _refs(operation: dict[str, Any], field: str) -> list[str]:
 
 
 def validate_geometry_plan(value: str | Path | dict[str, Any]) -> dict[str, Any]:
-    """@brief 严格校验 loft/sweep/knit/thicken、连续性和模具计划。"""
+    """@brief Strictly validate loft/sweep/knit/thicken, continuity and mold plans."""
     plan = _load_plan(value)
     unknown = set(plan) - _TOP_FIELDS
     if unknown:
-        raise ValueError(f"计划含未允许字段: {', '.join(sorted(unknown))}")
+        raise ValueError(f"Planda izin verilmeyen alanlar var: {', '.join(sorted(unknown))}")
     if plan.get("schemaVersion") != "1.0" or plan.get("units") != "mm":
-        raise ValueError("schemaVersion 必须为 1.0，units 必须为 mm。")
+        raise ValueError("schemaVersion 1.0, units mm olmalıdır.")
     _id(plan.get("planId"), "planId")
     entities = plan.get("entities")
     operations = plan.get("operations")
     if not isinstance(entities, list) or not entities:
-        raise ValueError("entities 至少需要一项。")
+        raise ValueError("entities en az bir öğe içermelidir.")
     if not isinstance(operations, list) or not operations:
-        raise ValueError("operations 至少需要一项。")
+        raise ValueError("operations en az bir öğe içermelidir.")
     entity_types: dict[str, str] = {}
     for index, entity in enumerate(entities):
         if not isinstance(entity, dict) or set(entity) != {"id", "type", "source"}:
-            raise ValueError(f"entities[{index}] 必须且只能包含 id、type、source。")
+            raise ValueError(f"entities[{index}] tam olarak id, type ve source içermeli.")
         entity_id = _id(entity["id"], f"entities[{index}].id")
         if entity_id in entity_types:
-            raise ValueError(f"实体 ID 重复: {entity_id}")
+            raise ValueError(f"Yinelenen gövde ID: {entity_id}")
         if entity.get("type") not in _ENTITY_TYPES or not str(entity.get("source") or "").strip():
-            raise ValueError(f"entities[{index}] 类型或来源无效。")
+            raise ValueError(f"entities[{index}] türü veya kaynağı geçersiz.")
         entity_types[entity_id] = entity["type"]
     known = dict(entity_types)
     operation_ids: set[str] = set()
     for index, operation in enumerate(operations):
         if not isinstance(operation, dict) or set(operation) - _OP_FIELDS:
-            raise ValueError(f"operations[{index}] 结构无效或含未允许字段。")
+            raise ValueError(f"operations[{index}] yapısı geçersiz veya izin verilmeyen alanlar içeriyor.")
         operation_id = _id(operation.get("id"), f"operations[{index}].id")
         if operation_id in operation_ids or operation_id in known:
-            raise ValueError(f"操作或实体 ID 重复: {operation_id}")
+            raise ValueError(f"Yinelenen işlem veya gövde ID: {operation_id}")
         operation_ids.add(operation_id)
         kind = operation.get("type")
         if kind not in _OPERATIONS:
-            raise ValueError(f"operations[{index}].type 不受支持。")
+            raise ValueError(f"operations[{index}].type desteklenmiyor.")
         _validate_operation(operation, known)
         output = operation.get("output")
         if output is not None:
             output_id = _id(output, f"{operation_id}.output")
             if output_id in known or output_id in operation_ids:
-                raise ValueError(f"输出 ID 重复: {output_id}")
+                raise ValueError(f"Yinelenen çıktı ID: {output_id}")
             known[output_id] = "solid" if kind in {"thicken", "core_cavity"} else "surface"
     return plan
 
 
 def _require_types(operation: dict[str, Any], field: str, known: dict[str, str], allowed: set[str], *, minimum: int = 1) -> list[str]:
-    """@brief 校验引用存在、数量和实体类型。"""
+    """@brief Validate reference existence, counts and entity types."""
     refs = _refs(operation, field)
     if len(refs) < minimum:
-        raise ValueError(f"{operation['id']}.{field} 至少需要 {minimum} 个引用。")
+        raise ValueError(f"{operation['id']}.{field} için en az {minimum} referans gerekli.")
     invalid = [ref for ref in refs if known.get(ref) not in allowed]
     if invalid:
-        raise ValueError(f"{operation['id']}.{field} 引用了不存在或类型错误的实体: {', '.join(invalid)}")
+        raise ValueError(f"{operation['id']}.{field} mevcut olmayan veya yanlış türdeki gövdeye başvuruyor: {', '.join(invalid)}")
     return refs
 
 
 def _validate_operation(operation: dict[str, Any], known: dict[str, str]) -> None:
-    """@brief 校验单项复杂曲面或模具操作的工程必需字段。"""
+    """@brief Validate engineering-required fields for an advanced surface or mold operation."""
     kind = operation["type"]
     if kind == "loft":
         _require_types(operation, "profiles", known, {"profile", "edge"}, minimum=2)
         if operation.get("continuity") not in {"G0", "G1", "G2"}:
-            raise ValueError(f"{operation['id']}.continuity 必须声明 G0/G1/G2。")
+            raise ValueError(f"{operation['id']}.continuity G0/G1/G2 belirtmeli.")
     elif kind == "sweep":
         _require_types(operation, "profiles", known, {"profile"})
         _require_types(operation, "path", known, {"path", "edge"})
         if operation.get("checkSelfIntersection") is not True:
-            raise ValueError(f"{operation['id']} 必须启用 checkSelfIntersection。")
+            raise ValueError(f"{operation['id']} checkSelfIntersection etkinleştirmeli.")
     elif kind == "knit":
         _require_types(operation, "surfaces", known, {"surface"}, minimum=2)
         _positive(operation.get("toleranceMm"), f"{operation['id']}.toleranceMm", maximum=1.0)
         if operation.get("allowOpenShell") not in {True, False}:
-            raise ValueError(f"{operation['id']}.allowOpenShell 必须显式声明。")
+            raise ValueError(f"{operation['id']}.allowOpenShell açıkça belirtilmeli.")
     elif kind == "thicken":
         _require_types(operation, "surface", known, {"surface"})
         _positive(operation.get("thicknessMm"), f"{operation['id']}.thicknessMm")
@@ -176,7 +177,7 @@ def _validate_operation(operation: dict[str, Any], known: dict[str, str]) -> Non
     elif kind == "continuity_check":
         _require_types(operation, "edges", known, {"edge"})
         if operation.get("continuity") not in {"G0", "G1", "G2"}:
-            raise ValueError(f"{operation['id']}.continuity 必须声明 G0/G1/G2。")
+            raise ValueError(f"{operation['id']}.continuity G0/G1/G2 belirtmeli.")
         _positive(operation.get("toleranceMm"), f"{operation['id']}.toleranceMm", maximum=1.0)
     elif kind == "draft":
         _require_types(operation, "faces", known, {"face", "surface"})
@@ -191,14 +192,14 @@ def _validate_operation(operation: dict[str, Any], known: dict[str, str]) -> Non
         _require_types(operation, "partingSurfaces", known, {"surface"})
         blocks = _refs(operation, "moldBlocks")
         if len(blocks) != 2 or any(known.get(item) != "solid" for item in blocks):
-            raise ValueError(f"{operation['id']}.moldBlocks 必须引用两个有效模坯实体。")
+            raise ValueError(f"{operation['id']}.moldBlocks iki geçerli kalıp bloğu gövdesine başvurmalı.")
         shrinkage = _positive(operation.get("shrinkagePercent"), f"{operation['id']}.shrinkagePercent", maximum=10.0)
         if shrinkage <= 0:
-            raise ValueError("收缩率必须大于零。")
+            raise ValueError("Çekme oranı (shrinkage) sıfırdan büyük olmalıdır.")
 
 
 def geometry_preflight(value: str | Path | dict[str, Any]) -> dict[str, Any]:
-    """@brief 生成复杂几何执行门禁报告，不声称已生成几何。"""
+    """@brief Generate an advanced-geometry execution gate report without claiming geometry creation."""
     try:
         plan = validate_geometry_plan(value)
     except (ValueError, json.JSONDecodeError) as exc:
@@ -210,9 +211,9 @@ def geometry_preflight(value: str | Path | dict[str, Any]) -> dict[str, Any]:
     ocp_available = importlib.util.find_spec("OCP") is not None
     kinds = sorted({item["type"] for item in plan["operations"]})
     checks = [
-        {"id": "plan_valid", "status": "pass", "message": "复杂几何引用、单位和工程必需参数通过结构校验。"},
-        {"id": "ocp_runtime", "status": "pass" if ocp_available else "warning", "message": "发现 OCP 运行时。" if ocp_available else "未发现 OCP 运行时。"},
-        {"id": "backend_implementation", "status": "fail", "message": "尚无经过黄金样件与失败证据回归的 loft/sweep/knit/thicken/模具执行适配器。"},
+        {"id": "plan_valid", "status": "pass", "message": "Karmaşık geometri referansları, birimler ve gerekli mühendislik parametreleri yapı doğrulamasını geçti."},
+        {"id": "ocp_runtime", "status": "pass" if ocp_available else "warning", "message": "OCP runtime bulundu." if ocp_available else "OCP runtime bulunamadı."},
+        {"id": "backend_implementation", "status": "fail", "message": "Golden sample ve hata kanıtı regresyonlarıyla doğrulanmış loft/sweep/knit/thicken/mold yürütme adaptörü henüz yok."},
     ]
     return {
         "schemaVersion": "1.0", "status": "pilot" if ocp_available else "blocked", "stage": "preflight",
@@ -220,16 +221,16 @@ def geometry_preflight(value: str | Path | dict[str, Any]) -> dict[str, Any]:
         "error_code": "advanced_geometry_backend_unverified" if ocp_available else "advanced_geometry_runtime_missing",
         "planId": plan["planId"], "operationTypes": kinds, "backend": "headless_ocp" if ocp_available else None,
         "geometryProduced": False, "generatedAt": _now_iso(),
-        "limitations": ["结构化计划不是 B-Rep 产物；必须生成、重新打开、检查拓扑/连续性并通过黄金样件后才可宣称几何完成。"],
+        "limitations": ["Yapılandırılmış plan bir B-Rep çıktısı değildir; geometri ancak üretim, yeniden açma, topoloji/süreklilik denetimi ve golden sample doğrulamasından sonra tamamlanmış sayılır."],
     }
 
 
 def write_preflight_report(value: str | Path | dict[str, Any], output_path: str | Path) -> dict[str, Any]:
-    """@brief 不覆盖旧报告地写出复杂几何前置证据。"""
+    """@brief Write advanced-geometry preflight evidence without overwriting earlier reports."""
     report = geometry_preflight(value)
     target = _versioned_target(Path(output_path).expanduser().resolve())
     if target.suffix.lower() != ".json":
-        raise ValueError("复杂几何报告扩展名必须是 .json。")
+        raise ValueError("Karmaşık geometri raporu uzantısı .json olmalıdır.")
     target.parent.mkdir(parents=True, exist_ok=True)
     report["reportPath"] = str(target)
     report["artifacts"] = [{"kind": "advanced_geometry_preflight", "path": str(target), "producedThisRun": True}]
@@ -239,8 +240,8 @@ def write_preflight_report(value: str | Path | dict[str, Any], output_path: str 
 
 
 def main(argv: list[str] | None = None) -> int:
-    """@brief 命令行入口。"""
-    parser = argparse.ArgumentParser(description="CAD Studio 复杂曲面/模具中性计划前置检查")
+    """@brief Command-line entry point."""
+    parser = argparse.ArgumentParser(description="CAD Studio gelişmiş yüzey/mold neutral plan ön denetimi")
     parser.add_argument("--input", type=Path, required=True)
     parser.add_argument("--output", type=Path)
     args = parser.parse_args(argv)

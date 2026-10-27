@@ -1,4 +1,4 @@
-"""标准外啮合直齿圆柱齿轮的渐开线几何与 SolidWorks 建模工具。"""
+"""Involute geometry and SOLIDWORKS modeling for standard external spur gears."""
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
@@ -8,7 +8,7 @@ from typing import Iterable
 
 @dataclass(frozen=True)
 class SpurGearSpec:
-    """@brief 标准全齿高外啮合直齿轮输入，尺寸单位均为毫米。"""
+    """@brief Standard full-depth external spur-gear input; all dimensions are millimeters."""
 
     module_mm: float
     teeth: int
@@ -22,7 +22,7 @@ class SpurGearSpec:
 
 @dataclass(frozen=True)
 class SpurGearGeometry:
-    """@brief 经过校验的齿轮解析尺寸和闭合外轮廓。"""
+    """@brief Validated analytical gear dimensions and closed outer profile."""
 
     spec: SpurGearSpec
     pitch_diameter_mm: float
@@ -37,7 +37,7 @@ class SpurGearGeometry:
     warnings: tuple[str, ...]
 
     def evidence(self) -> dict:
-        """@brief 返回可序列化的输入、解析尺寸和近似精度证据。"""
+        """@brief Return serializable input, analytical dimensions, and approximation evidence."""
         return {
             "gear_type": "standard_external_spur_involute",
             "input": asdict(self.spec),
@@ -67,63 +67,61 @@ class SpurGearGeometry:
 
 
 def _finite_positive(value: float, name: str) -> float:
-    """@brief 校验有限正数并返回浮点值。"""
+    """@brief Validate a finite positive number and return a float."""
     number = float(value)
     if not math.isfinite(number) or number <= 0.0:
-        raise ValueError(f"{name} 必须是有限正数")
+        raise ValueError(f"{name} sonlu pozitif sayı olmalı")
     return number
 
 
 def _involute_angle(t: float) -> float:
-    """@brief 返回 inv(alpha)=tan(alpha)-alpha 的参数形式。"""
+    """@brief Return the parameter form of inv(alpha)=tan(alpha)-alpha."""
     return float(t) - math.atan(float(t))
 
 
 def _polar(radius_m: float, angle_rad: float) -> tuple[float, float]:
-    """@brief 把极坐标转换为草图平面笛卡尔坐标。"""
+    """@brief Convert polar coordinates to sketch-plane Cartesian coordinates."""
     return radius_m * math.cos(angle_rad), radius_m * math.sin(angle_rad)
 
 
 def _append_unique(points: list[tuple[float, float]], point: tuple[float, float]) -> None:
-    """@brief 避免相邻重复点产生零长度草图线。"""
+    """@brief Avoid adjacent duplicate points that create zero-length sketch lines."""
     if points and math.dist(points[-1], point) <= 1e-12:
         return
     points.append(point)
 
 
 def _sample_angles(start: float, end: float, segments: int) -> Iterable[float]:
-    """@brief 返回圆弧内部采样角；端点由相邻轮廓负责。"""
+    """@brief Return internal arc sample angles; adjacent profiles supply endpoints."""
     for index in range(1, segments):
         yield start + (end - start) * index / segments
 
 
 def calculate_external_spur_gear(spec: SpurGearSpec) -> SpurGearGeometry:
-    """@brief 计算标准全齿高外啮合直齿轮的离散渐开线闭合轮廓。
+    """@brief Compute a sampled closed involute profile for a standard full-depth external spur gear.
 
-    采用 ``d=m*z``、``db=d*cos(alpha)``、``da=d+2m``、
-    ``df=d-2.5m``。齿廓从基圆或齿根圆中较大者开始，齿根低于基圆时使用
-    径向过渡；这不是滚刀生成的精确齿根过渡曲线，因此结果必须保持 reviewed。
+    Use d=m*z, db=d*cos(alpha), da=d+2m, and df=d-2.5m. Start the flank at the larger of the base and root circles; use a radial transition below the base circle. This is not the exact hob-generated root transition, so the result must retain reviewed status.
     """
-    module_mm = _finite_positive(spec.module_mm, "模数")
-    face_width_mm = _finite_positive(spec.face_width_mm, "齿宽")
+    module_mm = _finite_positive(spec.module_mm, "Modül")
+    face_width_mm = _finite_positive(spec.face_width_mm, "Diş genişliği")
     if isinstance(spec.teeth, bool) or int(spec.teeth) != spec.teeth:
-        raise ValueError("齿数必须是整数")
+        raise ValueError("Diş sayısı tamsayı olmalı")
     teeth = int(spec.teeth)
     if teeth < 6 or teeth > 300:
-        raise ValueError("齿数必须位于 6..300；更大轮廓应使用专用齿轮软件或原生插件")
+        raise ValueError("Diş sayısı 6..300 aralığında olmalı; daha büyük profiller özel dişli yazılımı veya yerel Add-in gerektirir")
     pressure_angle_deg = float(spec.pressure_angle_deg)
     if not math.isfinite(pressure_angle_deg) or not 10.0 <= pressure_angle_deg <= 35.0:
-        raise ValueError("压力角必须位于 10..35 度")
+        raise ValueError("Basınç açısı 10..35 derece aralığında olmalı")
     bore_diameter_mm = float(spec.bore_diameter_mm)
     if not math.isfinite(bore_diameter_mm) or bore_diameter_mm < 0.0:
-        raise ValueError("轴孔直径不能为负数")
+        raise ValueError("Mil deliği çapı negatif olamaz")
     for value, name, lower, upper in (
-        (spec.involute_segments, "单侧渐开线段数", 4, 64),
-        (spec.tip_arc_segments, "齿顶圆弧段数", 2, 32),
-        (spec.root_arc_segments, "齿根圆弧段数", 2, 32),
+        (spec.involute_segments, "Bir yanak involute segment sayısı", 4, 64),
+        (spec.tip_arc_segments, "Diş üstü yay segment sayısı", 2, 32),
+        (spec.root_arc_segments, "Diş kökü yay segment sayısı", 2, 32),
     ):
         if isinstance(value, bool) or int(value) != value or not lower <= int(value) <= upper:
-            raise ValueError(f"{name} 必须位于 {lower}..{upper}")
+            raise ValueError(f"{name} şu aralıkta olmalı: {lower}..{upper}")
 
     alpha = math.radians(pressure_angle_deg)
     pitch_radius_mm = module_mm * teeth / 2.0
@@ -131,9 +129,9 @@ def calculate_external_spur_gear(spec: SpurGearSpec) -> SpurGearGeometry:
     outside_radius_mm = pitch_radius_mm + module_mm
     root_radius_mm = pitch_radius_mm - 1.25 * module_mm
     if root_radius_mm <= 0.0:
-        raise ValueError("齿根圆半径非正；请增大齿数或调整齿制")
+        raise ValueError("Diş kökü yarıçapı pozitif değil; diş sayısını artırın veya diş sistemini değiştirin")
     if bore_diameter_mm >= 2.0 * root_radius_mm:
-        raise ValueError("轴孔直径必须小于齿根圆直径")
+        raise ValueError("Mil deliği çapı diş kökü dairesi çapından küçük olmalı")
 
     pitch = 2.0 * math.pi / teeth
     pitch_involute = _involute_angle(math.tan(alpha))
@@ -144,9 +142,9 @@ def calculate_external_spur_gear(spec: SpurGearSpec) -> SpurGearGeometry:
     start_half_angle = base_half_angle - _involute_angle(start_t)
     tip_half_angle = base_half_angle - _involute_angle(tip_t)
     if tip_half_angle <= 0.0:
-        raise ValueError("齿顶厚度退化为零；该参数组合需要变位或其他齿制")
+        raise ValueError("Diş üstü kalınlığı sıfıra indi; bu parametreler profil kaydırma veya farklı diş sistemi gerektirir")
     if pitch - 2.0 * start_half_angle <= 0.0:
-        raise ValueError("相邻齿根轮廓相交；该参数组合不可用于当前标准齿形")
+        raise ValueError("Komşu diş kökü profilleri kesişiyor; parametreler mevcut standart profil için uygun değil")
 
     estimated_segments = teeth * (
         2 * (int(spec.involute_segments) + 1)
@@ -155,7 +153,7 @@ def calculate_external_spur_gear(spec: SpurGearSpec) -> SpurGearGeometry:
         + 2
     )
     if estimated_segments > 12_000:
-        raise ValueError("齿廓离散段数超过 12000；请降低齿数或采样密度")
+        raise ValueError("Profil 12000 segment sınırını aşıyor; diş sayısını veya örnekleme yoğunluğunu azaltın")
 
     points: list[tuple[float, float]] = []
     scale = 0.001
@@ -200,23 +198,23 @@ def calculate_external_spur_gear(spec: SpurGearSpec) -> SpurGearGeometry:
             _append_unique(points, _polar(root_radius_mm * scale, angle))
 
     if len(points) < teeth * 8:
-        raise RuntimeError("生成的齿廓点数异常")
+        raise RuntimeError("Üretilen diş profili nokta sayısı geçersiz")
     area = 0.5 * sum(
         x1 * y2 - x2 * y1
         for (x1, y1), (x2, y2) in zip(points, points[1:] + points[:1])
     )
     if area <= 0.0:
-        raise RuntimeError("齿廓方向或闭合顺序异常")
+        raise RuntimeError("Diş profili yönü veya kapanma sırası geçersiz")
 
     minimum_teeth = math.ceil(2.0 / (math.sin(alpha) ** 2))
     undercut_risk = teeth < minimum_teeth
     warnings: list[str] = [
-        "齿根采用径向过渡和齿根圆弧，不等同于滚刀生成的精确 trochoid 齿根。",
-        "未包含变位、侧隙、齿顶修缘、齿向修形、公差、材料和强度校核。",
+        "Diş kökü radyal geçiş ve kök yayı kullanır; hob ile üretilen tam trochoid diş köküne eşdeğer değildir.",
+        "Profil kaydırma, backlash, uç rahatlatma, diş doğrultusu düzeltme, tolerans, malzeme ve dayanım hesabı dahil değildir.",
     ]
     if undercut_risk:
         warnings.append(
-            f"齿数 {teeth} 小于当前压力角的理论无根切下限 {minimum_teeth}，存在根切风险。"
+            f"Diş sayısı {teeth} mevcut basınç açısının teorik undercut sınırından küçük: {minimum_teeth}; undercut riski var."
         )
 
     return SpurGearGeometry(
@@ -235,12 +233,12 @@ def calculate_external_spur_gear(spec: SpurGearSpec) -> SpurGearGeometry:
 
 
 def create_external_spur_gear(model, spec: SpurGearSpec, plane_name: str = "Front Plane"):
-    """@brief 在活动零件中绘制完整渐开线齿廓并一次拉伸成直齿轮。
+    """@brief Draw a complete involute profile in the active part and extrude it once into a spur gear.
 
-    @param model SolidWorks IModelDoc2/IPartDoc。
-    @param spec 标准外啮合直齿轮规格。
-    @param plane_name 建模基准面，中英文名称由 ``sw_part`` 兼容。
-    @return ``(feature, evidence)``；feature 为空时抛出异常。
+    @param model SOLIDWORKS IModelDoc2/IPartDoc.
+    @param spec Standard external spur-gear specification.
+    @param plane_name Modeling plane; sw_part resolves localized aliases.
+    @return (feature, evidence); raise if feature is empty.
     """
     geometry = calculate_external_spur_gear(spec)
     try:
@@ -265,11 +263,11 @@ def create_external_spur_gear(model, spec: SpurGearSpec, plane_name: str = "Fron
             profile_entity_count = 0
             for start, end in zip(points, points[1:] + points[:1]):
                 if sketch_line(model, *start, *end) is None:
-                    raise RuntimeError("创建齿廓离散线段失败")
+                    raise RuntimeError("Diş profili çizgi segmenti oluşturulamadı")
                 profile_entity_count += 1
             if spec.bore_diameter_mm > 0.0:
                 if sketch_circle(model, 0.0, 0.0, spec.bore_diameter_mm / 2000.0) is None:
-                    raise RuntimeError("创建齿轮轴孔草图失败")
+                    raise RuntimeError("Dişli mil deliği Sketch oluşturulamadı")
                 profile_entity_count += 1
         finally:
             try:
@@ -282,7 +280,7 @@ def create_external_spur_gear(model, spec: SpurGearSpec, plane_name: str = "Fron
 
     feature = extrude_boss(model, sketch_name, spec.face_width_mm / 1000.0)
     if feature is None:
-        raise RuntimeError("齿轮齿廓拉伸失败")
+        raise RuntimeError("Dişli profili Extrude başarısız")
     feature_name = f"SpurGear_m{spec.module_mm:g}_z{spec.teeth}"
     try:
         feature.Name = feature_name

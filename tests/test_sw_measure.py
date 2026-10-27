@@ -1,8 +1,4 @@
-"""测量工具回归测试。
-
-重点锁定真机实测发现的单位缺陷：``GetPartBox(True)`` 返回**米**，
-``IFeatureManager`` 各接口也一律用米；只有把单位搞对，包围盒读数才有意义。
-"""
+'Measurement regressions for units observed in native testing. GetPartBox(True) returns meters, as do IFeatureManager inputs; bounding-box values are meaningful only after correct conversion.'
 from pathlib import Path
 import sys
 import types
@@ -25,7 +21,7 @@ sys.modules.setdefault(
 
 
 def fake_get_com_member(obj, attr_name, *args):
-    """测试用 COM 成员读取器，兼容属性/方法两种形态。"""
+    'Test COM reader supporting both properties and methods.'
     member = getattr(obj, attr_name)
     if args:
         return member(*args)
@@ -51,7 +47,7 @@ import sw_measure  # noqa: E402
 
 
 class FakeMassProperty:
-    """质量属性替身。SW2024 SP5 实测没有 Status 成员。"""
+    'Mass-property stub; SW2024 SP5 was observed without a Status member.'
 
     def __init__(self, mass_kg=0.036, volume_m3=3.6e-05, area_m2=0.0139,
                  center_m=(0.05, 0.03, -0.003), has_status=False):
@@ -83,7 +79,7 @@ class FakeMassProperty:
 
 
 class FakeModel:
-    """文档替身。"""
+    'Document stub.'
 
     def __init__(self, box_m=None, material=None, mass_property=None, box_raises=False,
                  density_kg_m3=1000.0):
@@ -101,25 +97,21 @@ class FakeModel:
         return list(self._box_m or [])
 
     def GetUserPreferenceDoubleValue(self, preference):
-        """读取双精度偏好项（swMaterialPropertyDensity=7）。"""
-        assert preference == 7, f"只支持密度偏好项，收到 {preference}"
+        'Read the double preference swMaterialPropertyDensity=7.'
+        assert preference == 7, f"Only the density preference is supported; received {preference}"
         return self._density
 
     def SetUserPreferenceDoubleValue(self, preference, value):
-        """写入双精度偏好项。"""
+        'Write a double preference.'
         self.preference_writes.append((preference, float(value)))
         self._density = float(value)
         return True
 
 
-# ------------------------------------------------------------ 包围盒单位
+# Bounding-box units
 
 def test_bounding_box_meters_are_converted_to_mm():
-    """@brief GetPartBox(True) 返回米，必须换算为毫米。
-
-    真机实测：100x60x6 mm 的板返回 [0,0,-0.006, 0.1,0.06,0]。
-    若漏掉换算，这里的断言会得到 0.1 / 0.06 / 0.006。
-    """
+    'GetPartBox(True) returns meters and must convert to mm. A native 100x60x6 mm plate returned [0,0,-0.006,0.1,0.06,0]; omitted conversion would yield 0.1/0.06/0.006.'
     model = FakeModel(box_m=[0.0, 0.0, -0.006, 0.1, 0.06, 0.0])
 
     result = sw_measure.collect_bounding_box(model)
@@ -131,7 +123,7 @@ def test_bounding_box_meters_are_converted_to_mm():
 
 
 def test_bounding_box_diagonal_uses_mm():
-    """@brief 对角线长度按毫米计算。"""
+    'Compute the diagonal in millimeters.'
     model = FakeModel(box_m=[0.0, 0.0, 0.0, 0.003, 0.004, 0.0])
 
     result = sw_measure.collect_bounding_box(model)
@@ -140,7 +132,7 @@ def test_bounding_box_diagonal_uses_mm():
 
 
 def test_bounding_box_missing_geometry_reports_error():
-    """@brief 无几何时报告错误而不是返回零点。"""
+    'Report missing geometry rather than zero coordinates.'
     result = sw_measure.collect_bounding_box(FakeModel(box_raises=True))
 
     assert result["size_mm"] is None
@@ -148,17 +140,17 @@ def test_bounding_box_missing_geometry_reports_error():
 
 
 def test_bounding_box_short_array_reports_error():
-    """@brief 坐标不足 6 个时报告错误。"""
+    'Report fewer than six coordinates.'
     result = sw_measure.collect_bounding_box(FakeModel(box_m=[0.0, 0.0, 0.0]))
 
     assert result["size_mm"] is None
-    assert any("6 个坐标" in item for item in result["errors"])
+    assert any('6 koordinat' in item for item in result["errors"])
 
 
-# ------------------------------------------------------------ 质量属性
+# Mass properties
 
 def test_mass_properties_converted_to_engineering_units():
-    """@brief 质量转克、体积转 mm³、表面积转 mm²、质心转 mm。"""
+    'Convert mass to g, volume to mm3, area to mm2 and centroid to mm.'
     model = FakeModel(mass_property=FakeMassProperty(), material="Alloy Steel")
 
     result = sw_measure.collect_mass_properties(model)
@@ -173,21 +165,18 @@ def test_mass_properties_converted_to_engineering_units():
 
 
 def test_mass_properties_warns_when_material_missing():
-    """@brief 未分配材料时给出提醒，但不当作执行错误。"""
+    'Unassigned material produces a warning, not an execution error.'
     model = FakeModel(material=None)
 
     result = sw_measure.collect_mass_properties(model)
 
     assert result["material_assigned"] is False
     assert result["errors"] == []
-    assert any("未分配材料" in item for item in result["warnings"])
+    assert any('malzeme atanmamış' in item for item in result["warnings"])
 
 
 def test_missing_status_member_is_not_an_error():
-    """@brief SW2024 SP5 没有 IMassProperty.Status，缺失不应记为错误。
-
-    旧实现用通用 read() 读取 Status，每次测量都会带一条无意义告警。
-    """
+    'Missing IMassProperty.Status on SW2024 SP5 is not an error; generic reads previously added a meaningless warning to each measurement.'
     model = FakeModel(mass_property=FakeMassProperty(has_status=False))
 
     result = sw_measure.collect_mass_properties(model)
@@ -197,7 +186,7 @@ def test_missing_status_member_is_not_an_error():
 
 
 def test_status_reported_when_present():
-    """@brief 有 Status 成员时正常读取。"""
+    'Read Status normally when available.'
     model = FakeModel(mass_property=FakeMassProperty(has_status=True))
 
     result = sw_measure.collect_mass_properties(model)
@@ -206,7 +195,7 @@ def test_status_reported_when_present():
 
 
 def test_density_derived_from_mass_over_volume():
-    """@brief 未传密度时，由质量/体积反算，用于核对材料是否选对。"""
+    'Without requested density, derive mass/volume to check material selection.'
     model = FakeModel(mass_property=FakeMassProperty(mass_kg=7.85, volume_m3=0.001))
 
     result = sw_measure.collect_mass_properties(model)
@@ -216,10 +205,7 @@ def test_density_derived_from_mass_over_volume():
 
 
 def test_density_set_through_user_preference():
-    """@brief 密度通过 swMaterialPropertyDensity(7) 偏好项设置。
-
-    IMassProperty.Density 是只读属性、SetOverrideMass 不存在——真机实测都不可用。
-    """
+    'Set density through swMaterialPropertyDensity(7); IMassProperty.Density is read-only and SetOverrideMass does not exist in the tested native environment.'
     model = FakeModel(mass_property=FakeMassProperty(mass_kg=0.2826, volume_m3=3.6e-05))
 
     result = sw_measure.collect_mass_properties(model, density_kg_m3=7850.0)
@@ -228,22 +214,22 @@ def test_density_set_through_user_preference():
     assert model.preference_writes == [(7, 7850.0)]
     assert result["density_kg_m3"] == pytest.approx(7850.0)
     assert result["previous_density_kg_m3"] == pytest.approx(1000.0)
-    # 反算密度与请求值一致，不应报错
+    # Derived density matches the request; no error expected.
     assert result["errors"] == []
 
 
 def test_density_mismatch_is_flagged():
-    """@brief 密度设置未生效时（反算值不符）必须报错，不能静默给出错误质量。"""
-    # 请求 7850，但模型仍按 1000 计算
+    'If derived density differs, report that the density setting failed rather than silently returning wrong mass.'
+    # Request 7850 but keep the model at 1000.
     model = FakeModel(mass_property=FakeMassProperty(mass_kg=0.036, volume_m3=3.6e-05))
 
     result = sw_measure.collect_mass_properties(model, density_kg_m3=7850.0)
 
-    assert any("密度设置可能未生效" in item for item in result["errors"])
+    assert any('Yoğunluk ayarı uygulanmamış olabilir' in item for item in result["errors"])
 
 
 def test_mass_property_creation_failure_is_reported():
-    """@brief CreateMassProperty 失败时结构化报告，不抛裸异常。"""
+    'Report CreateMassProperty failure structurally rather than raising a bare exception.'
 
     class BrokenModel:
         MaterialIdName = None
@@ -256,13 +242,13 @@ def test_mass_property_creation_failure_is_reported():
     result = sw_measure.collect_mass_properties(BrokenModel())
 
     assert result["mass_g"] is None
-    assert any("质量属性对象失败" in item for item in result["errors"])
+    assert any('Mass Property nesnesi oluşturulamadı' in item for item in result["errors"])
 
 
-# ------------------------------------------------------------ 干涉检查
+# Interference checks
 
 class FakeInterference:
-    """干涉检查对象替身。"""
+    'Interference object stub.'
 
     def __init__(self, count=0, fail_on=None):
         self.count = count
@@ -290,7 +276,7 @@ class FakeInterference:
 
 
 class FakeAssembly:
-    """装配体替身。"""
+    'Assembly stub.'
 
     def __init__(self, count=0, fail_on=None):
         self.InterferenceDetectionManager = FakeInterference(count, fail_on)
@@ -300,7 +286,7 @@ class FakeAssembly:
 
 
 def test_interference_clean_assembly():
-    """@brief 零干涉时通过，但仍要求人工复核。"""
+    'Zero interference passes but still requires human review.'
     result = sw_measure.inspect_interference(FakeAssembly(count=0))
 
     assert result["status"] == "pass"
@@ -310,7 +296,7 @@ def test_interference_clean_assembly():
 
 
 def test_interference_reports_volumes_in_mm3():
-    """@brief 干涉体积换算为 mm³ 并据此分级。"""
+    'Convert interference volume to mm3 and classify by volume.'
     result = sw_measure.inspect_interference(FakeAssembly(count=2))
 
     assert result["status"] == "warn"
@@ -320,7 +306,7 @@ def test_interference_reports_volumes_in_mm3():
 
 
 def test_interference_options_are_forwarded():
-    """@brief 选项必须真正传给 SolidWorks。"""
+    'Options must reach SolidWorks.'
     assembly = FakeAssembly(count=0)
 
     sw_measure.inspect_interference(
@@ -337,7 +323,7 @@ def test_interference_options_are_forwarded():
 
 @pytest.mark.parametrize("failure", ["count", "calculate", "done"])
 def test_interference_api_failures_never_report_zero(failure):
-    """计算、数量或结束失败均不得伪造零干涉通过。"""
+    'Calculation, count or cleanup failure must never fabricate zero interference.'
     assembly = FakeAssembly(count=2, fail_on=failure)
     result = sw_measure.inspect_interference(assembly)
     assert result["status"] == "blocked"
@@ -346,14 +332,14 @@ def test_interference_api_failures_never_report_zero(failure):
 
 
 def test_interference_array_count_mismatch_is_blocked():
-    """空数组与非零计数不一致时拒绝放行。"""
+    'Reject an empty array inconsistent with a nonzero count.'
     assembly = FakeAssembly(count=2)
     assembly.InterferenceDetectionManager.GetInterferences = lambda: []
     assert sw_measure.inspect_interference(assembly)["status"] == "blocked"
 
 
 def test_interference_failure_is_structured():
-    """@brief 干涉检查自身报错时返回 blocked 而非崩溃。"""
+    'Interference-check errors return blocked rather than crash.'
     result = sw_measure.inspect_interference(FakeAssembly(fail_on="done"))
 
     assert result["status"] == "blocked"
@@ -361,10 +347,10 @@ def test_interference_failure_is_structured():
     assert result["errors"]
 
 
-# ------------------------------------------------------------ 配合校核
+# Fit checks
 
 def test_clearance_fit_detected():
-    """@brief 孔大于轴判为间隙配合。"""
+    'A larger hole than shaft is a clearance fit.'
     result = sw_measure.check_tolerance_fit(shaft_mm=9.98, hole_mm=10.02, fit="clearance")
 
     assert result["fit_satisfied"] is True
@@ -372,7 +358,7 @@ def test_clearance_fit_detected():
 
 
 def test_interference_fit_detected():
-    """@brief 孔小于轴判为过盈配合。"""
+    'A smaller hole than shaft is an interference fit.'
     result = sw_measure.check_tolerance_fit(shaft_mm=10.05, hole_mm=10.0, fit="interference")
 
     assert result["fit_satisfied"] is True
@@ -380,14 +366,14 @@ def test_interference_fit_detected():
 
 
 def test_fit_check_warns_about_nominal_sizes():
-    """@brief 结果必须附带"名义尺寸不含公差"的边界说明。"""
+    'Include the limitation that nominal dimensions exclude tolerances.'
     result = sw_measure.check_tolerance_fit(shaft_mm=9.98, hole_mm=10.02)
 
     assert "GB/T 1800" in result["caveat"] or "ISO 286" in result["caveat"]
 
 
 def test_fit_requested_but_not_satisfied():
-    """@brief 要求间隙配合但实际过盈时明确判定失败。"""
+    'Fail explicitly when clearance was requested but interference results.'
     result = sw_measure.check_tolerance_fit(shaft_mm=10.05, hole_mm=10.0, fit="clearance")
 
     assert result["fit_satisfied"] is False

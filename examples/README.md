@@ -1,176 +1,49 @@
-# 示例代码
+# SOLIDWORKS automation examples
 
-本目录包含 SolidWorks 自动化的示例代码,从基础到高级逐步演示各种功能。
+These examples progress from part creation to assemblies, drawings, and Motion Study. They exercise CAD APIs; read and adjust their input/output paths before running them.
 
-## 示例列表
+| Example | What it demonstrates | Prerequisites |
+|---|---|---|
+| `01_basic_part.py` | Connect, create a part, sketch a circle, extrude a cylinder with driving dimensions, save, and review | SOLIDWORKS available; `C:\temp` writable |
+| `02_complex_part.py` | Create a rectangular plate with four dimension-driven holes, multiple sketches, and extruded cuts; review actual sketch state | SOLIDWORKS available |
+| `03_assembly.py` | Add components, create coincident/concentric Mates, and list components | Provide `C:\parts\base.sldprt` and `C:\parts\shaft.sldprt`, or edit the paths |
+| `04_batch_export.py` | Batch file processing, STEP export, and error handling | `.sldprt` files in `C:\parts`, or edit the source directory |
+| `05_drawing.py` | Create a drawing, three standard views, automatic dimensions, notes, and PDF | Provide `C:\parts\mypart.sldprt`, or edit the path |
+| `06_friendly_api.py` | Use `SolidWorksSession` to create/save/export, with `with sketch(...)` managing sketch entry/exit and reusable references | Running SOLIDWORKS or permission for the script to launch it; writable `C:\temp` |
+| `07_motion_study_rotary_motor.py` | Load the Motion type library, create/activate a study, add a 60 RPM motor using shaft/impeller cylinders, calculate, and play | Existing fan assembly; edit `assembly_path` and component keywords; impeller must float and its concentric Mate must permit rotation |
+| `08_mini_fan_motion_assembly.py` | Generate base, center shaft, cross-blade impeller, and guard; assemble with actual Mates; fix stationary parts, keep impeller free, add a 60 RPM motor, and export review evidence | SOLIDWORKS available; `C:\temp\solidworks_mini_fan_demo` writable |
 
-### 01_basic_part.py
-创建基本零件 - 圆柱体
+The miniature fan is an execution-stability benchmark, not a finished industrial design. Fillets/chamfers are not success criteria: automated edge selection varies across versions, locales, and modeling order. Refine appearance through a separate, verified entity-selection strategy. The complex-plate example also prioritizes driven sketches and holes; it does not demonstrate every cosmetic feature.
 
-**学习内容:**
-- 连接 SolidWorks
-- 创建新零件文档
-- 绘制草图(圆)
-- 拉伸特征
-- 保存文件
+## Run an example
 
-**运行前提:**
-- SolidWorks 已运行
-- 确保 `C:\temp\` 目录存在
+Install the required Python COM dependencies, start SOLIDWORKS, then run the selected example from the repository root:
 
----
-
-### 02_complex_part.py
-创建复杂零件 - 带孔的矩形板
-
-**学习内容:**
-- 多个草图和特征
-- 切除拉伸(孔)
-- 倒角和圆角
-- 面选择
-
-**运行前提:**
-- SolidWorks 已运行
-
----
-
-### 03_assembly.py
-创建装配体
-
-**学习内容:**
-- 添加组件
-- 配合关系(重合、同心)
-- 获取组件列表
-
-**运行前提:**
-- 需要准备两个零件文件:
-  - `C:\parts\base.sldprt`
-  - `C:\parts\shaft.sldprt`
-- 或修改代码中的路径
-
----
-
-### 04_batch_export.py
-批量导出文件
-
-**学习内容:**
-- 批量处理文件
-- 导出为 STEP 格式
-- 错误处理
-
-**运行前提:**
-- `C:\parts\` 目录下有 .sldprt 文件
-- 或修改代码中的路径
-
----
-
-### 05_drawing.py
-创建工程图
-
-**学习内容:**
-- 创建工程图文档
-- 标准三视图
-- 自动标注尺寸
-- 添加注释
-- 导出 PDF
-
-**运行前提:**
-- 需要一个零件文件: `C:\parts\mypart.sldprt`
-- 或修改代码中的路径
-
----
-
-### 06_friendly_api.py
-使用更顺手的 `SolidWorksSession` API 创建并导出零件
-
-**学习内容:**
-- 使用 `SolidWorksSession` 新建、保存、导出文件
-- 使用 `with sketch(...)` 自动进入/退出草图
-- 减少硬编码草图名和重复路径处理
-
-**运行前提:**
-- SolidWorks 已运行，或允许脚本启动 SolidWorks
-- 确保 `C:\temp\` 目录可写
-
----
-
-### 07_motion_study_rotary_motor.py
-给已有风扇装配体添加 Motion Study 旋转马达
-
-**学习内容:**
-- 创建并激活 Motion Study
-- 加载 Motion Study 类型库
-- 通过轴/叶轮圆柱面添加 60RPM 匀速旋转马达
-- 计算并播放运动算例
-
-**运行前提:**
-- 需要一个已有风扇装配体
-- 叶轮同心 Mate 未锁定旋转，且叶轮组件未固定
-- 修改脚本中的 `assembly_path` 和组件名关键字
-
----
-
-### 08_mini_fan_motion_assembly.py
-自动生成桌面迷你散热风扇基准装配体
-
-**学习内容:**
-- 依次生成底座、中心立柱、带叶片叶轮、圆形防护前盖 4 个零件
-- 自动新建装配体并添加组件
-- 添加重合 Mate、同心 Mate，并保持叶轮同心 Mate 不锁旋转
-- 固定底座、立柱、前盖，叶轮保持浮动
-- 创建 Motion Study，添加 60RPM 匀速旋转马达
-- 导出自审查报告
-
-**运行前提:**
-- SolidWorks 已运行，或允许脚本启动 SolidWorks
-- `C:\temp\solidworks_mini_fan_demo\` 可写
-
-**说明:**
-- 该示例是稳定性基准，不是外观最终版。
-- 圆角/倒角没有作为成功标准；边线自动选择在不同版本和语言环境下不稳定，后续应单独优化实体选择策略。
-
----
-
-## 运行示例
-
-1. 确保已安装依赖:
-```bash
-pip install pywin32
+```powershell
+python -m pip install pywin32 comtypes
+python examples/01_basic_part.py
 ```
 
-2. 启动 SolidWorks
-
-3. 运行示例:
-```bash
-python 01_basic_part.py
-```
-
-## 修改路径
-
-所有示例中的文件路径都可以根据你的实际情况修改:
+Change example paths for your workstation:
 
 ```python
-# 修改输入路径
+# Input document
 part_path = r"C:\your\path\part.sldprt"
 
-# 修改输出路径
+# Output deliverable
 output_path = r"C:\your\output\file.step"
 ```
 
-## 常见问题
+## Troubleshooting
 
-### 无法连接 SolidWorks?
-确保 SolidWorks 已经运行,并且 Python 位数与 SolidWorks 一致(通常为 64 位)。
+If connection fails, verify SOLIDWORKS is installed/running and the Python architecture matches it (normally 64-bit).
 
-### 找不到基准面?
-中英文版本的基准面名称不同:
-- 英文: "Front Plane", "Top Plane", "Right Plane"
-- 中文: "前视基准面", "上视基准面", "右视基准面"
+Reference-plane names depend on the installed CAD locale. Prefer the helper aliases `Front Plane`, `Top Plane`, and `Right Plane`; Turkish aliases include `Ön Düzlem`, `Üst Düzlem`, and `Sağ Düzlem`. Helpers preserve legacy CAD lookup names internally. For customized templates, use actual feature names and verify selection.
 
-### 特征创建失败?
-检查:
-1. 草图是否闭合
-2. 单位是否正确(使用 `mm()` 函数)
-3. 实体选择是否正确
+If feature creation fails, check the closed sketch profile, length units (use `mm()` to convert millimeters to API meters), and selected entities. Consult [troubleshooting](../references/troubleshooting.md).
 
-更多问题请查看 [troubleshooting.md](../references/troubleshooting.md)
+## Türkçe başlangıç
+
+Önce örnekteki dosya yollarını kendi bilgisayarınıza uyarlayın. SOLIDWORKS açıkken yukarıdaki komutla örneği çalıştırın. `Sketch` eskiz, `Extrude` doğrusal katı oluşturma, `Mate` montaj ilişkisi, `Motion Study` hareket çalışması anlamında kullanılır. API uzunlukları metredir; milimetre değerlerini `mm()` ile dönüştürün.
+
+Oluşan parçayı, ölçüleri, montaj ilişkilerini ve raporu SOLIDWORKS içinde inceleyin. Örnek kodun tamamlanması, üretim uygunluğu veya dayanım onayı anlamına gelmez. Hareket örnekleri için ilgili lisans ve Add-in kullanılabilirliği de gereklidir.

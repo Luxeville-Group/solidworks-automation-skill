@@ -1,4 +1,4 @@
-"""@brief 方案 B 真机回归：阵列、可编辑草图和重开改参；仅使用自有测试实例。"""
+"""@brief Scheme B real regression: patterns, editable sketches, reopen/edit parameters; owned instances only."""
 import argparse
 import json
 import math
@@ -20,7 +20,7 @@ from scripts.sw_process import solidworks_processes
 
 
 def hole_layout(model):
-    """@brief 读取孔轴在垂直平面的真实位置，排除深度造成的轴向原点变化。"""
+    """@brief Read hole-axis positions in the perpendicular plane, excluding depth-induced axial origin changes."""
     result = []
     for hole in collect_geometry_measurements(model)["holes"]:
         axis = hole["axis"]
@@ -32,10 +32,10 @@ def hole_layout(model):
 
 
 def main(output):
-    """@brief 与解析体积对照，并验证实际尺寸可修改且没有批量 Fix。"""
+    """@brief Compare analytical volume and verify editable real dimensions without bulk Fix constraints."""
     prior = solidworks_processes()
     if prior is None or prior:
-        raise RuntimeError("真机回归需要空闲的独立 SolidWorks 实例")
+        raise RuntimeError("Real-machine regression requires an idle, separate SolidWorks instance")
     output.mkdir(parents=True, exist_ok=False)
     report = {"status": "failed", "cases": [], "cleanup": {}}
     sw = None
@@ -46,7 +46,7 @@ def main(output):
         report["version"] = get_sw_version(sw)
         pid = int(get_com_member(sw, "GetProcessID"))
         if pid in prior or not meta["started_by_cad_studio"]:
-            raise RuntimeError("CAD 实例所有权不能确认")
+            raise RuntimeError("CAD-instance ownership cannot be confirmed")
         for circular in (False, True):
             label = "circular" if circular else "linear"
             model = new_document(sw, "part")
@@ -59,14 +59,14 @@ def main(output):
                 base_quality = fully_define_sketch(model)
             boss = extrude_boss(model, ref, .008, direction=False)
             if boss is None:
-                raise RuntimeError("母体拉伸失败")
+                raise RuntimeError("Base extrusion failed")
             boss_name = str(get_com_member(boss, "Name"))
             with sketch(model, "Front Plane") as ref:
                 sketch_circle(model, .015 if circular else -.020, 0, .003)
                 hole_quality = fully_define_sketch(model)
             cut = extrude_cut(model, ref, 0, direction=True)
             if cut is None:
-                raise RuntimeError("母孔创建失败")
+                raise RuntimeError("Seed-hole creation failed")
             cut_name = str(get_com_member(cut, "Name"))
             if circular:
                 bodies = get_com_member(model, "GetBodies2", 0, False)
@@ -80,10 +80,10 @@ def main(output):
                 data.Mark = 0
                 model.ClearSelection2(True)
                 if cylinder is None or not get_com_member(cylinder, "Select4", False, data) or not model.InsertAxis2(True):
-                    raise RuntimeError("参考轴创建失败")
+                    raise RuntimeError("Reference-axis creation failed")
                 axes = [feature for feature, _ in iter_feature_tree(model) if get_com_member(feature, "GetTypeName2") == "RefAxis"]
                 if len(axes) != 1:
-                    raise RuntimeError("参考轴不唯一")
+                    raise RuntimeError("Reference axis is not unique")
                 axis_name = str(get_com_member(axes[0], "Name"))
                 created = circular_pattern(model, cut_name, axis_name, 2 * math.pi, 4)
                 section = math.pi * 30**2 - 4 * math.pi * 3**2
@@ -91,33 +91,33 @@ def main(output):
                 created = linear_pattern(model, cut_name, 1, 0, 0, .020, 3)
                 section = 80 * 40 - 3 * math.pi * 3**2
             if created is None or not model.ForceRebuild3(False):
-                raise RuntimeError("阵列创建或重建失败")
+                raise RuntimeError("Pattern creation or rebuild failed")
             actual = collect_mass_properties(model)["volume_mm3"]
             original_holes = hole_layout(model)
             if len(original_holes) != (4 if circular else 3):
-                raise RuntimeError(f"阵列孔数不符: {original_holes}")
+                raise RuntimeError(f"Pattern hole count mismatch: {original_holes}")
             if actual is None or abs(actual - section * 8) > .1:
-                raise RuntimeError(f"{label} 阵列体积不符: {actual}, expected={section * 8}")
+                raise RuntimeError(f"{label} pattern volume mismatch: {actual}, expected={section * 8}")
             path = output / (label + ".sldprt")
             if not save_document(model, str(path)):
-                raise RuntimeError("保存失败")
+                raise RuntimeError('Kaydetme başarısız')
             sw.CloseDoc(str(get_com_member(model, "GetTitle")))
             reopened = open_document(sw, str(path), silent=True)
             quality = inspect_model_sketches(reopened)
             if quality["status"] != "pass":
-                raise RuntimeError(f"保存后草图质量不符: {quality}")
+                raise RuntimeError(f"Saved sketch quality mismatch: {quality}")
             dimension = get_com_member(reopened, "Parameter", "D1@" + boss_name)
             dimension.SystemValue = .010
             if not reopened.ForceRebuild3(False):
-                raise RuntimeError("厚度改参后重建失败")
+                raise RuntimeError("Rebuild failed after thickness change")
             changed = collect_mass_properties(reopened)["volume_mm3"]
             changed_holes = hole_layout(reopened)
             if original_holes != changed_holes:
-                raise RuntimeError("改参后孔径或孔中心位置改变")
+                raise RuntimeError("Hole diameter or centers changed after parameter update")
             if changed is None or abs(changed - section * 10) > .1:
-                raise RuntimeError(f"改参后几何不符: {changed}, expected={section * 10}")
+                raise RuntimeError(f"Geometry mismatch after parameter update: {changed}, expected={section * 10}")
             if not save_document(reopened, str(output / (label + "_thickness10.sldprt"))):
-                raise RuntimeError("改参模型保存失败")
+                raise RuntimeError("Updated model save failed")
             report["cases"].append({"name": label, "status": "pass", "volume8": actual, "volume10": changed,
                 "base_quality": base_quality, "hole_quality": hole_quality, "reopened_quality": quality})
             report["cases"][-1].update(holes_before=original_holes, holes_after=changed_holes)
@@ -128,7 +128,7 @@ def main(output):
         owned_titles.add(user_title)
         with SolidWorksSession(max_documents=2) as session:
             if int(get_com_member(session.sw, "GetProcessID")) != pid:
-                raise RuntimeError("会话错误连接到另一 CAD 进程")
+                raise RuntimeError("Session incorrectly connected to another CAD process")
             session.new_part()
             try:
                 session.new_part()
@@ -136,9 +136,9 @@ def main(output):
                 if getattr(error, "code", None) != "SW_DOCUMENT_BUDGET":
                     raise
             else:
-                raise RuntimeError("文档预算未阻止创建")
+                raise RuntimeError("Document budget failed to prevent creation")
         if str(get_com_member(user_document, "GetTitle")) != user_title or len(get_com_member(sw, "GetDocuments") or []) != 1:
-            raise RuntimeError("清理触碰了模拟用户文档，或残留本轮文档")
+            raise RuntimeError("Cleanup touched the simulated user document or left current-run documents")
         report["cases"].append({"name": "session_ownership_budget", "status": "pass", "protected_user_document": True})
         print("PASS session_ownership_budget", flush=True)
         sw.CloseDoc(user_title)
@@ -149,7 +149,7 @@ def main(output):
     finally:
         if sw is not None:
             remaining = list(get_com_member(sw, "GetDocuments") or [])
-            # 独立测试实例的文档由本轮创建；只在没有其他文档时退出实例。
+            # This run owns the isolated test instance's documents; exit only when no other documents remain.
             for doc in remaining:
                 path = str(get_com_member(doc, "GetPathName") or "")
                 title = str(get_com_member(doc, "GetTitle"))

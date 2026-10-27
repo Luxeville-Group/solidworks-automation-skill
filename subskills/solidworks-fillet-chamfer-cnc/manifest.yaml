@@ -1,7 +1,7 @@
 name: solidworks-fillet-chamfer-cnc
 title: SolidWorks Fillet Chamfer CNC
 status: stable
-summary: 生成带参数/碰撞预检、语义选边、有界尺寸降级和重建证据的 CNC 模型，并独立验证多控制点可变半径、face/full-round/setback、G2 曲面组合和宽度-宽度倒角。
+summary: Generate CNC models with parameter/collision preflight, semantic edge selection, bounded dimension fallback and rebuild evidence; independently verify multipoint variable-radius, face/full-round/setback, G2 combinations and distance-distance chamfers.
 entrypoint: SKILL.md
 scripts:
   - scripts/cnc_strategy.py

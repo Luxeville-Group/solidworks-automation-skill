@@ -1,4 +1,4 @@
-"""双入口、双后端公共 CAD Core 契约测试。"""
+"""Shared CAD Core contract tests for both entrypoints and backends."""
 from pathlib import Path
 
 from apps.desktop.cad_workbench.cad_core_contracts import (
@@ -17,7 +17,7 @@ from apps.desktop.cad_workbench.cad_core_contracts import (
 def test_neutral_cad_document_roundtrip(tmp_path: Path):
     document = NeutralCadDocument(
         documentId="bracket-001",
-        title="无头支架",
+        title="Headless bracket",
         features=[NeutralFeature(id="base", type="box", parameters={"length": 80, "width": 40, "height": 8})],
     )
     path = write_json_contract(tmp_path / "bracket.cadstudio.json", document)

@@ -1,9 +1,9 @@
 """
-示例 6: 使用友好 Session API 创建并导出零件
+Example 6: Create/export a part with the session API.
 
-运行前提:
-    1. SolidWorks 已安装，可手动启动也可由脚本启动。
-    2. 已安装 pywin32: pip install pywin32
+Prerequisites:
+    1. SOLIDWORKS is installed; launch manually or through the script.
+    2. pywin32 is installed: pip install pywin32.
 """
 import sys
 
@@ -15,7 +15,7 @@ from sw_session import SolidWorksSession
 
 
 def main():
-    """创建一个圆柱体并导出 STEP。"""
+    """Create a cylinder and export STEP."""
     session = SolidWorksSession()
     model = session.new_part()
 
@@ -26,9 +26,8 @@ def main():
 
     session.save(model, r"C:\temp\friendly_cylinder.sldprt")
     session.export(model, r"C:\temp\friendly_cylinder.step")
-    print("完成: C:\\temp\\friendly_cylinder.sldprt / .step")
+    print("Tamamlandı: C:\\temp\\friendly_cylinder.sldprt / .step")
 
 
 if __name__ == "__main__":
     main()
-

@@ -1,4 +1,4 @@
-"""SolidWorks 配置族 MCP 工具注册和输入契约测试。"""
+"""SOLIDWORKS configuration-family MCP registration and input contract tests."""
 
 from __future__ import annotations
 
@@ -24,28 +24,28 @@ CONFIGURATION_TOOLS = {
 
 
 def test_configuration_mcp_tools_are_registered() -> None:
-    """@brief 三个配置族入口必须实际注册到 MCP。"""
+    """@brief Register all three configuration entry points with MCP."""
     assert CONFIGURATION_TOOLS <= set(server.mcp._tool_manager._tools)
 
 
 def test_release_mcp_gate_requires_configuration_tools() -> None:
-    """@brief 发布门禁必须覆盖配置族入口。"""
+    """@brief Release gates cover configuration entry points."""
     assert CONFIGURATION_TOOLS <= REQUIRED_TOOLS
 
 
 def test_configuration_input_rejects_invalid_duplicate_policy() -> None:
-    """@brief 配置创建只允许幂等复用或严格报错。"""
+    """@brief Configuration creation allows only idempotent reuse or strict failure."""
     with pytest.raises(ValueError):
         server.SolidWorksConfigurationCreateInput(
-            configuration_name="加工",
+            configuration_name="İşleme",
             if_exists="overwrite",
         )
 
 
 def test_configuration_input_rejects_negative_option_mask() -> None:
-    """@brief 枚举位掩码不能使用负数。"""
+    """@brief Enum bitmasks cannot be negative."""
     with pytest.raises(ValueError):
         server.SolidWorksConfigurationCreateInput(
-            configuration_name="加工",
+            configuration_name="İşleme",
             options=-1,
         )

@@ -1,4 +1,4 @@
-"""CAD Studio CLI 与桌面端任务语义的一致性测试。"""
+"""Tests for consistent CAD Studio CLI and desktop task semantics."""
 
 import json
 import subprocess
@@ -17,13 +17,13 @@ def test_cli_retry_preserves_history_and_clears_current_evidence():
         "runId": "run-old",
         "status": "failed",
         "progress": 100,
-        "result": {"message": "旧结果"},
+        "result": {"message": 'Önceki sonuç'},
         "artifacts": [{"path": "old.step", "producedThisRun": True}],
         "drawingEvidence": {"status": "failed", "stage": "review"},
         "reviewFindings": [{"id": "dimension-overlap"}],
         "reviewGate": {"status": "fail"},
-        "error": "旧错误",
-        "prompt": "不应复制到历史快照",
+        "error": "Old error",
+        "prompt": "Must not be copied to the history snapshot",
     }
 
     result = prepare_job_for_retry(job, "2026-08-02T00:00:00+00:00")
@@ -59,13 +59,13 @@ def test_cli_retry_rejects_active_job():
     try:
         prepare_job_for_retry(job, "2026-08-02T00:00:00+00:00")
     except ValueError as exc:
-        assert "不可重试" in str(exc)
+        assert "yeniden denemeye uygun değil" in str(exc)
     else:
-        raise AssertionError("运行中任务不应允许重试")
+        raise AssertionError("Running jobs must not allow retry")
 
 
 def test_check_dfm_cli_generates_report(tmp_path: Path):
-    """@brief check-dfm 命令必须输出真实 JSON 报告。"""
+    """check-dfm must output an actual JSON report."""
     source = tmp_path / "plate.cadstudio.json"
     source.write_text(
         json.dumps(
@@ -92,7 +92,7 @@ def test_check_dfm_cli_generates_report(tmp_path: Path):
 
 
 def _fea_request() -> dict:
-    """@brief 返回 CLI prepare-fea 使用的最小静力请求。"""
+    """Return a minimal static request for CLI prepare-fea."""
     return {
         "schemaVersion": "1.0",
         "analysisId": "cli_static",
@@ -117,7 +117,7 @@ def _fea_request() -> dict:
 
 
 def _advanced_geometry_plan() -> dict:
-    """@brief 返回 CLI 复杂几何门禁使用的最小有效计划。"""
+    """Return a minimal valid plan for the CLI advanced-geometry gate."""
     return {
         "schemaVersion": "1.0",
         "planId": "cli_surface",
@@ -133,7 +133,7 @@ def _advanced_geometry_plan() -> dict:
 
 
 def test_cli_prepare_fea_generates_versioned_calculix_input(tmp_path: Path):
-    """@brief prepare-fea 必须生成本轮 CalculiX 输入且不依赖求解器安装。"""
+    """prepare-fea generates current-run CalculiX inputs without requiring an installed solver."""
     source = tmp_path / "fea.json"
     source.write_text(json.dumps(_fea_request()), encoding="utf-8")
     completed = subprocess.run(
@@ -152,7 +152,7 @@ def test_cli_prepare_fea_generates_versioned_calculix_input(tmp_path: Path):
 
 
 def test_cli_run_fea_convergence_rejects_invalid_request_without_output(tmp_path: Path):
-    """@brief 收敛 CLI 必须在求解前阻断无效协议，且不留下结果目录。"""
+    """The convergence CLI blocks invalid protocols before solving and leaves no result directory."""
     source = tmp_path / "bad-convergence.json"
     source.write_text("{}", encoding="utf-8")
     output = tmp_path / "convergence-out"
@@ -174,7 +174,7 @@ def test_cli_run_fea_convergence_rejects_invalid_request_without_output(tmp_path
 
 
 def test_cli_review_advanced_geometry_writes_report(tmp_path: Path):
-    """@brief 复杂几何 CLI 只能输出 pilot/blocked 门禁报告，不声称产出几何。"""
+    """The advanced-geometry CLI outputs only pilot/blocked gate reports and does not claim geometry production."""
     source = tmp_path / "surface.json"
     source.write_text(json.dumps(_advanced_geometry_plan()), encoding="utf-8")
     completed = subprocess.run(
@@ -192,7 +192,7 @@ def test_cli_review_advanced_geometry_writes_report(tmp_path: Path):
 
 
 def test_cli_create_ocp_loft_writes_real_brep(tmp_path: Path):
-    """@brief create-ocp-loft 必须生成并重开真实 STEP/BREP。"""
+    """create-ocp-loft generates and reopens actual STEP/BREP files."""
     pytest.importorskip("OCP")
     source = tmp_path / "loft.json"
     source.write_text(json.dumps({
@@ -216,7 +216,7 @@ def test_cli_create_ocp_loft_writes_real_brep(tmp_path: Path):
 
 
 def test_cli_create_ocp_surface_writes_real_smooth_loft(tmp_path: Path):
-    """@brief create-ocp-surface 必须生成并重开真实平滑 Loft BREP。"""
+    """create-ocp-surface generates and reopens an actual smooth Loft BREP."""
     pytest.importorskip("OCP")
     source = tmp_path / "smooth.json"
     source.write_text(json.dumps({

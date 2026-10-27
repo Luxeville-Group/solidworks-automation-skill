@@ -7,7 +7,7 @@ using System.Web.Script.Serialization;
 using SolidWorks.Interop.sldworks;
 using SolidWorks.Interop.swconst;
 
-// 仅由 MCP 的持锁入口调用；没有任意脚本或 COM 方法执行接口。
+// Called only through the locked MCP entry point; no arbitrary script or COM method execution.
 public static class NativeWireTools {
  public class Sweep { public string name; public double[][] control_points_mm; public double diameter_mm; public double[] color; }
  public class Box { public string name; public double[] bounds_mm,color; }
@@ -23,7 +23,7 @@ public static class NativeWireTools {
   GetRunningObjectTable(0,out table);CreateBindCtx(0,out context);
   System.Runtime.InteropServices.ComTypes.IEnumMoniker en;table.EnumRunning(out en);var ms=new System.Runtime.InteropServices.ComTypes.IMoniker[1];
   while(en.Next(1,ms,IntPtr.Zero)==0){string name;ms[0].GetDisplayName(context,null,out name);if(name!="SolidWorks_PID_"+pid&&name!="!SolidWorks_PID_"+pid)continue;object obj;table.GetObject(ms[0],out obj);var sw=(ISldWorks)obj;if(sw.GetProcessID()!=pid)throw new Exception("PID mismatch");return sw;}
-  // @brief 部分 2026 实例仅注册标准活动对象；只有 PID 与宿主完全一致才允许使用。
+  // @brief Some 2026 instances register only the standard active object; require an exact host PID match.
   try{var active=(ISldWorks)Marshal.GetActiveObject("SldWorks.Application");if(active.GetProcessID()==pid)return active;}
   catch(COMException){}
   throw new Exception("Requested process unavailable");
@@ -70,7 +70,7 @@ public static class NativeWireTools {
   return new{name=b.name,feature_type=f.GetTypeName2(),bounds_mm=Bounds(body)};
  }
  public static string Run(string input){
-  // @brief 只有导入请求保存；未执行保存不能用 saved=false 冒充保存失败。
+  // @brief Only import requests save; do not report saved=false as a save failure when saving was never attempted.
   var r=json.Deserialize<Request>(input);var sw=Bind(r.process_id);var d=Guard(sw,r.source);var result=new Dictionary<string,object>{{"status","ok"},{"process_id",r.process_id},{"save_requested",r.action=="import"},{"manual_review_required",true}};
   if(r.action=="inspect"){
    if(d.GetType()==1)result["bodies"]=Bodies(d).Select(BodyRow).ToArray();else if(d.GetType()==2)result["components"]=Components(d).Select(ComponentRow).ToArray();

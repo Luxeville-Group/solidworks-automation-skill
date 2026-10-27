@@ -1,4 +1,4 @@
-"""@brief 基于 Artifact Ledger 的交付物复核门禁。"""
+"""@brief Artifact review gate based on Artifact Ledger."""
 
 from __future__ import annotations
 
@@ -13,32 +13,32 @@ from .core import now_iso
 
 KNOWN_FORMAT_EXTENSIONS = {".step", ".stp", ".stl", ".dxf", ".pdf", ".dwg", ".sldprt", ".sldasm"}
 DIMENSION_TRIPLE_PATTERN = re.compile(
-    r"(?<![\d.])(\d+(?:\.\d+)?)\s*[xX×]\s*(\d+(?:\.\d+)?)\s*[xX×]\s*(\d+(?:\.\d+)?)\s*(?:mm|毫米)?",
+    r"(?<![\d.])(\d+(?:\.\d+)?)\s*[xX×]\s*(\d+(?:\.\d+)?)\s*[xX×]\s*(\d+(?:\.\d+)?)\s*(?:mm|mm)?",
     re.IGNORECASE,
 )
-DIAMETER_PATTERN = re.compile(r"(?:直径|孔径|[Ø⌀Φφ])\s*(\d+(?:\.\d+)?)\s*(?:mm|毫米)?", re.IGNORECASE)
+DIAMETER_PATTERN = re.compile(r"(?:diameter|hole diameter|çap|delik çapı|[Ø⌀Φφ])\s*(\d+(?:\.\d+)?)\s*(?:mm|mm)?", re.IGNORECASE)
 
 
 def review_dir(queue_dir: Path) -> Path:
-    """@brief 返回 Reviewer Gate 报告目录。"""
+    """@brief Return the Reviewer Gate report directory."""
     directory = Path(queue_dir) / "reviews"
     directory.mkdir(parents=True, exist_ok=True)
     return directory
 
 
 def review_path_for(queue_dir: Path, job_id: Any) -> Path:
-    """@brief 返回指定任务 Reviewer Gate 报告路径。"""
+    """@brief Return the Reviewer Gate report path for the specified job."""
     return review_dir(queue_dir) / f"{safe_job_id(job_id)}.review.json"
 
 
 def _read_file_sample(path: Path, limit: int = 1024 * 1024) -> bytes:
-    """@brief 读取文件开头样本，避免为了格式检查加载超大 CAD 文件。"""
+    """@brief Read a file-header sample instead of loading an entire large CAD file for format checks."""
     with Path(path).open("rb") as handle:
         return handle.read(limit)
 
 
 def _artifact_extension(kind: str, path: Path) -> str:
-    """@brief 根据路径后缀或 kind 推断交付物格式。"""
+    """@brief Infer artifact format from the path suffix or kind."""
     suffix = path.suffix.lower()
     if suffix:
         return suffix
@@ -47,12 +47,12 @@ def _artifact_extension(kind: str, path: Path) -> str:
 
 
 def _text_sample(sample: bytes) -> str:
-    """@brief 把二进制样本宽松转为文本，供 STEP/DXF/STL 文本特征检查。"""
+    """@brief Decode a binary sample permissively for STEP, DXF, and STL text-signature checks."""
     return sample.decode("utf-8", errors="ignore").upper()
 
 
 def validate_known_format(kind: str, path: Path) -> dict[str, Any] | None:
-    """@brief 对常见 CAD 交付格式做轻量打开性/格式特征检查。"""
+    """@brief Run lightweight openability and format-signature checks for common CAD delivery formats."""
     extension = _artifact_extension(kind, path)
     if extension not in KNOWN_FORMAT_EXTENSIONS:
         return None
@@ -67,7 +67,7 @@ def validate_known_format(kind: str, path: Path) -> dict[str, Any] | None:
             "id": check_id,
             "severity": "P0",
             "status": "pass" if valid else "fail",
-            "message": f"STEP 文件{'包含' if valid else '缺少'} ISO-10303-21 结构标记: {path}",
+            "message": f"STEP Dosya{'İçerir' if valid else 'Eksik'} ISO-10303-21 Yapısal işaretler: {path}",
         }
 
     if extension == ".stl":
@@ -78,7 +78,7 @@ def validate_known_format(kind: str, path: Path) -> dict[str, Any] | None:
             "id": check_id,
             "severity": "P0",
             "status": "pass" if valid else "fail",
-            "message": f"STL 文件{'具备' if valid else '缺少'}可识别的 ASCII/Binary 结构: {path}",
+            "message": f"STL Dosya{'İçerir: ' if valid else 'Eksik'}Recognizable  ASCII/Binary Yapı: {path}",
         }
 
     if extension == ".dxf":
@@ -87,7 +87,7 @@ def validate_known_format(kind: str, path: Path) -> dict[str, Any] | None:
             "id": check_id,
             "severity": "P0",
             "status": "pass" if valid else "fail",
-            "message": f"DXF 文件{'包含' if valid else '缺少'} SECTION/EOF 结构标记: {path}",
+            "message": f"DXF Dosya{'İçerir' if valid else 'Eksik'} SECTION/EOF Yapısal işaretler: {path}",
         }
 
     if extension == ".pdf":
@@ -96,7 +96,7 @@ def validate_known_format(kind: str, path: Path) -> dict[str, Any] | None:
             "id": check_id,
             "severity": "P0",
             "status": "pass" if valid else "fail",
-            "message": f"PDF 文件{'包含' if valid else '缺少'} %PDF 文件头: {path}",
+            "message": f"PDF Dosya{'İçerir' if valid else 'Eksik'} %PDF Dosya başlığı: {path}",
         }
 
     if extension == ".dwg":
@@ -105,7 +105,7 @@ def validate_known_format(kind: str, path: Path) -> dict[str, Any] | None:
             "id": check_id,
             "severity": "P0",
             "status": "pass" if valid else "fail",
-            "message": f"DWG 文件{'包含' if valid else '缺少'} AutoCAD AC10 版本头: {path}",
+            "message": f"DWG Dosya{'İçerir' if valid else 'Eksik'} AutoCAD AC10 Sürüm başlığı: {path}",
         }
 
     if extension in {".sldprt", ".sldasm"}:
@@ -114,19 +114,19 @@ def validate_known_format(kind: str, path: Path) -> dict[str, Any] | None:
             "id": check_id,
             "severity": "P1",
             "status": "warning",
-            "message": f"{label} 为专有格式，当前仅完成文件级记录，后续需由 SolidWorks 打开复核: {path}",
+            "message": f"{label}  özel bir biçimdir. Şu anda yalnızca dosya düzeyinde kayıt tamamlandı; sonraki inceleme için  SolidWorks İncelemeyi aç: {path}",
         }
 
     return None
 
 
 def _close_measurement(left: float, right: float, tolerance: float = 1e-6) -> bool:
-    """@brief 比较机械规格数值，当前任务统一按 mm 记录。"""
+    """@brief Compare mechanical specification values recorded in millimeters."""
     return abs(left - right) <= tolerance
 
 
 def _same_envelope(left: tuple[float, float, float], right: tuple[float, float, float]) -> bool:
-    """@brief 忽略模型坐标轴方向比较外形包围盒尺寸。"""
+    """@brief Compare bounding-box dimensions independently of model axis order."""
     return all(
         _close_measurement(left_value, right_value)
         for left_value, right_value in zip(sorted(left), sorted(right))
@@ -134,7 +134,7 @@ def _same_envelope(left: tuple[float, float, float], right: tuple[float, float, 
 
 
 def _unique_triplets(values: list[tuple[float, float, float]]) -> list[tuple[float, float, float]]:
-    """@brief 去除任务描述中重复出现的三元尺寸。"""
+    """@brief Remove repeated three-axis dimensions from the job description."""
     unique: list[tuple[float, float, float]] = []
     for value in values:
         if not any(_same_envelope(value, existing) for existing in unique):
@@ -143,17 +143,17 @@ def _unique_triplets(values: list[tuple[float, float, float]]) -> list[tuple[flo
 
 
 def _dimension_triplets(text: str) -> list[tuple[float, float, float]]:
-    """@brief 从自然语言中提取 L x W x H/厚度三元尺寸。"""
+    """@brief Extract an L x W x H or thickness dimension triple from natural language."""
     return [tuple(float(value) for value in match) for match in DIMENSION_TRIPLE_PATTERN.findall(text)]
 
 
 def _diameters(text: str) -> list[float]:
-    """@brief 从自然语言中提取明确标注的孔径。"""
+    """@brief Extract explicitly stated hole diameters from natural language."""
     return [float(value) for value in DIAMETER_PATTERN.findall(text)]
 
 
 def _json_measurements(value: Any) -> tuple[list[tuple[float, float, float]], list[float]]:
-    """@brief 递归读取验收 JSON 中的外形三元尺寸和孔径证据。"""
+    """@brief Recursively read bounding-box dimensions and hole-diameter evidence from acceptance JSON."""
     triplets: list[tuple[float, float, float]] = []
     diameters: list[float] = []
 
@@ -175,7 +175,7 @@ def _json_measurements(value: Any) -> tuple[list[tuple[float, float, float]], li
             for key, child in normalized.items():
                 is_hole_evidence = (
                     key.startswith("hole_")
-                    or any(segment in {"hole", "holes", "孔", "孔洞"} for segment in path)
+                    or any(segment in {"hole", "holes", "Delik", "Delik"} for segment in path)
                     or normalized.get("internal") is True
                 )
                 if (
@@ -195,7 +195,7 @@ def _json_measurements(value: Any) -> tuple[list[tuple[float, float, float]], li
 
 
 def _trusted_measurement_payload(value: Any) -> dict[str, Any] | None:
-    """@brief 只接受声明为 CAD/B-Rep API 回读的结构化规格报告。"""
+    """@brief Accept only declared structured specification reports read back through CAD/B-Rep APIs."""
     if not isinstance(value, dict):
         return None
     cad_spec = value.get("cad_spec")
@@ -207,7 +207,7 @@ def _trusted_measurement_payload(value: Any) -> dict[str, Any] | None:
 
 
 def _artifact_measurements(artifacts: list[dict[str, Any]]) -> tuple[list[tuple[float, float, float]], list[float]]:
-    """@brief 从本轮 JSON 交付物读取独立于 Codex 摘要的规格证据。"""
+    """@brief Read specification evidence from this run's JSON artifacts independently of the Codex summary."""
     triplets: list[tuple[float, float, float]] = []
     diameters: list[float] = []
     for artifact in artifacts:
@@ -238,7 +238,7 @@ def _artifact_measurements(artifacts: list[dict[str, Any]]) -> tuple[list[tuple[
 
 
 def _spec_conformance_checks(ledger: dict[str, Any], artifacts: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """@brief 对比任务明确尺寸与验收 JSON 的实际规格，阻止错模型进入人工放行。"""
+    """@brief Compare explicit requested dimensions with actual acceptance JSON specifications, preventing incorrect models from reaching manual approval."""
     strict_rules = ledger.get("strictRules") if isinstance(ledger.get("strictRules"), list) else []
     requirement_text = "\n".join(
         [
@@ -265,11 +265,11 @@ def _spec_conformance_checks(ledger: dict[str, Any], artifacts: list[dict[str, A
                 "severity": "P0",
                 "status": "pass" if evidence_triplets and not missing_envelopes else "fail",
                 "message": (
-                    f"外形尺寸证据与任务一致: {expected_triplets} mm。"
+                    f"Dış ölçü kanıtı görevle uyumlu: {expected_triplets} mm."
                     if evidence_triplets and not missing_envelopes
-                    else "缺少独立的机器可读外形尺寸证据。"
+                    else "Bağımsız, makinece okunabilir dış ölçü kanıtı eksik."
                     if not evidence_triplets
-                    else f"外形尺寸与任务不一致；缺少 {missing_envelopes} mm，验收证据报告 {evidence_triplets} mm。"
+                    else f"Dış ölçüler görevle uyuşmuyor; eksik:  {missing_envelopes} mm, Kabul kanıtı raporu {evidence_triplets} mm."
                 ),
             }
         )
@@ -288,11 +288,11 @@ def _spec_conformance_checks(ledger: dict[str, Any], artifacts: list[dict[str, A
                 "severity": "P0",
                 "status": "pass" if evidence_diameters and not missing else "fail",
                 "message": (
-                    f"孔径证据与任务一致: {unique_expected} mm。"
+                    f"Delik çapı kanıtı görevle uyumlu: {unique_expected} mm."
                     if evidence_diameters and not missing
-                    else "任务包含明确孔径，但交付物缺少独立的机器可读孔径证据。"
+                    else "Görev açık bir delik çapı belirtiyor ancak teslim dosyalarında bağımsız, makinece okunabilir çap kanıtı yok."
                     if not evidence_diameters
-                    else f"孔径与任务不一致；缺少要求孔径 {missing} mm，验收证据报告 {unique_actual} mm。"
+                    else f"Delik çapı görevle uyuşmuyor; gerekli çap eksik {missing} mm, Kabul kanıtı raporu {unique_actual} mm."
                 ),
             }
         )
@@ -300,7 +300,7 @@ def _spec_conformance_checks(ledger: dict[str, Any], artifacts: list[dict[str, A
 
 
 def evaluate_ledger(ledger: dict[str, Any]) -> dict[str, Any]:
-    """@brief 根据账本内容生成交付物复核结论。"""
+    """@brief Generate the artifact review conclusion from the ledger."""
     artifacts = ledger.get("artifacts") if isinstance(ledger.get("artifacts"), list) else []
     checks: list[dict[str, Any]] = []
     delivery_artifacts = [
@@ -317,7 +317,7 @@ def evaluate_ledger(ledger: dict[str, Any]) -> dict[str, Any]:
                 "id": "executor-verification-present",
                 "severity": "P1",
                 "status": "warning",
-                "message": "执行器未返回验证记录，不能确认生成步骤已经完成针对性检查。",
+                "message": "Yürütücü doğrulama kaydı döndürmedi; üretim adımının ilgili kontrolleri tamamladığı doğrulanamıyor.",
             }
         )
     for index, item in enumerate(verification):
@@ -330,7 +330,7 @@ def evaluate_ledger(ledger: dict[str, Any]) -> dict[str, Any]:
                 "id": f"executor-verification-{index}",
                 "severity": "P0" if review_status == "fail" else "P1",
                 "status": review_status,
-                "message": f"执行验证 {status}: {item.get('command') or '未命名检查'}；{item.get('note') or ''}",
+                "message": f"Yürütme doğrulaması {status}: {item.get('command') or 'Adsız kontrol'}; {item.get('note') or ''}",
             }
         )
 
@@ -341,7 +341,7 @@ def evaluate_ledger(ledger: dict[str, Any]) -> dict[str, Any]:
                 "id": "executor-residual-risks",
                 "severity": "P1",
                 "status": "warning",
-                "message": "执行器报告残余风险: " + "；".join(str(item) for item in risks),
+                "message": "Yürütücü kalan riskler bildiriyor: " + "; ".join(str(item) for item in risks),
             }
         )
 
@@ -376,9 +376,9 @@ def evaluate_ledger(ledger: dict[str, Any]) -> dict[str, Any]:
                 "severity": "P0",
                 "status": "pass" if matching else "fail",
                 "message": (
-                    f"已找到本轮生成的 {label} 交付物，共 {len(matching)} 个。"
+                    f"Bu yürütmede üretilen dosya bulundu:  {label}  çıktı, toplam  {len(matching)}  adet."
                     if matching
-                    else f"期望输出包含 {label}，但没有找到本轮生成的对应文件；AI JSON 回执或旧文件不能代替交付物。"
+                    else f"Beklenen çıktı şunları içerir:  {label},  ancak bu yürütmede oluşturulan eşleşen dosya bulunamadı; AI JSON  acknowledgements or old files cannot replace delivery artifacts."
                 ),
             }
         )
@@ -391,14 +391,14 @@ def evaluate_ledger(ledger: dict[str, Any]) -> dict[str, Any]:
         and (ledger.get("executor") != "codex" or artifact.get("producedThisRun") is True)
     ]
     target = str(ledger.get("target") or "")
-    expects_non_cad = "调研报告" in expected_output or "Skills" in target or "规范" in target
+    expects_non_cad = "Araştırma raporu" in expected_output or "Skills" in target or "Standart" in target
     if not expected_groups and ledger.get("localCadAutomation") is True and not expects_non_cad and not current_run_cad:
         checks.append(
             {
                 "id": "cad-deliverable-not-declared",
                 "severity": "P1",
                 "status": "warning",
-                "message": "本轮允许本机 CAD 自动化，但没有本轮生成的 CAD/图纸文件；TXT、Markdown 和 AI 回执不能作为 CAD 交付物。",
+                "message": "Bu görevde yerel CAD otomasyonuna izin verildi ancak bu yürütmede CAD veya çizim dosyası üretilmedi. TXT, Markdown ve AI sonuç bildirimleri CAD teslim dosyalarının yerini tutmaz.",
             }
         )
 
@@ -408,7 +408,7 @@ def evaluate_ledger(ledger: dict[str, Any]) -> dict[str, Any]:
                 "id": "artifact-present",
                 "severity": "P1",
                 "status": "warning",
-                "message": "任务未声明任何交付物，当前只能确认流程完成，不能确认制造文件齐全。",
+                "message": "Görev teslim dosyası belirtmiyor. Yalnızca iş akışının tamamlandığı doğrulanabilir; üretim dosyalarının eksiksizliği doğrulanamaz.",
             }
         )
 
@@ -422,7 +422,7 @@ def evaluate_ledger(ledger: dict[str, Any]) -> dict[str, Any]:
                     "id": f"artifact-exists-{kind}",
                     "severity": "P0",
                     "status": "fail",
-                    "message": f"交付物不存在: {artifact.get('path')}",
+                    "message": f"Teslim dosyası mevcut değil: {artifact.get('path')}",
                 }
             )
             continue
@@ -432,7 +432,7 @@ def evaluate_ledger(ledger: dict[str, Any]) -> dict[str, Any]:
                     "id": f"artifact-directory-{kind}",
                     "severity": "P2",
                     "status": "warning",
-                    "message": f"交付物是目录，当前只记录路径，未递归校验目录内容: {artifact.get('path')}",
+                    "message": f"Çıktı bir klasör; şu anda yalnızca yol kaydedildi, içeriği özyinelemeli doğrulanmadı: {artifact.get('path')}",
                 }
             )
             continue
@@ -443,7 +443,7 @@ def evaluate_ledger(ledger: dict[str, Any]) -> dict[str, Any]:
                     "id": f"artifact-nonempty-{kind}",
                     "severity": "P0",
                     "status": "fail",
-                    "message": f"交付物为空文件: {artifact.get('path')}",
+                    "message": f"Teslim dosyası boş: {artifact.get('path')}",
                 }
             )
         elif not artifact.get("sha256"):
@@ -452,7 +452,7 @@ def evaluate_ledger(ledger: dict[str, Any]) -> dict[str, Any]:
                     "id": f"artifact-hash-{kind}",
                     "severity": "P1",
                     "status": "warning",
-                    "message": f"交付物缺少 SHA-256: {artifact.get('path')}",
+                    "message": f"Teslim dosyalarında eksik:  SHA-256: {artifact.get('path')}",
                 }
             )
         else:
@@ -461,7 +461,7 @@ def evaluate_ledger(ledger: dict[str, Any]) -> dict[str, Any]:
                     "id": f"artifact-file-{kind}",
                     "severity": "P2",
                     "status": "pass",
-                    "message": f"交付物存在且已记录 hash: {artifact.get('path')}",
+                    "message": f"Teslim dosyaları mevcut ve kayıtlı hash: {artifact.get('path')}",
                 }
             )
             format_check = validate_known_format(kind, Path(str(artifact.get("path"))))
@@ -482,7 +482,7 @@ def evaluate_ledger(ledger: dict[str, Any]) -> dict[str, Any]:
 
 
 def write_reviewer_gate(queue_dir: Path, ledger: dict[str, Any]) -> dict[str, Any]:
-    """@brief 写入 Reviewer Gate 报告并返回报告对象。"""
+    """@brief Write the Reviewer Gate report and return it."""
     review = evaluate_ledger(ledger)
     path = review_path_for(queue_dir, ledger.get("jobId"))
     path.write_text(json.dumps(review, ensure_ascii=False, indent=2), encoding="utf-8")

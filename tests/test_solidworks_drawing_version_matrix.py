@@ -1,4 +1,4 @@
-"""SolidWorks 工程图跨版本矩阵离线测试。"""
+'Offline tests for the cross-version SolidWorks drawing matrix.'
 from __future__ import annotations
 
 import importlib.util
@@ -14,7 +14,7 @@ SPEC.loader.exec_module(MATRIX)
 
 
 def test_matrix_runs_only_exact_registered_versions(tmp_path: Path):
-    """@brief 未安装版本不得回退到默认 ProgID 并被误记为通过。"""
+    'An uninstalled version cannot fall back to the default ProgID and be marked passed.'
     calls = []
 
     def runner(output_root, *, version, run_id):
@@ -43,7 +43,7 @@ def test_matrix_runs_only_exact_registered_versions(tmp_path: Path):
 
 
 def test_matrix_rejects_actual_version_mismatch(tmp_path: Path):
-    """@brief 指定 SW2025 却连接到 SW2026 时必须失败。"""
+    'Requesting SW2025 but connecting to SW2026 must fail.'
     def runner(_output_root, *, version, run_id):
         assert version == 2025 and run_id == "matrix_sw2025"
         return {"status": "ok", "solidworks": {"year": 2026, "revision": "34.1.1"}}
@@ -61,9 +61,9 @@ def test_matrix_rejects_actual_version_mismatch(tmp_path: Path):
 
 
 def test_matrix_blocks_when_no_target_version_is_registered(tmp_path: Path):
-    """@brief 没有目标版本时生成 blocked 报告且不调用运行器。"""
+    'Without a target version, produce a blocked report without calling the runner.'
     def runner(*_args, **_kwargs):
-        raise AssertionError("未注册版本不得启动回归")
+        raise AssertionError('An unregistered version must not start regression')
 
     result = MATRIX.run_matrix(
         tmp_path,

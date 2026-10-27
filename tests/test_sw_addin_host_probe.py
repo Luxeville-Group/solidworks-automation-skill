@@ -1,4 +1,4 @@
-"""@brief SolidWorks Add-in 宿主部署探测器测试。"""
+'SolidWorks add-in deployment-probe tests.'
 from __future__ import annotations
 
 import json
@@ -8,7 +8,7 @@ import scripts.sw_addin_host as host
 
 
 def test_probe_does_not_treat_current_user_com_as_in_process_ready(monkeypatch, tmp_path: Path) -> None:
-    """@brief 仅 HKCU COM 激活不得冒充 SolidWorks HKLM 发现链。"""
+    'HKCU COM activation cannot substitute for SolidWorks HKLM discovery.'
     assembly = tmp_path / "host.dll"
     assembly.write_bytes(b"MZ")
     states = iter([True, False, False, False, False, False])
@@ -26,7 +26,7 @@ def test_probe_does_not_treat_current_user_com_as_in_process_ready(monkeypatch, 
 
 
 def test_probe_requires_all_callback_and_ui_evidence(monkeypatch, tmp_path: Path) -> None:
-    """@brief ConnectToSW 状态和三类 UI 证据全部为真才可 ready。"""
+    'ConnectToSW and all three UI evidence categories must be true for ready.'
     assembly = tmp_path / "host.dll"
     assembly.write_bytes(b"MZ")
     assembly.with_suffix(".tlb").write_bytes(b"MSFT")

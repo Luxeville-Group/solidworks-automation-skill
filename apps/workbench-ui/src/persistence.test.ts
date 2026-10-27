@@ -23,18 +23,18 @@ afterEach(() => {
 });
 
 describe("parsePersistedJson", () => {
-  it("读取有效的本地回退数据", () => {
+  it("Read valid local fallback data", () => {
     expect(parsePersistedJson('{"project":"fixture"}')).toEqual({ project: "fixture" });
   });
 
-  it("损坏数据不会阻断应用启动", () => {
+  it("Corrupted data does not prevent startup", () => {
     expect(parsePersistedJson("{broken")).toBeNull();
     expect(parsePersistedJson(null)).toBeNull();
   });
 });
 
 describe("readPersistedState", () => {
-  it("优先回灌较新的本地回退副本，避免旧 SQLite 数据覆盖", async () => {
+  it("Restore the newer local fallback first to avoid stale  SQLite  data overwrites", async () => {
     const { values } = installDesktopStorage({ "cad.settings": '{"revision":2}' });
     invokeMock.mockResolvedValueOnce(undefined);
 
@@ -50,7 +50,7 @@ describe("readPersistedState", () => {
     expect(values.get("cad.settings.migration-backup")).toBe('{"revision":2}');
   });
 
-  it("SQLite 仍不可用时保留回退副本并报告降级", async () => {
+  it("SQLite Retain the fallback copy and report degraded mode if still unavailable", async () => {
     const { values } = installDesktopStorage({ "cad.messages": '[{"id":"latest"}]' });
     invokeMock.mockRejectedValueOnce(new Error("database is locked"));
 
@@ -60,7 +60,7 @@ describe("readPersistedState", () => {
     expect(values.get("cad.messages")).toBe('[{"id":"latest"}]');
   });
 
-  it("没有回退副本时读取 SQLite", async () => {
+  it("Read when no fallback copy exists:  SQLite", async () => {
     installDesktopStorage();
     invokeMock.mockResolvedValueOnce({ revision: 3 });
 
@@ -73,7 +73,7 @@ describe("readPersistedState", () => {
 });
 
 describe("writePersistedState", () => {
-  it("SQLite 写入失败时同步保留可恢复副本", async () => {
+  it("SQLite Keep a recoverable copy when writes fail", async () => {
     const { values } = installDesktopStorage();
     invokeMock.mockRejectedValueOnce(new Error("disk busy"));
 

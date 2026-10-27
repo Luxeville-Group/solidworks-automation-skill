@@ -1,4 +1,4 @@
-"""装配干涉报告无 COM 门禁测试。"""
+'COM-free assembly interference-report gates.'
 from __future__ import annotations
 
 from scripts.sw_assembly import get_interference_detection

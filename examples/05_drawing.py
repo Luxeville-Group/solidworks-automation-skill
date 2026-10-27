@@ -1,6 +1,6 @@
 """
-示例 5: 创建工程图
-演示如何创建工程图并添加视图、尺寸和 BOM 表
+Example 5: Create a drawing.
+Demonstrates adding views, dimensions, and a BOM table.
 """
 import sys
 sys.path.insert(0, r"../scripts")
@@ -16,31 +16,31 @@ from sw_drawing import (
 def main():
     sw, _ = connect_solidworks()
 
-    # 创建新工程图
-    print("创建工程图...")
+    # Create a new drawing.
+    print("Teknik çizim oluşturuluyor...")
     drawing = new_document(sw, "drawing")
 
-    # 指定零件路径
+    # Specify the part path.
     part_path = r"C:\parts\mypart.sldprt"
 
-    # 创建标准三视图
-    print("创建三视图...")
+    # Create three standard views.
+    print("Üç standart görünüş oluşturuluyor...")
     create_standard_views(drawing, part_path)
 
-    # 自动标注尺寸
-    print("添加尺寸标注...")
+    # Add dimensions automatically.
+    print("Ölçüler ekleniyor...")
     insert_dimensions(drawing)
 
-    # 添加注释
-    print("添加注释...")
-    add_note(drawing, 0.1, 0.05, "材料: 钢 1045\n表面处理: 镀锌")
+    # Add notes.
+    print("Açıklamalar ekleniyor...")
+    add_note(drawing, 0.1, 0.05, "Malzeme: 1045 çelik\nYüzey işlemi: galvaniz")
 
-    # 导出为 PDF
+    # Export PDF.
     output_pdf = r"C:\exports\drawing.pdf"
-    print(f"导出 PDF: {output_pdf}")
+    print(f"PDF dışa aktarma: {output_pdf}")
     export_sheet_to_pdf(drawing, output_pdf)
 
-    print("工程图创建完成!")
+    print("Teknik çizim oluşturuldu!")
 
 if __name__ == "__main__":
     main()

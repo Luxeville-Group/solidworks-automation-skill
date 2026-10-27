@@ -1,4 +1,4 @@
-"""@brief 查询 CAD Studio 技能矩阵并选择最合适的语言执行后端。"""
+"""@brief Query the CAD Studio capability matrix and select the appropriate language backend."""
 
 from __future__ import annotations
 
@@ -23,20 +23,20 @@ except ImportError:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    """@brief 构造命令行参数解析器。"""
-    parser = argparse.ArgumentParser(description="按 CAD 原子操作选择 Python、C#、C++ 或无头后端。")
-    parser.add_argument("--operation", help="operation_routes 中的原子操作 ID。")
-    parser.add_argument("--list", action="store_true", help="列出全部操作路由及后端摘要。")
-    parser.add_argument("--available", action="append", default=[], help="本机可用后端 ID，可重复指定。")
-    parser.add_argument("--requirement", action="append", default=[], help="已满足的加载项/许可证条件，可重复指定。")
-    parser.add_argument("--solidworks-revision", help="SolidWorks Revision，例如 34.1.1。")
-    parser.add_argument("--exact-api", action="store_true", help="要求原始 I* 接口语义，不接受 Automation 等价方法。")
-    parser.add_argument("--manifest", type=Path, help="可选能力清单路径。")
+    """@brief Construct the command-line argument parser."""
+    parser = argparse.ArgumentParser(description="CAD atomik işlemine göre Python, C#, C++ veya headless backend seçin.")
+    parser.add_argument("--operation", help="operation_routes içindeki atomik işlem ID.")
+    parser.add_argument("--list", action="store_true", help="Tüm işlem rotalarını ve backend özetlerini listeleyin.")
+    parser.add_argument("--available", action="append", default=[], help="Yerel kullanılabilir backend ID; birden fazla kez belirtilebilir.")
+    parser.add_argument("--requirement", action="append", default=[], help="Sağlanan add-in/lisans koşulları; birden fazla kez belirtilebilir.")
+    parser.add_argument("--solidworks-revision", help="SolidWorks Revision, örneğin 34.1.1.")
+    parser.add_argument("--exact-api", action="store_true", help="Ham I* arayüz semantiği gerekir; Automation eşdeğer yöntemleri kabul edilmez.")
+    parser.add_argument("--manifest", type=Path, help="İsteğe bağlı capability registry yolu.")
     return parser
 
 
 def route_report(args: argparse.Namespace) -> dict:
-    """@brief 返回只读矩阵摘要或单个操作的后端决策。"""
+    """@brief Return a read-only matrix summary or backend decision for one operation."""
     payload = load_capabilities(args.manifest)
     if args.list:
         return {
@@ -57,7 +57,7 @@ def route_report(args: argparse.Namespace) -> dict:
         return {
             "status": "blocked",
             "error_code": "OPERATION_REQUIRED",
-            "reason": "请指定 --operation，或使用 --list 查看可用路由",
+            "reason": "--operation belirtin veya kullanılabilir rotalar için --list kullanın",
         }
     return resolve_operation_backend(
         args.operation,
@@ -70,7 +70,7 @@ def route_report(args: argparse.Namespace) -> dict:
 
 
 def main() -> int:
-    """@brief 命令行入口。"""
+    """@brief Command-line entry point."""
     args = build_parser().parse_args()
     report = route_report(args)
     print(json.dumps(report, ensure_ascii=False, indent=2))

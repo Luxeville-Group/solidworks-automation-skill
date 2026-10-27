@@ -1,8 +1,8 @@
 """@file solidworks_drawing_version_matrix.py
-@brief SolidWorks 2024/2025/2026 工程图真机回归矩阵。
+@brief SolidWorks 2024/2025/2026 real-machine drawing regression matrix.
 
-仅对已注册的精确版本 ProgID 启动真机回归；未安装版本记录为 unavailable，
-不得回退到默认 ProgID 后误报为目标版本通过。
+Start regression only for a registered exact-version ProgID. Record uninstalled versions as unavailable;
+never fall back to the default ProgID and falsely report success for the requested version.
 """
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ from typing import Any, Callable, Iterable
 
 try:
     import winreg
-except ImportError:  # pragma: no cover - 非 Windows 只允许生成 blocked 矩阵
+except ImportError:  # pragma: no cover - non-Windows systems may only produce a blocked matrix
     winreg = None
 
 
@@ -23,15 +23,15 @@ DEFAULT_YEARS = (2024, 2025, 2026)
 
 
 def prog_id_for_year(year: int) -> str:
-    """@brief 返回年份对应的精确 SolidWorks COM ProgID。"""
+    """@brief Return the exact SolidWorks COM ProgID for a year."""
     year = int(year)
     if year < 2010 or year > 2035:
-        raise ValueError(f"不支持的 SolidWorks 版本年份: {year}")
+        raise ValueError(f"Unsupported SolidWorks version year: {year}")
     return f"SldWorks.Application.{year - 1992}"
 
 
 def is_version_registered(year: int) -> bool:
-    """@brief 只检查精确版本 ProgID，避免默认 ProgID 指向其他年份。"""
+    """@brief Check only the exact-version ProgID; a default ProgID may point to another year."""
     if winreg is None:
         return False
     try:
@@ -42,12 +42,12 @@ def is_version_registered(year: int) -> bool:
 
 
 def discover_registered_versions(years: Iterable[int] = DEFAULT_YEARS) -> dict[int, bool]:
-    """@brief 返回目标年份的 COM 注册状态。"""
+    """@brief Return COM registration state for the target year."""
     return {int(year): is_version_registered(int(year)) for year in years}
 
 
 def _default_regression_runner(output_root: Path, *, version: int, run_id: str) -> dict[str, Any]:
-    """@brief 延迟导入单版本真机脚本，保持离线矩阵测试不连接 COM。"""
+    """@brief Lazy-load single-version regression so offline matrix tests do not connect to COM."""
     from solidworks_week4_drawing_regression import run_regression
 
     return run_regression(output_root, version=version, run_id=run_id)
@@ -61,10 +61,10 @@ def run_matrix(
     runner: Callable[..., dict[str, Any]] | None = None,
     run_id: str | None = None,
 ) -> dict[str, Any]:
-    """@brief 串行执行已安装版本并写出可审计矩阵报告。"""
+    """@brief Run installed versions serially and write an auditable matrix report."""
     target_years = tuple(dict.fromkeys(int(year) for year in years))
     if not target_years:
-        raise ValueError("至少指定一个 SolidWorks 年份")
+        raise ValueError("Specify at least one SolidWorks year")
     output_root = Path(output_root).expanduser().resolve()
     output_root.mkdir(parents=True, exist_ok=True)
     run_id = run_id or datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -124,8 +124,8 @@ def run_matrix(
         "versions": entries,
         "manual_review_required": True,
         "limitations": [
-            "unavailable 只表示本机未注册该精确版本，不代表该版本不受支持。",
-            "矩阵必须核对回读年份；默认 ProgID 的成功不能替代指定版本结果。",
+            "unavailable means only that the exact version is not registered locally, not that it is unsupported.",
+            "The matrix must verify the readback year; default ProgID success cannot replace an exact-version result.",
         ],
     }
     report_path = output_root / f"solidworks-drawing-version-matrix-{run_id}.json"
@@ -135,8 +135,8 @@ def run_matrix(
 
 
 def main() -> int:
-    """@brief 命令行入口。"""
-    parser = argparse.ArgumentParser(description="运行 SolidWorks 工程图跨版本真机矩阵")
+    '@brief Command-line entry point.'
+    parser = argparse.ArgumentParser(description="Run the real SolidWorks drawing version matrix")
     parser.add_argument("--output-dir", default=str(Path(tempfile.gettempdir()) / "solidworks_drawing_version_matrix"))
     parser.add_argument("--years", nargs="+", type=int, default=list(DEFAULT_YEARS))
     parser.add_argument("--run-id", default="")

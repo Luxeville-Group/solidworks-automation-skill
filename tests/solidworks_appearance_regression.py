@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""SolidWorks 外观数组 COM 编组回归测试。"""
+"""SolidWorks appearance-array COM marshaling regression."""
 
 from __future__ import annotations
 
@@ -20,18 +20,18 @@ from sw_session import SolidWorksSession
 
 
 def assert_rgb(actual, expected, label: str, tolerance: float = 1e-6) -> None:
-    """@brief 检查材质数组前三位是否为预期 RGB。"""
+    """@brief Check that the first three material-array entries match the expected RGB."""
     if actual is None or len(actual) < 3:
-        raise AssertionError(f"{label}: 无法读取材质数组: {actual!r}")
+        raise AssertionError(f"{label}: cannot read material array: {actual!r}")
     for channel, actual_value, expected_value in zip("RGB", actual[:3], expected):
         if not math.isclose(float(actual_value), float(expected_value), abs_tol=tolerance):
             raise AssertionError(
-                f"{label}: {channel} 通道错误，实际 {actual[:3]!r}，预期 {expected!r}"
+                f"{label}: incorrect {channel} channel, actual {actual[:3]!r}, expected {expected!r}"
             )
 
 
 def main() -> int:
-    """@brief 验证文档级和装配组件级 RGB 均可正确回读。"""
+    """@brief Verify correct RGB readback at document and assembly-component levels."""
     session = SolidWorksSession(visible=True)
     model = session.new_part()
     temp_dir = Path(tempfile.gettempdir()) / "solidworks_appearance_regression"
@@ -43,7 +43,7 @@ def main() -> int:
         session.sw.CloseDoc(part_path.name)
         for label, color in cases.items():
             if not set_document_appearance(model, color):
-                raise AssertionError(f"{label}: 外观写入函数返回失败")
+                raise AssertionError(f"{label}: appearance writer returned failure")
             assert_rgb(model.MaterialPropertyValues, rgb01(color), label)
 
         active_configuration = get_com_member(
@@ -52,7 +52,7 @@ def main() -> int:
         configuration_name = str(get_com_member(active_configuration, "Name"))
         configuration_color = "#4FA6A8"
         if not set_document_appearance(model, configuration_color, configuration_name):
-            raise AssertionError("指定配置外观写入函数返回失败")
+            raise AssertionError("Appearance writer failed for the specified configuration")
         assert_rgb(
             model.MaterialPropertyValues,
             rgb01(configuration_color),
@@ -62,9 +62,9 @@ def main() -> int:
         with sketch(model, "Front Plane") as sketch_ref:
             sketch_rectangle(model, 0, 0, mm(20), mm(20))
         if extrude_midplane(model, sketch_ref, mm(20)) is None:
-            raise AssertionError("组件测试块拉伸失败")
+            raise AssertionError("Component test-block extrusion failed")
         if not session.save(model, str(part_path)):
-            raise AssertionError("组件测试块保存失败")
+            raise AssertionError("Component test-block save failed")
         part_title = str(get_com_member(model, "GetTitle"))
         session.sw.CloseDoc(part_title)
 
@@ -72,11 +72,11 @@ def main() -> int:
         assembly_title = str(get_com_member(assembly, "GetTitle"))
         component = add_component(assembly, str(part_path), sw=session.sw)
         if component is None:
-            raise AssertionError("组件测试块添加失败")
+            raise AssertionError("Component test-block insertion failed")
         component_color = "#C7CCD1"
         reports = apply_component_palette([(component, component_color)])
         if not reports[0]["ok"]:
-            raise AssertionError(f"组件级外观写入失败: {reports[0]}")
+            raise AssertionError(f"Component-level appearance write failed: {reports[0]}")
         assert_rgb(
             component.MaterialPropertyValues,
             rgb01(component_color),

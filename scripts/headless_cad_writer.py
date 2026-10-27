@@ -1,7 +1,7 @@
-"""无 CAD 软件时的开放格式写入器。
+"""Open-format writer without CAD software.
 
-当前实现覆盖 `.cadstudio.json` 中基础盒体/圆柱到 STL、OBJ、DXF 的真实写入。
-STEP/IGES/BREP 需要后续 OCCT/OCP 后端，不在本脚本中伪造支持。
+Write basic boxes/cylinders from .cadstudio.json to actual STL, OBJ and DXF.
+STEP/IGES/BREP require the separate OCCT/OCP backend; do not fabricate support here.
 """
 from __future__ import annotations
 
@@ -45,7 +45,7 @@ def _feature_params(feature: dict[str, Any]) -> dict[str, Any]:
 
 
 def _versioned_target(out_dir: Path, name: str, extension: str) -> Path:
-    """@brief 生成不覆盖旧产物的版本化目标路径。"""
+    """@brief Create versioned destinations without overwriting existing artifacts."""
     target = out_dir / f"{name}.{extension}"
     if not target.exists():
         return target
@@ -58,7 +58,7 @@ def _versioned_target(out_dir: Path, name: str, extension: str) -> Path:
 
 
 def _run_occt_service(document_path: Path, out_dir: Path, formats: list[str]) -> dict[str, Any]:
-    """@brief 在独立进程中运行 OCCT，避免原生崩溃影响队列 Worker。"""
+    """@brief Run OCCT in an isolated process so native crashes do not terminate the queue Worker."""
     service = ROOT / "scripts" / "headless_occt_service.py"
     with tempfile.TemporaryDirectory(prefix="cadstudio-occt-result-") as temp_dir:
         result_path = Path(temp_dir) / "result.json"
@@ -89,7 +89,7 @@ def _run_occt_service(document_path: Path, out_dir: Path, formats: list[str]) ->
                 "backend": "headless_occt",
                 "status": "failed",
                 "artifacts": [],
-                "limitations": ["OCCT 隔离服务超过 180 秒未完成。"],
+                "limitations": ["OCCT izole servisi 180 saniye içinde tamamlanmadı."],
                 "error_code": "occt_timeout",
             }
         if result_path.is_file():
@@ -98,13 +98,13 @@ def _run_occt_service(document_path: Path, out_dir: Path, formats: list[str]) ->
             "backend": "headless_occt",
             "status": "failed",
             "artifacts": [],
-            "limitations": [f"OCCT 隔离服务未返回结果文件，退出码 {completed.returncode}。"],
+            "limitations": [f"OCCT yalıtılmış servis sonuç dosyası döndürmedi; çıkış kodu {completed.returncode}."],
             "error_code": "occt_result_missing",
         }
 
 
 def _box_mesh(length: float, width: float, height: float) -> list[Triangle]:
-    """@brief 生成以原点居中的盒体三角面片。"""
+    """@brief Generate box triangles centered at the origin."""
     x = length / 2
     y = width / 2
     z = height / 2
@@ -117,7 +117,7 @@ def _box_mesh(length: float, width: float, height: float) -> list[Triangle]:
 
 
 def _cylinder_mesh(radius: float, height: float, segments: int = 48) -> list[Triangle]:
-    """@brief 生成 Z 轴圆柱体三角面片。"""
+    """@brief Generate Z-axis cylinder triangles."""
     z0 = -height / 2
     z1 = height / 2
     top = (0.0, 0.0, z1)
@@ -146,20 +146,20 @@ def _normal(triangle: Triangle) -> Point3:
 
 
 def _validate_document(document: Any) -> dict[str, Any]:
-    """@brief 校验无头写入所需的最小 NeutralCadDocument 结构。"""
+    """@brief Validate minimal NeutralCadDocument structure for headless writing."""
     if not isinstance(document, dict):
-        raise ValueError("NeutralCadDocument 必须是 JSON object。")
+        raise ValueError("NeutralCadDocument bir JSON object olmalıdır.")
     if not str(document.get("documentId") or "").strip():
-        raise ValueError("NeutralCadDocument 缺少 documentId。")
+        raise ValueError("NeutralCadDocument documentId içermiyor.")
     if not isinstance(document.get("features", []), list):
-        raise ValueError("NeutralCadDocument.features 必须是数组。")
+        raise ValueError("NeutralCadDocument.features bir array olmalıdır.")
     for feature in document.get("features", []):
         if not isinstance(feature, dict) or not str(feature.get("id") or "").strip() or not str(feature.get("type") or "").strip():
-            raise ValueError("每个 feature 必须包含非空 id 和 type。")
+            raise ValueError("Her feature boş olmayan id ve type içermelidir.")
         params = _feature_params(feature)
         for key in ("length", "width", "height", "radius", "diameter"):
             if key in params and float(params[key]) <= 0:
-                raise ValueError(f"feature {feature['id']} 的 {key} 必须大于 0。")
+                raise ValueError(f"feature {feature['id']} için {key} sıfırdan büyük olmalı.")
     return document
 
 
@@ -174,20 +174,20 @@ def _triangles(document: dict[str, Any]) -> tuple[list[Triangle], list[str], boo
         kind = str(feature.get("type") or "").lower()
         operation = str(feature.get("operation") or "add").lower()
         if operation not in {"add", "new", "union"}:
-            limitations.append(f"网格后端暂不支持布尔操作: {feature.get('id')} ({operation})")
+            limitations.append(f"Mesh backend bu boolean işlemini henüz desteklemiyor: {feature.get('id')} ({operation})")
             mesh_blocked = True
         elif kind == "box":
             triangles.extend(_box_mesh(float(params.get("length", 10)), float(params.get("width", 10)), float(params.get("height", 10))))
         elif kind == "cylinder":
             triangles.extend(_cylinder_mesh(float(params.get("radius", 5)), float(params.get("height", 10)), int(params.get("segments", 48))))
         else:
-            limitations.append(f"暂未无头写入特征: {feature.get('id') or kind}")
+            limitations.append(f"Henüz headless yazımı olmayan özellik: {feature.get('id') or kind}")
             mesh_blocked = True
     return triangles, limitations, mesh_blocked
 
 
 def write_ascii_stl(path: Path, name: str, triangles: list[Triangle]) -> None:
-    """@brief 写出 ASCII STL。"""
+    """@brief Write ASCII STL."""
     lines = [f"solid {name}"]
     for triangle in triangles:
         nx, ny, nz = _normal(triangle)
@@ -202,7 +202,7 @@ def write_ascii_stl(path: Path, name: str, triangles: list[Triangle]) -> None:
 
 
 def write_obj(path: Path, triangles: list[Triangle]) -> None:
-    """@brief 写出 Wavefront OBJ，使用每三角形独立顶点以保持实现简单可靠。"""
+    """@brief Write Wavefront OBJ using independent vertices per triangle for simplicity and reliability."""
     lines = ["# CAD Studio headless OBJ"]
     for triangle in triangles:
         for x, y, z in triangle:
@@ -217,7 +217,7 @@ def _feature_radius(params: dict[str, Any]) -> float:
 
 
 def _document_2d_geometry(document: dict[str, Any]) -> tuple[list[Line2], list[Circle2], tuple[float, float, float, float]]:
-    """@brief 从中性 CAD 特征提取基础二维轮廓，用于 DXF/SVG/PDF/PNG 回退预览。"""
+    """@brief Extract basic 2D profiles for DXF/SVG/PDF/PNG fallback previews."""
     lines: list[Line2] = []
     circles: list[Circle2] = []
     bounds = [0.0, 0.0, 1.0, 1.0]
@@ -260,7 +260,7 @@ def _document_2d_geometry(document: dict[str, Any]) -> tuple[list[Line2], list[C
 
 
 def _unsupported_2d_features(document: dict[str, Any]) -> list[str]:
-    """@brief 返回当前二维后端无法完整表达的特征 ID。"""
+    """@brief Return feature IDs not fully represented by the current 2D backend."""
     unsupported: list[str] = []
     for feature in document.get("features", []):
         kind = str(feature.get("type") or "").lower()
@@ -274,7 +274,7 @@ def _unsupported_2d_features(document: dict[str, Any]) -> list[str]:
 
 
 def write_dxf(path: Path, document: dict[str, Any]) -> None:
-    """@brief 写出包含机械制图图层、真实尺寸和可选 GB/T 图框的 DXF。"""
+    """@brief Write DXF with drawing layers, actual dimensions and optional GB/T border."""
     import ezdxf
 
     doc = ezdxf.new("R2018", setup=True)
@@ -347,7 +347,7 @@ def write_dxf(path: Path, document: dict[str, Any]) -> None:
 
 
 def _add_gbt_frame(modelspace: Any, document: dict[str, Any], drawing: dict[str, Any]) -> None:
-    """@brief 添加居中图幅、装订边和可检索的 GB/T 风格标题栏字段。"""
+    """@brief Add centered sheet, binding margin and searchable GB/T-style title-block fields."""
     sheet_sizes = {"A4": (210.0, 297.0), "A3": (420.0, 297.0), "A2": (594.0, 420.0), "A1": (841.0, 594.0)}
     sheet = str(drawing.get("sheet") or "A3").upper()
     width, height = sheet_sizes.get(sheet, sheet_sizes["A3"])
@@ -367,20 +367,20 @@ def _add_gbt_frame(modelspace: Any, document: dict[str, Any], drawing: dict[str,
         modelspace.add_line((tx0, ty0 + offset), (tx1, ty0 + offset), dxfattribs={"layer": "TITLE"})
     modelspace.add_line((tx0 + title_width * 0.62, ty0), (tx0 + title_width * 0.62, ty1), dxfattribs={"layer": "TITLE"})
     fields = [
-        ("名称", str(document.get("title") or document.get("documentId") or "未命名"), tx0 + 3, ty0 + 34),
-        ("图号", str(drawing.get("drawingNumber") or document.get("documentId") or "-"), tx0 + 3, ty0 + 25),
-        ("材料", str(drawing.get("material") or "待确认"), tx0 + 3, ty0 + 14),
-        ("比例", str(drawing.get("scale") or "1:1"), tx0 + title_width * 0.64, ty0 + 34),
-        ("单位", str(document.get("units") or "mm"), tx0 + title_width * 0.64, ty0 + 25),
-        ("设计", str(drawing.get("designer") or "CAD Studio"), tx0 + title_width * 0.64, ty0 + 14),
-        ("审核", str(drawing.get("reviewer") or "待复核"), tx0 + title_width * 0.64, ty0 + 4),
+        ("Ad (Name)", str(document.get("title") or document.get("documentId") or "Adsız (Untitled)"), tx0 + 3, ty0 + 34),
+        ("Çizim no. (Drawing No.)", str(drawing.get("drawingNumber") or document.get("documentId") or "-"), tx0 + 3, ty0 + 25),
+        ("Malzeme (Material)", str(drawing.get("material") or "Onay bekliyor"), tx0 + 3, ty0 + 14),
+        ("Ölçek (Scale)", str(drawing.get("scale") or "1:1"), tx0 + title_width * 0.64, ty0 + 34),
+        ("Birim (Units)", str(document.get("units") or "mm"), tx0 + title_width * 0.64, ty0 + 25),
+        ("Tasarım (Design)", str(drawing.get("designer") or "CAD Studio"), tx0 + title_width * 0.64, ty0 + 14),
+        ("İnceleyen (Checked by)", str(drawing.get("reviewer") or "İnceleme bekliyor"), tx0 + title_width * 0.64, ty0 + 4),
     ]
     for label, value, x, y in fields:
         modelspace.add_text(f"{label}: {value}", height=2.6, dxfattribs={"layer": "TITLE"}).set_placement((x, y))
 
 
 def write_svg(path: Path, document: dict[str, Any]) -> None:
-    """@brief 写出浏览器可直接查看的 SVG 预览图。"""
+    """@brief Write an SVG preview directly viewable in a browser."""
     lines, circles, bounds = _document_2d_geometry(document)
     min_x, min_y, max_x, max_y = bounds
     width = max(max_x - min_x, 1.0)
@@ -405,8 +405,26 @@ def _pdf_escape(value: str) -> str:
     return value.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
 
 
-def write_pdf(path: Path, document: dict[str, Any]) -> None:
-    """@brief 写出不依赖第三方库的基础 PDF 回退预览。"""
+def _pdf_unicode_backend():
+    """Load the optional PDF text backend without requiring a downloaded font."""
+    try:
+        import pymupdf
+        return pymupdf
+    except ImportError:
+        try:
+            import fitz
+            return fitz
+        except ImportError:
+            return None
+
+
+def write_pdf(path: Path, document: dict[str, Any]) -> str | None:
+    """Write fallback geometry and a readable title; return any text limitation.
+
+    PyMuPDF embeds its bundled Nimbus Sans font for Turkish Unicode titles.
+    Without it, Turkish letters are explicitly transliterated and other non-ASCII
+    characters are represented as escapes rather than silently discarded.
+    """
     lines, circles, bounds = _document_2d_geometry(document)
     min_x, min_y, max_x, max_y = bounds
     scale = 72.0 / 25.4
@@ -432,9 +450,16 @@ def write_pdf(path: Path, document: dict[str, Any]) -> None:
             commands.append(f"{points[0][0]:.3f} {points[0][1]:.3f} m")
             commands.extend(f"{px:.3f} {py:.3f} l" for px, py in points[1:])
             commands.append("h S")
-    title = _pdf_escape(str(document.get("title") or document.get("documentId") or "CAD Studio"))
-    commands.append(f"0.28 0.33 0.41 rg BT /F1 10 Tf 12 12 Td ({title}) Tj ET")
-    content = ("\n".join(commands) + "\n").encode("ascii", errors="ignore")
+    title = str(document.get("title") or document.get("documentId") or "CAD Studio")
+    pdf_backend = _pdf_unicode_backend() if not title.isascii() else None
+    limitation = None
+    if pdf_backend is None:
+        if not title.isascii():
+            title = title.translate(str.maketrans("ÇĞİÖŞÜçğıöşü", "CGIOSUcgiosu"))
+            title = title.encode("ascii", errors="backslashreplace").decode("ascii")
+            limitation = "PyMuPDF eksik; PDF başlığındaki Türkçe harfler ASCII karşılıklarıyla, diğer Unicode karakterler escape gösterimiyle yazıldı."
+        commands.append(f"0.28 0.33 0.41 rg BT /F1 10 Tf 12 12 Td ({_pdf_escape(title)}) Tj ET")
+    content = ("\n".join(commands) + "\n").encode("ascii")
     objects = [
         b"<< /Type /Catalog /Pages 2 0 R >>",
         b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
@@ -454,7 +479,19 @@ def write_pdf(path: Path, document: dict[str, Any]) -> None:
     for offset in offsets[1:]:
         body.extend(f"{offset:010d} 00000 n \n".encode("ascii"))
     body.extend(f"trailer << /Size {len(objects) + 1} /Root 1 0 R >>\nstartxref\n{xref_offset}\n%%EOF\n".encode("ascii"))
-    path.write_bytes(bytes(body))
+    if pdf_backend is not None:
+        # Embed a bundled font under a non-reserved name to get a Unicode CID font,
+        # rather than the limited encoding of the standard PDF Helvetica resource.
+        font = pdf_backend.Font("helv")
+        with pdf_backend.open(stream=bytes(body), filetype="pdf") as pdf:
+            page = pdf[0]
+            page.insert_font(fontname="CADStudioUnicode", fontbuffer=font.buffer)
+            page.insert_text((12, page_h - 12), title, fontsize=10,
+                             fontname="CADStudioUnicode", color=(0.28, 0.33, 0.41))
+            path.write_bytes(pdf.tobytes(garbage=3, deflate=True))
+    else:
+        path.write_bytes(bytes(body))
+    return limitation
 
 
 def _png_chunk(kind: bytes, payload: bytes) -> bytes:
@@ -462,7 +499,7 @@ def _png_chunk(kind: bytes, payload: bytes) -> bytes:
 
 
 def write_png(path: Path, document: dict[str, Any], width: int = 900, height: int = 620) -> None:
-    """@brief 写出无依赖 PNG 回退预览，确保无 WebGL 时仍有真实任务图像。"""
+    """@brief Write a dependency-free PNG fallback so actual task images remain available without WebGL."""
     lines, circles, bounds = _document_2d_geometry(document)
     min_x, min_y, max_x, max_y = bounds
     span_x = max(max_x - min_x, 1.0)
@@ -523,7 +560,7 @@ def write_png(path: Path, document: dict[str, Any], width: int = 900, height: in
 
 
 def write_rendered_dxf_format(path: Path, document: dict[str, Any]) -> None:
-    """@brief 从同一 DXF 工程图渲染 SVG、PDF 或 PNG，保持图层、尺寸和标题栏一致。"""
+    """@brief Render SVG/PDF/PNG from the same DXF, preserving layers, dimensions and title block."""
     import matplotlib
 
     matplotlib.use("Agg")
@@ -547,7 +584,7 @@ def write_rendered_dxf_format(path: Path, document: dict[str, Any]) -> None:
 
 
 def export_headless(document_path: Path, out_dir: Path, formats: list[str]) -> dict[str, Any]:
-    """@brief 将 NeutralCadDocument 写成开放格式产物。"""
+    """@brief Write NeutralCadDocument into open-format artifacts."""
     try:
         document = _validate_document(json.loads(document_path.read_text(encoding="utf-8")))
     except (OSError, ValueError, json.JSONDecodeError) as exc:
@@ -584,11 +621,11 @@ def export_headless(document_path: Path, out_dir: Path, formats: list[str]) -> d
         blocked = [fmt for fmt in normalized_formats if fmt in ADVANCED_OCCT_FORMATS]
         occt_handled.update(blocked)
         missing_formats.extend(blocked)
-        limitations.append("未发现 OCP 运行时，STEP/IGES/BREP/GLB 保持 blocked。")
+        limitations.append("OCP runtime bulunamadı; STEP/IGES/BREP/GLB blocked durumunda kalır.")
     if (not triangles or mesh_blocked) and any(fmt in {"stl", "obj"} and fmt not in occt_handled for fmt in normalized_formats):
-        limitations.append("当前文档不能完整网格化，未写出 STL/OBJ，避免把部分几何当成完整交付。")
+        limitations.append("Belge tamamen mesh biçimine dönüştürülemiyor; kısmi geometri tam çıktı sayılmaması için STL/OBJ yazılmadı.")
     if unsupported_2d and any(fmt in {"dxf", "svg", "pdf", "png"} for fmt in normalized_formats):
-        limitations.append("当前二维后端无法完整表达特征: " + ", ".join(unsupported_2d))
+        limitations.append("Geçerli 2D backend bu feature öğelerini tam gösteremiyor: " + ", ".join(unsupported_2d))
     for normalized in normalized_formats:
         if normalized in occt_handled:
             continue
@@ -619,7 +656,7 @@ def export_headless(document_path: Path, out_dir: Path, formats: list[str]) -> d
                 write_rendered_dxf_format(target, document)
             except ImportError:
                 write_svg(target, document)
-                limitations.append("缺少 matplotlib，SVG 使用简化轮廓回退，不包含完整尺寸文字。")
+                limitations.append("matplotlib eksik; SVG sadeleştirilmiş profil fallback kullanır, tam ölçü metni içermez.")
         elif normalized == "pdf":
             if unsupported_2d:
                 missing_formats.append(normalized)
@@ -627,8 +664,10 @@ def export_headless(document_path: Path, out_dir: Path, formats: list[str]) -> d
             try:
                 write_rendered_dxf_format(target, document)
             except ImportError:
-                write_pdf(target, document)
-                limitations.append("缺少 matplotlib，PDF 使用简化轮廓回退，不包含完整尺寸文字。")
+                title_limitation = write_pdf(target, document)
+                if title_limitation:
+                    limitations.append(title_limitation)
+                limitations.append("matplotlib eksik; PDF sadeleştirilmiş profil fallback kullanır, tam ölçü metni içermez.")
         elif normalized == "png":
             if unsupported_2d:
                 missing_formats.append(normalized)
@@ -637,9 +676,9 @@ def export_headless(document_path: Path, out_dir: Path, formats: list[str]) -> d
                 write_rendered_dxf_format(target, document)
             except ImportError:
                 write_png(target, document)
-                limitations.append("缺少 matplotlib，PNG 使用简化轮廓回退，不包含完整尺寸文字。")
+                limitations.append("matplotlib eksik; PNG sadeleştirilmiş profil fallback kullanır, tam ölçü metni içermez.")
         else:
-            limitations.append(f"无头后端暂不支持写入格式: {normalized}")
+            limitations.append(f"Headless backend bu çıktı biçimini henüz desteklemiyor: {normalized}")
             missing_formats.append(normalized)
             continue
         artifacts.append({"kind": "cadstudio" if normalized in {"cadstudio", "cadstudio.json", "json"} else normalized, "path": str(target), "exists": True, "producedThisRun": True, "sha256": sha256_file(target), "sourceBackend": "headless_open_format"})
@@ -652,7 +691,7 @@ def export_headless(document_path: Path, out_dir: Path, formats: list[str]) -> d
             preview_scene_path = str(scene_target)
             artifacts.append({"kind": "preview_scene", "path": preview_scene_path, "exists": True, "producedThisRun": True, "sha256": sha256_file(scene_target), "sourceBackend": "ezdxf-preview-scene"})
         except (OSError, ValueError, ImportError) as exc:
-            limitations.append(f"DXF PreviewScene 生成失败: {exc}")
+            limitations.append(f"DXF PreviewScene oluşturulamadı: {exc}")
 
     preview_source = ""
     for preview_kind in ("glb", "preview_scene", "dxf", "stl", "obj"):
@@ -674,7 +713,7 @@ def export_headless(document_path: Path, out_dir: Path, formats: list[str]) -> d
                     limitations=[*manifest.limitations, *scene.get("limitations", [])],
                 )
             except (OSError, json.JSONDecodeError):
-                limitations.append("PreviewScene 清单读取失败，保留源文件预览。")
+                limitations.append("PreviewScene manifest okunamadı; kaynak dosya önizlemesi korunuyor.")
         preview_manifest_path = str(write_json_contract(_versioned_target(out_dir, name, "preview.json"), manifest))
         artifacts.append({"kind": "preview_manifest", "path": preview_manifest_path, "exists": True, "producedThisRun": True, "sha256": sha256_file(preview_manifest_path)})
     status = "pass" if artifacts and not missing_formats else "pilot" if artifacts else "blocked"
@@ -692,8 +731,8 @@ def export_headless(document_path: Path, out_dir: Path, formats: list[str]) -> d
 
 
 def main(argv: list[str] | None = None) -> int:
-    """@brief CLI 入口。"""
-    parser = argparse.ArgumentParser(description="CAD Studio 无头开放格式写入器")
+    """@brief CLI entry point."""
+    parser = argparse.ArgumentParser(description="CAD Studio headless açık biçim yazıcısı")
     parser.add_argument("--input", type=Path, required=True, help="NeutralCadDocument .cadstudio.json")
     parser.add_argument("--out-dir", type=Path, required=True)
     parser.add_argument("--formats", nargs="+", default=["cadstudio", "step", "iges", "brep", "stl", "obj", "glb", "dxf", "svg", "pdf", "png"])

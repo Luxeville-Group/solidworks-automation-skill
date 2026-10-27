@@ -1,19 +1,18 @@
-# 工程图生成参考
+# Drawing Generation Reference
 
-## 标准
+## Standards
 
-GB/T 路线默认第一角投影：俯视位于主视下方，右视位于主视左侧。SolidWorks 的
-`SetupSheet6` / `NewSheet4` 投影参数必须和布局保持一致，并在生成后回读。
+The GB/T route defaults to first-angle projection: top view below front, right view to the left. SOLIDWORKS
+SetupSheet6 / NewSheet4 projection arguments must match the layout and be read back after generation.
 
-## 证据要求
+## Evidence
 
-- 视图对象、方向、位置和比例必须回读。
-- `InsertModelAnnotations3/4` 返回值不能单独作为尺寸已插入证据，必须再次读取真实 `DisplayDimension`。
-- 图框文件名只代表候选证据，不能证明模板内容符合 GB/T。
-- PDF/BMP 输出必须存在且非空；PDF 文字边界只能用于风险筛查。
+- Read back view objects, orientation, position and scale.
+- InsertModelAnnotations3/4 return values alone do not prove dimensions exist; read actual DisplayDimension objects.
+- A template filename is only candidate evidence, not proof of GB/T-compliant content.
+- PDF/BMP outputs must exist and be nonempty; PDF text bounds provide risk screening only.
 
-## API 规则
+## API rules
 
-新增或未封装的 SolidWorks API 先查 `references/api-lookup.md` 和官方 API Help，确认签名、
-枚举、返回值和版本差异后再实现。COM 返回 `None` 或 `False` 时返回明确状态，不伪造成功。
-
+For new/unwrapped APIs, consult references/api-lookup.md and official API Help to verify signatures,
+enums, returns and version differences. Return explicit failure states for None/False COM results.

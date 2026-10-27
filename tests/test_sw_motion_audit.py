@@ -1,26 +1,26 @@
-"""@brief Motion Study 机器可读审计回归测试。"""
+'Machine-readable Motion Study audit regressions.'
 
 from scripts import sw_motion
 
 
 class FakeResults:
-    """@brief 模拟需要重新计算的运动结果。"""
+    'Simulate motion results requiring recalculation.'
 
     IsOutOfDate = True
 
 
 class FakeMotionFeature:
-    """@brief 模拟真实旋转马达 Motion Feature。"""
+    'Simulate a real rotary-motor Motion Feature.'
 
-    Name = "旋转马达"
+    Name = 'Döner motor'
     GetType = 102
     GetTypeName2 = "AEMRotationalMotor"
 
 
 class FakeStudy:
-    """@brief 模拟包含一个马达的 Motion Study。"""
+    'Simulate a Motion Study containing one motor.'
 
-    Name = "轴系运动"
+    Name = 'Mil sistemi hareketi'
     StudyType = 1
     IsActive = True
     IsPlaying = False
@@ -46,16 +46,16 @@ class FakeStudy:
 
 
 class FakeManager:
-    """@brief 模拟 MotionStudyManager。"""
+    'Simulate MotionStudyManager.'
 
     def GetMotionStudyCount(self):
         return 1
 
     def GetMotionStudyNames(self):
-        return ("轴系运动",)
+        return ('Mil sistemi hareketi',)
 
     def GetMotionStudy(self, name):
-        assert name == "轴系运动"
+        assert name == 'Mil sistemi hareketi'
         return FakeStudy()
 
 
@@ -78,7 +78,7 @@ def test_motion_validation_rejects_stale_results() -> None:
             "motion_type_library": "swmotionstudy.tlb",
             "study_count": 1,
             "studies": [{
-                "name": "轴系运动",
+                "name": 'Mil sistemi hareketi',
                 "available": True,
                 "study_type": 1,
                 "duration_seconds": 4.0,
@@ -100,7 +100,7 @@ def test_motion_validation_passes_complete_fresh_study() -> None:
             "motion_type_library": "swmotionstudy.tlb",
             "study_count": 1,
             "studies": [{
-                "name": "叶轮运动",
+                "name": 'Çark hareketi',
                 "available": True,
                 "study_type": 1,
                 "duration_seconds": 6.0,
@@ -109,7 +109,7 @@ def test_motion_validation_passes_complete_fresh_study() -> None:
                 "results_out_of_date": False,
             }],
         },
-        study_name="叶轮运动",
+        study_name='Çark hareketi',
         expected_study_type=1,
         minimum_duration_seconds=4.0,
     )
@@ -121,7 +121,7 @@ def test_motion_validation_passes_complete_fresh_study() -> None:
 def test_motion_validation_rejects_missing_study_and_type_library() -> None:
     result = sw_motion.validate_motion_study_summary(
         {"motion_type_library": None, "study_count": 0, "studies": []},
-        study_name="不存在",
+        study_name='missing',
     )
 
     assert result["status"] == "fail"

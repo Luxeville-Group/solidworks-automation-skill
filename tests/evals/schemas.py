@@ -1,4 +1,4 @@
-"""@brief Eval 数据模型（轻量、JSON 可序列化，不与生产 Queue Schema 强绑定）。"""
+"""@brief Lightweight JSON-serializable Eval models, not tightly coupled to production Queue Schema."""
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -7,7 +7,7 @@ from typing import Any, Callable, Mapping
 
 @dataclass
 class AttemptSpec:
-    """@brief 一次脚本化执行尝试：handler + reviewer 行为（deterministic）。"""
+    """@brief One scripted attempt: deterministic handler + reviewer behavior."""
 
     handler: Callable[[Any], Any]
     reviewer: Callable[[], Any] | None = None
@@ -18,7 +18,7 @@ class AttemptSpec:
 
 @dataclass
 class EvalScenario:
-    """@brief 一个可靠性评测场景（尽量从 golden-workflows.yaml 派生）。"""
+    """@brief A reliability-evaluation scenario, preferably derived from golden-workflows.yaml."""
 
     scenario_id: str
     name: str
@@ -33,13 +33,13 @@ class EvalScenario:
     attempts: list[AttemptSpec] = field(default_factory=list)
     capability_facade: Any = None
     operation_id: str | None = None
-    #: benchmark_group：nominal / recovery / fault_injection / guardrail（按 type 确定）。
+    #: benchmark_group: nominal / recovery / fault_injection / guardrail, determined by type.
     category: str = "nominal"
 
 
 @dataclass
 class EvalRecord:
-    """@brief 单个场景的执行事实（来源于 ExecutionAssessment / Trace，不重新猜）。"""
+    """@brief Scenario execution facts from ExecutionAssessment / Trace, without guessing."""
 
     scenario_id: str
     workflow_id: str | None
@@ -81,7 +81,7 @@ class EvalRecord:
 
 @dataclass
 class EvalReport:
-    """@brief 汇总报告（分 Nominal / Robustness / Safety / Overall 四组）。"""
+    """@brief Summary report grouped by Nominal / Robustness / Safety / Overall."""
 
     schema_version: str
     generated_at: str

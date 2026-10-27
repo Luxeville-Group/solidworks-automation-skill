@@ -1,4 +1,4 @@
-"""@brief solidworks-threaded-holes 子技能的离线工程逻辑回归测试。"""
+'Offline engineering-logic regressions for solidworks-threaded-holes.'
 
 from __future__ import annotations
 
@@ -18,8 +18,8 @@ SCRIPT_PATH = (
     / "scripts"
     / "create_threaded_hole_template.py"
 )
-# 某些旧测试在模块收集期把简化对象留在 sys.modules，
-# 动态加载子技能前必须清理该污染，否则全量测试存在顺序依赖。
+# Some older tests leave simplified objects in sys.modules during collection;
+# remove that pollution before loading the subskill to avoid suite-order dependence.
 for module_name in ("sw_connect", "sw_preflight"):
     if module_name in sys.modules and not getattr(sys.modules[module_name], "__file__", None):
         del sys.modules[module_name]
@@ -30,7 +30,7 @@ SPEC.loader.exec_module(threaded)
 
 
 def make_args(**overrides) -> argparse.Namespace:
-    """@brief 生成可覆盖的默认 CLI 参数。"""
+    'Generate overridable default CLI arguments.'
     values = {
         "thread": "M6",
         "block_length": 40.0,
@@ -53,13 +53,13 @@ def make_args(**overrides) -> argparse.Namespace:
 
 
 class FakeFeature:
-    """@brief 模拟可改名的 SolidWorks 特征。"""
+    'Simulate a renameable SolidWorks feature.'
 
     Name = ""
 
 
 class FakeFeatureManager:
-    """@brief 记录 FeatureCut4 的终止条件。"""
+    'Record FeatureCut4 end conditions.'
 
     def __init__(self):
         self.cut_calls = []
@@ -70,14 +70,14 @@ class FakeFeatureManager:
 
 
 class FakeCutModel:
-    """@brief 提供切除函数需要的最小模型接口。"""
+    'Minimal model API for the cut function.'
 
     def __init__(self):
         self.FeatureManager = FakeFeatureManager()
 
 
 class FakeThreadEdge:
-    """@brief 记录 ThreadFeatureData 引用圆边的选择标记。"""
+    'Record the circular-edge selection mark used by ThreadFeatureData.'
 
     def __init__(self):
         self.select_calls = []
@@ -88,14 +88,14 @@ class FakeThreadEdge:
 
 
 class FakeThreadData:
-    """@brief 模拟可动态赋值的 IThreadFeatureData。"""
+    'Simulate assignable IThreadFeatureData.'
 
     def InitializeThreadData(self):
         return None
 
 
 class FakeThreadFeatureManager:
-    """@brief 模拟 ThreadFeatureData 创建链。"""
+    'Simulate the ThreadFeatureData creation chain.'
 
     def __init__(self):
         self.data = FakeThreadData()
@@ -110,7 +110,7 @@ class FakeThreadFeatureManager:
 
 
 class FakeThreadModel:
-    """@brief 提供真实 Thread 创建函数所需的最小模型接口。"""
+    'Minimal model API for real Thread creation.'
 
     def __init__(self):
         self.FeatureManager = FakeThreadFeatureManager()
@@ -120,7 +120,7 @@ class FakeThreadModel:
 
 
 class FakeTreeFeature:
-    """@brief 模拟顶层特征和子特征链。"""
+    'Simulate top-level and child feature chains.'
 
     def __init__(self, name, feature_type, next_feature=None, next_subfeature=None, first_subfeature=None):
         self.Name = name
@@ -143,7 +143,7 @@ class FakeTreeFeature:
 
 
 class FakeTreeModel:
-    """@brief 提供 FirstFeature 的特征树模型。"""
+    'Feature-tree model exposing FirstFeature.'
 
     def __init__(self, first_feature):
         self._first_feature = first_feature
@@ -153,17 +153,17 @@ class FakeTreeModel:
 
 
 def test_through_hole_uses_through_all_end_condition(monkeypatch) -> None:
-    """@brief --through 必须创建真正的 Through All，不能用超深盲孔伪装。"""
+    '--through must create true Through All, not an excessively deep blind cut.'
     model = FakeCutModel()
     monkeypatch.setattr(threaded, "select_sketch", lambda *_args: None)
 
-    threaded.cut_hole_from_sketch(model, "Sketch1", 16.0, "贯穿攻丝底孔", through=True)
+    threaded.cut_hole_from_sketch(model, "Sketch1", 16.0, 'Tam geçişli kılavuz ön deliği', through=True)
 
     assert model.FeatureManager.cut_calls[0][3] == threaded.SW_END_COND_THROUGH_ALL
 
 
 def test_real_thread_uses_official_edge_mark_without_start_entity(monkeypatch) -> None:
-    """@brief 平面圆边必须使用选择标记 1，不应再伪造 StartEntity。"""
+    'Planar circular edges require mark 1 without fabricated StartEntity.'
     model = FakeThreadModel()
     edge = FakeThreadEdge()
     params = threaded.build_params(make_args())
@@ -181,22 +181,22 @@ def test_real_thread_uses_official_edge_mark_without_start_entity(monkeypatch) -
 @pytest.mark.parametrize(
     ("overrides", "message"),
     [
-        ({"thread_depth": 12.0, "pilot_depth": 5.0}, "螺纹深度"),
-        ({"hole_x": 100.0}, "孔位 X"),
-        ({"tap_drill": 8.0}, "底孔直径"),
+        ({"thread_depth": 12.0, "pilot_depth": 5.0}, 'Thread depth'),
+        ({"hole_x": 100.0}, 'Hole X'),
+        ({"tap_drill": 8.0}, 'Tap-drill diameter'),
         ({"mouth_chamfer": -1.0}, "mouth_chamfer"),
         ({"block_length": -40.0}, "block_length"),
         ({"hole_x": float("nan")}, "hole_x"),
     ],
 )
 def test_invalid_engineering_parameters_fail_before_com(overrides, message) -> None:
-    """@brief 无效几何和加工参数必须在调用 COM 之前失败。"""
+    'Invalid geometry/process parameters fail before COM.'
     with pytest.raises(ValueError, match=message):
         threaded.build_params(make_args(**overrides))
 
 
 def test_through_hole_keeps_physical_depth_and_allows_partial_thread() -> None:
-    """@brief 贯穿底孔证据应等于板厚，同时允许部分螺纹深度。"""
+    'Through tap-drill evidence equals plate thickness while partial thread depth is allowed.'
     params = threaded.build_params(make_args(through=True, thread_depth=10.0))
 
     assert params.pilot_depth_mm == 16.0
@@ -205,7 +205,7 @@ def test_through_hole_keeps_physical_depth_and_allows_partial_thread() -> None:
 
 
 def test_custom_metric_pitch_requires_explicit_tap_drill() -> None:
-    """@brief 表外公制螺距不得猜测底孔，但可使用用户明确值。"""
+    'Out-of-table pitches require explicit user tap-drill diameters.'
     with pytest.raises(ValueError):
         threaded.build_params(make_args(thread="M8x1.0"))
 
@@ -216,7 +216,7 @@ def test_custom_metric_pitch_requires_explicit_tap_drill() -> None:
 
 
 def test_visible_helix_preserves_pitch_and_stays_inside_hole() -> None:
-    """@brief 螺旋线圈数可以是小数，轴向深度除以圈数必须等于指定螺距。"""
+    'Helix turn counts may be fractional; axial depth divided by turns equals the requested pitch.'
     params = threaded.build_params(
         make_args(thread="M8", block_thickness=20.0, thread_depth=16.0, pilot_depth=18.0)
     )
@@ -228,15 +228,15 @@ def test_visible_helix_preserves_pitch_and_stays_inside_hole() -> None:
 
 
 def test_metadata_only_representation_is_not_verified() -> None:
-    """@brief 只有属性不能伪装成已验证螺纹表达。"""
-    with pytest.raises(RuntimeError, match="只有自定义属性"):
+    'Properties alone cannot establish verified thread representation.'
+    with pytest.raises(RuntimeError, match='custom properties alone'):
         threaded.require_thread_representation({"representation": "metadata-only"})
 
     assert threaded.require_thread_representation({"representation": "real-thread"}) == "real-thread-verified"
 
 
 def test_cosmetic_thread_is_detected_as_cut_subfeature() -> None:
-    """@brief CosmeticThread 是孔/切除的子特征，不能只遍历顶层特征。"""
+    'CosmeticThread belongs under the hole/cut; top-level traversal is insufficient.'
     params = threaded.build_params(make_args())
     cosmetic = FakeTreeFeature("CosmeticThread_M6x1.0_Internal_Blind_RH", "CosmeticThread")
     chamfer = FakeTreeFeature("Chamfer_Thread_Mouth", "Chamfer")
@@ -257,6 +257,6 @@ def test_cosmetic_thread_is_detected_as_cut_subfeature() -> None:
 
 @pytest.mark.parametrize("basename", ["../escape", "folder/name", "bad:name", ".."])
 def test_basename_cannot_escape_output_directory(basename) -> None:
-    """@brief 输出基名不能携带路径或 Windows 非法字符。"""
+    'Output basenames cannot contain paths or invalid Windows characters.'
     with pytest.raises(ValueError):
         threaded.validate_basename(basename)

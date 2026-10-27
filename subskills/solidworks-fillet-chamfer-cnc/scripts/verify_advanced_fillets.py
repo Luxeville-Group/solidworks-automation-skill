@@ -1,8 +1,4 @@
-"""SolidWorks 2026 高级圆角能力探测与真机回归。
-
-@brief 验证多控制点可变半径、保持线、曲率连续曲面组合、全圆角、setback 和宽度-宽度倒角。
-@details 每种能力使用独立零件，保存、STEP 导出、重开和预览均成功才记为 verified。
-"""
+'SolidWorks 2026 advanced-fillet capability probing and native regression. Covers multipoint variable-radius, hold-line, curvature-continuous surface combinations, full-round, setback and distance-distance chamfers. Each capability uses an independent part; verified requires save, STEP export, reopen and previews.'
 
 from __future__ import annotations
 
@@ -81,24 +77,24 @@ SW_DISPLAY_REFERENCE_TRIAD = 205
 
 
 class HoldLineInteropBlockedError(RuntimeError):
-    """@brief 表示保持线几何已准备，但跨语言后端未形成可读回特征。"""
+    'Hold-line geometry is prepared but no cross-language backend produced a readable feature.'
 
     def __init__(self, attempts: list[dict[str, Any]]):
         super().__init__(
-            "SW2026 SP1.1 保持线调用未通过：Python、C#、SWBasic 与进程内 C++ 均在 "
-            "HoldLines/ISetHoldLines 边界失败；"
-            f"已记录 {len(attempts)} 次受控尝试"
+            'SW2026 SP1.1 tutma çizgisi çağrısı başarısız; Python, C#, SWBasic ve işlem içi C++ / Hold-line call failed across all four backends at '
+            'HoldLines/ISetHoldLines sınırında başarısız / boundary failure; '
+            f"Kaydedilen kontrollü deneme / Recorded controlled attempts: {len(attempts)} deneme / attempts"
         )
         self.attempts = attempts
 
 
 def _dispatch_array(items: tuple[Any, ...]):
-    """@brief 构造需要由 COM 明确识别为 IDispatch 数组的参数。"""
+    'Construct a parameter COM must recognize as an IDispatch array.'
     return VARIANT(pythoncom.VT_ARRAY | pythoncom.VT_DISPATCH, list(items))
 
 
 def _double_array(values: tuple[float, ...] | list[float]):
-    """@brief 构造 SolidWorks setback 等接口要求的 SAFEARRAY<double>。"""
+    'Construct SAFEARRAY<double> required by SolidWorks interfaces such as setback.'
     return VARIANT(
         pythoncom.VT_ARRAY | pythoncom.VT_R8,
         [float(value) for value in values],
@@ -106,12 +102,12 @@ def _double_array(values: tuple[float, ...] | list[float]):
 
 
 def _variant_array(items: tuple[Any, ...]):
-    """@brief 构造属性 setter 常用的 SAFEARRAY<VARIANT>。"""
+    'Construct SAFEARRAY<VARIANT> commonly used by property setters.'
     return VARIANT(pythoncom.VT_ARRAY | pythoncom.VT_VARIANT, list(items))
 
 
 def _typed_feature_data(data, interface_name: str):
-    """@brief 通过已生成的 SW2026 makepy 接口包装无类型 FeatureData。"""
+    'Wrap untyped FeatureData using generated SW2026 makepy interfaces.'
     module = _win32com_client.gencache.EnsureModule(
         "{83A33D31-27C5-11CE-BFD4-00400513BB57}", 0, 34, 0
     )
@@ -120,7 +116,7 @@ def _typed_feature_data(data, interface_name: str):
 
 
 def _find_typelib(explicit: Path | None) -> Path:
-    """@brief 定位本机 SolidWorks 主类型库。"""
+    'Locate the local main SolidWorks type library.'
     if explicit:
         return explicit.resolve()
     candidates = [
@@ -130,22 +126,22 @@ def _find_typelib(explicit: Path | None) -> Path:
     for candidate in candidates:
         if candidate.is_file():
             return candidate
-    raise FileNotFoundError("未找到 sldworks.tlb，请使用 --typelib 显式指定")
+    raise FileNotFoundError('sldworks.tlb bulunamadı; --typelib ile belirtin / sldworks.tlb not found; specify --typelib')
 
 
 def _select_plane(model) -> None:
-    """@brief 兼容中英文名称选择前视基准面。"""
+    'Select the front plane using localized aliases.'
     model.ClearSelection2(True)
-    for name in ("Front Plane", "前视基准面"):
+    for name in ("Front Plane", "Ön Düzlem", "\u524d\u89c6\u57fa\u51c6\u9762"):
         if model.Extension.SelectByID2(
             name, "PLANE", 0, 0, 0, False, 0, create_empty_dispatch_variant(), 0
         ):
             return
-    raise RuntimeError("无法选择前视基准面")
+    raise RuntimeError('Ön düzlem seçilemiyor / Cannot select front plane')
 
 
 def _hide_review_helpers(model) -> None:
-    """@brief 隐藏原点和参考三轴，避免蓝色构造符号污染审查图。"""
+    'Hide origin and reference axes to keep construction symbols out of review images.'
     for preference in (SW_DISPLAY_ORIGINS, SW_DISPLAY_REFERENCE_TRIAD):
         try:
             model.SetUserPreferenceToggle(preference, False)
@@ -155,7 +151,7 @@ def _hide_review_helpers(model) -> None:
 
 
 def _create_box(model, length_mm: float, width_mm: float, height_mm: float, name: str):
-    """@brief 创建供高级圆角验证使用的矩形棱柱。"""
+    'Create a rectangular prism for advanced-fillet verification.'
     _select_plane(model)
     model.SketchManager.InsertSketch(True)
     active = model.SketchManager.ActiveSketch
@@ -168,7 +164,7 @@ def _create_box(model, length_mm: float, width_mm: float, height_mm: float, name
     if not model.Extension.SelectByID2(
         sketch_name, "SKETCH", 0, 0, 0, False, 0, create_empty_dispatch_variant(), 0
     ):
-        raise RuntimeError(f"无法选择基础草图: {sketch_name}")
+        raise RuntimeError(f"Taban eskizi seçilemiyor / Cannot select base sketch: {sketch_name}")
     feature = model.FeatureManager.FeatureExtrusion3(
         True, False, False, 0, 0, mm(height_mm), 0,
         False, False, False, False, 0, 0,
@@ -176,14 +172,14 @@ def _create_box(model, length_mm: float, width_mm: float, height_mm: float, name
         True, False, True, 0, 0, False,
     )
     if feature is None:
-        raise RuntimeError("验证棱柱创建失败")
+        raise RuntimeError('Doğrulama prizması oluşturulamadı / Verification prism creation failed')
     feature.Name = name
     model.ForceRebuild3(False)
     return feature
 
 
 def _create_cylinder(model, radius_mm: float, height_mm: float, name: str):
-    """@brief 创建平面与圆柱面组合的曲率连续回归基体。"""
+    'Create a plane/cylinder regression body for curvature-continuous fillets.'
     _select_plane(model)
     model.SketchManager.InsertSketch(True)
     active = model.SketchManager.ActiveSketch
@@ -194,7 +190,7 @@ def _create_cylinder(model, radius_mm: float, height_mm: float, name: str):
     if not model.Extension.SelectByID2(
         sketch_name, "SKETCH", 0, 0, 0, False, 0, create_empty_dispatch_variant(), 0
     ):
-        raise RuntimeError(f"无法选择圆柱草图: {sketch_name}")
+        raise RuntimeError(f"Silindir eskizi seçilemiyor / Cannot select cylinder sketch: {sketch_name}")
     feature = model.FeatureManager.FeatureExtrusion3(
         True, False, False, 0, 0, mm(height_mm), 0,
         False, False, False, False, 0, 0,
@@ -202,14 +198,14 @@ def _create_cylinder(model, radius_mm: float, height_mm: float, name: str):
         True, False, True, 0, 0, False,
     )
     if feature is None:
-        raise RuntimeError("曲面组合验证圆柱创建失败")
+        raise RuntimeError('Yüzey birleşimi test silindiri oluşturulamadı / Surface-combination test cylinder creation failed')
     feature.Name = name
     model.ForceRebuild3(False)
     return feature
 
 
 def _add_projected_hold_line(model):
-    """@brief 在顶面投影距外边 4 mm 的分割线，形成真实保持线。"""
+    'Project a split line 4 mm from the outer top edge to create a real hold line.'
     _select_plane(model)
     model.SketchManager.InsertSketch(True)
     active = model.SketchManager.ActiveSketch
@@ -221,31 +217,31 @@ def _add_projected_hold_line(model):
     if not model.Extension.SelectByID2(
         sketch_name, "SKETCH", 0, 0, 0, False, 4, create_empty_dispatch_variant(), 0
     ):
-        raise RuntimeError(f"无法选择保持线投影草图: {sketch_name}")
+        raise RuntimeError(f"Tutma çizgisi projeksiyon eskizi seçilemiyor / Cannot select hold-line projection sketch: {sketch_name}")
     if not top.Select2(True, 1):
-        raise RuntimeError("无法选择保持线分割目标面")
+        raise RuntimeError('Tutma çizgisi bölme yüzeyi seçilemiyor / Cannot select hold-line split target face')
     model.InsertSplitLineProject(True, True)
     if not model.ForceRebuild3(False):
-        raise RuntimeError("投影保持线重建失败")
-    if model.FeatureByName("Split Line1") is None and model.FeatureByName("分割线1") is None:
-        raise RuntimeError("投影保持线未在特征树中持久化")
+        raise RuntimeError('Yansıtılan tutma çizgisi yeniden oluşturulamadı / Projected hold-line rebuild failed')
+    if model.FeatureByName("Split Line1") is None and model.FeatureByName("\u5206\u5272\u7ebf1") is None:
+        raise RuntimeError('Yansıtılan tutma çizgisi unsur ağacında kalmadı / Projected hold line did not persist in the feature tree')
 
 
 def _body(model):
-    """@brief 返回唯一实体，拒绝多实体歧义。"""
+    'Return a unique body, rejecting multibody ambiguity.'
     bodies = tuple(get_com_member(model, "GetBodies2", SW_SOLID_BODY, False) or ())
     if len(bodies) != 1:
-        raise RuntimeError(f"验证零件应仅有一个实体，实际 {len(bodies)}")
+        raise RuntimeError(f"Test parçası tek katı olmalıdır; gerçek / Test part must have one body; actual: {len(bodies)}")
     return bodies[0]
 
 
 def _point(vertex) -> tuple[float, float, float]:
-    """@brief 返回顶点坐标。"""
+    'Return vertex coordinates.'
     return tuple(float(value) for value in get_com_member(vertex, "GetPoint"))
 
 
 def _edge_points(edge) -> tuple[tuple[float, float, float], tuple[float, float, float]] | None:
-    """@brief 返回直边端点，闭合边返回 None。"""
+    'Return straight-edge endpoints, or None for closed edges.'
     start = get_com_member(edge, "GetStartVertex")
     end = get_com_member(edge, "GetEndVertex")
     if not start or not end:
@@ -254,50 +250,50 @@ def _edge_points(edge) -> tuple[tuple[float, float, float], tuple[float, float, 
 
 
 def _edge_length_mm(edge) -> float:
-    """@brief 计算验证直边长度。"""
+    'Compute the verification straight-edge length.'
     points = _edge_points(edge)
     if not points:
-        raise RuntimeError("目标边没有可读端点")
+        raise RuntimeError('Hedef kenarın uç noktaları okunamıyor / Target edge endpoints unreadable')
     start, end = points
     return sum((end[index] - start[index]) ** 2 for index in range(3)) ** 0.5 * 1000.0
 
 
 def _near(left: float, right: float) -> bool:
-    """@brief 判断两个米制几何坐标是否相等。"""
+    'Compare two geometry coordinates in meters.'
     return abs(left - right) <= GEOMETRY_TOLERANCE_M
 
 
 def _find_edge(model, predicate: Callable[[tuple[float, ...], tuple[float, ...]], bool]):
-    """@brief 按端点几何语义查找唯一边。"""
+    'Find a unique edge by endpoint geometry.'
     matches = []
     for edge in tuple(get_com_member(_body(model), "GetEdges") or ()):
         points = _edge_points(edge)
         if points and predicate(points[0], points[1]):
             matches.append(edge)
     if len(matches) != 1:
-        raise RuntimeError(f"目标边匹配不唯一: {len(matches)}")
+        raise RuntimeError(f"Hedef kenar eşleşmesi benzersiz değil / Target edge match is not unique: {len(matches)}")
     return matches[0]
 
 
 def _face_box(face) -> tuple[float, ...]:
-    """@brief 返回面的轴对齐包围盒。"""
+    "Return the face's axis-aligned bounding box."
     return tuple(float(value) for value in get_com_member(face, "GetBox"))
 
 
 def _find_face(model, predicate: Callable[[tuple[float, ...]], bool]):
-    """@brief 按包围盒几何语义查找唯一面。"""
+    'Find a unique face by bounding-box geometry.'
     matches = [
         face
         for face in tuple(get_com_member(_body(model), "GetFaces") or ())
         if predicate(_face_box(face))
     ]
     if len(matches) != 1:
-        raise RuntimeError(f"目标面匹配不唯一: {len(matches)}")
+        raise RuntimeError(f"Hedef yüz eşleşmesi benzersiz değil / Target face match is not unique: {len(matches)}")
     return matches[0]
 
 
 def _surface_type(face) -> str:
-    """@brief 回读面的解析曲面类型，拒绝仅凭包围盒猜测。"""
+    'Read the analytic surface type; do not infer it from bounds alone.'
     surface = get_com_member(face, "GetSurface")
     if surface is None:
         return "unknown"
@@ -317,7 +313,7 @@ def _surface_type(face) -> str:
 
 
 def _find_vertex(model, target: tuple[float, float, float]):
-    """@brief 按精确角点坐标查找唯一顶点。"""
+    'Find a unique vertex by exact corner coordinates.'
     vertices = []
     seen = set()
     for edge in tuple(get_com_member(_body(model), "GetEdges") or ()):
@@ -331,12 +327,12 @@ def _find_vertex(model, target: tuple[float, float, float]):
                 seen.add(key)
                 vertices.append(vertex)
     if len(vertices) != 1:
-        raise RuntimeError(f"目标顶点匹配不唯一: {len(vertices)}")
+        raise RuntimeError(f"Hedef köşe eşleşmesi benzersiz değil / Target vertex match is not unique: {len(vertices)}")
     return vertices[0]
 
 
 def _incident_edges(model, vertex) -> tuple[Any, ...]:
-    """@brief 返回与目标顶点相接的全部边。"""
+    'Return all edges incident to the target vertex.'
     target = _point(vertex)
     result = []
     for edge in tuple(get_com_member(_body(model), "GetEdges") or ()):
@@ -349,20 +345,20 @@ def _incident_edges(model, vertex) -> tuple[Any, ...]:
 
 
 def _assert_feature(model, feature, name: str):
-    """@brief 命名、重建并确认高级圆角持久化。"""
+    'Name, rebuild and verify persistence of an advanced fillet.'
     if feature is None:
-        raise RuntimeError(f"{name} 创建失败，API 返回 None")
+        raise RuntimeError(f"{name} oluşturulamadı; API None döndürdü / creation failed; API returned None")
     feature.Name = name
     if not model.ForceRebuild3(False):
-        raise RuntimeError(f"{name} 重建失败")
+        raise RuntimeError(f"{name} yeniden oluşturulamadı / rebuild failed")
     persisted = model.FeatureByName(name)
     if persisted is None:
-        raise RuntimeError(f"{name} 重建后未在特征树中持久化")
+        raise RuntimeError(f"{name} yeniden oluşturmadan sonra unsur ağacında kalmadı / did not persist in the feature tree after rebuild")
     return persisted
 
 
 def _create_variable(model):
-    """@brief 创建带三个中间控制点的真实可变半径圆角。"""
+    'Create a real variable-radius fillet with three intermediate control points.'
     spec = VariableFilletSpec(
         start_radius=2.0,
         end_radius=5.0,
@@ -377,17 +373,17 @@ def _create_variable(model):
     validation = validate_variable_spec(spec, edge_length_mm=_edge_length_mm(edge))
     model.ClearSelection2(True)
     if not edge.Select2(False, 1):
-        raise RuntimeError("可变半径目标边选择失败")
+        raise RuntimeError('Değişken radyüs hedef kenarı seçilemedi / Variable-radius target edge selection failed')
     points = _edge_points(edge)
     if points is None:
-        raise RuntimeError("可变半径目标边端点不可读")
+        raise RuntimeError('Değişken radyüs kenar uçları okunamıyor / Variable-radius edge endpoints unreadable')
     start, end = points
     for location, _radius in spec.control_points:
         xyz = tuple(start[index] + location * (end[index] - start[index]) for index in range(3))
         if not model.Extension.SelectByID2(
             "", "POINTREF", *xyz, True, 256, create_empty_dispatch_variant(), 0
         ):
-            raise RuntimeError(f"可变半径控制点选择失败: location={location}")
+            raise RuntimeError(f"Değişken radyüs kontrol noktası seçilemedi / Variable-radius control-point selection failed: location={location}")
     options = SW_FILLET_PROPAGATE + SW_FILLET_UNIFORM_RADIUS + SW_FILLET_VARIABLE_TYPE
     feature = model.FeatureManager.FeatureFillet3(
         options, 0.0, 0.0, 0.0, SW_FEATURE_VARIABLE,
@@ -401,32 +397,32 @@ def _create_variable(model):
 
 
 def _create_face(model):
-    """@brief 用现代 FeatureData API 创建相邻两面的面圆角。"""
+    'Create an adjacent-face fillet through modern FeatureData APIs.'
     spec = FaceFilletSpec(radius=4.0)
     validation = validate_face_spec(spec, clearance_mm=16.0)
     top = _find_face(model, lambda box: _near(box[2], mm(16.0)) and _near(box[5], mm(16.0)))
     side = _find_face(model, lambda box: _near(box[1], mm(15.0)) and _near(box[4], mm(15.0)))
     model.ClearSelection2(True)
     if not top.Select2(False, 2) or not side.Select2(True, 4):
-        raise RuntimeError("面圆角的面组选择失败")
+        raise RuntimeError('Yüz radyüsü yüz grubu seçilemedi / Face-fillet face-set selection failed')
     data = model.FeatureManager.CreateDefinition(SW_FM_FILLET)
     if data is None or not data.Initialize(SW_SIMPLE_FACE):
-        raise RuntimeError("面圆角 FeatureData 初始化失败")
+        raise RuntimeError('Yüz radyüsü FeatureData başlatılamadı / Face-fillet FeatureData initialization failed')
     data.ConicTypeForCrossSectionProfile = SW_PROFILE_CIRCULAR
     data.DefaultRadius = mm(spec.radius)
     data.PropagateToTangentFaces = spec.propagate_tangent
     data.SetFaces(SW_FACE_SET_1, _dispatch_array((top,)))
     data.SetFaces(SW_FACE_SET_2, _dispatch_array((side,)))
     if int(data.GetFaceCount(SW_FACE_SET_1)) != 1:
-        raise RuntimeError("面圆角 Face Set 1 回读数量异常")
+        raise RuntimeError('Yüz radyüsü Face Set 1 sayısı beklenmiyor / Face-fillet Face Set 1 count mismatch')
     if int(data.GetFaceCount(SW_FACE_SET_2)) != 1:
-        raise RuntimeError("面圆角 Face Set 2 回读数量异常")
+        raise RuntimeError('Yüz radyüsü Face Set 2 sayısı beklenmiyor / Face-fillet Face Set 2 count mismatch')
     feature = model.FeatureManager.CreateFeature(data)
     return _assert_feature(model, feature, "Advanced_Face_Fillet_R4"), validation
 
 
 def _create_hold_line(model, sw=None):
-    """@brief 优先用原生 C++ 创建保持线圆角，并保留跨语言负向证据。"""
+    'Prefer native C++ hold-line creation and preserve cross-language negative evidence.'
     spec = HoldLineFilletSpec(radius=4.0, hold_line_count=1)
     _add_projected_hold_line(model)
     inner_top = _find_face(
@@ -459,7 +455,7 @@ def _create_hold_line(model, sw=None):
             or not side.Select2(True, 4)
             or not hold_line.Select2(True, 8)
         ):
-            raise HoldLineBridgeError("SWBasic 桥接所需的面组或保持线选择失败")
+            raise HoldLineBridgeError('SWBasic köprüsü için yüz grubu veya tutma çizgisi seçilemedi / SWBasic face-set or hold-line selection failed')
         native = create_hold_line_via_native_addin(
             sw,
             str(get_com_member(model, "GetTitle")),
@@ -468,7 +464,7 @@ def _create_hold_line(model, sw=None):
         feature = model.FeatureByName(feature_name)
         if feature is None:
             raise HoldLineBridgeError(
-                "原生 Add-in 报告成功，但 Python 会话未找到保持线特征",
+                'Yerel Add-in başarılı bildirdi ancak Python oturumu tutma çizgisi unsurunu bulamadı / Native add-in reported success but the Python session found no hold-line feature',
                 native,
             )
         validation["backend"] = "native-cpp-swb"
@@ -491,7 +487,7 @@ def _create_hold_line(model, sw=None):
         feature = model.FeatureByName(feature_name)
         if feature is None:
             raise HoldLineBridgeError(
-                "C# 桥接器报告成功，但 Python 会话未找到保持线特征",
+                'C# köprüsü başarılı bildirdi ancak Python oturumu tutma çizgisi unsurunu bulamadı / C# bridge reported success but the Python session found no hold-line feature',
                 bridge,
             )
         validation["backend"] = "csharp-pia"
@@ -524,13 +520,13 @@ def _create_hold_line(model, sw=None):
                     or not side.Select2(True, 4)
                     or not hold_line.Select2(True, 8)
                 ):
-                    raise RuntimeError("保持线圆角的面组或保持线选择失败")
+                    raise RuntimeError('Tutma çizgisi radyüsü için yüz grubu veya çizgi seçilemedi / Hold-line face-set or line selection failed')
                 data = model.FeatureManager.CreateDefinition(SW_FM_FILLET)
                 if data is None:
-                    raise RuntimeError("保持线圆角 CreateDefinition 返回 None")
+                    raise RuntimeError('Tutma çizgisi CreateDefinition None döndürdü / Hold-line CreateDefinition returned None')
                 data = _typed_feature_data(data, "ISimpleFilletFeatureData2")
                 if not data.Initialize(SW_SIMPLE_FACE):
-                    raise RuntimeError("保持线圆角 FeatureData 初始化失败")
+                    raise RuntimeError('Tutma çizgisi FeatureData başlatılamadı / Hold-line FeatureData initialization failed')
                 data.ConicTypeForCrossSectionProfile = SW_PROFILE_CIRCULAR
                 data.SetFaces(SW_FACE_SET_1, _dispatch_array((top,)))
                 data.SetFaces(SW_FACE_SET_2, _dispatch_array((side,)))
@@ -567,7 +563,7 @@ def _create_hold_line(model, sw=None):
                         or not faces[1].Select2(True, 4)
                         or not hold_line.Select2(True, 8)
                     ):
-                        raise RuntimeError("保持线圆角的面组或保持线选择失败")
+                        raise RuntimeError('Tutma çizgisi radyüsü için yüz grubu veya çizgi seçilemedi / Hold-line face-set or line selection failed')
                     options = direction
                     if tangent_hold_line:
                         options += SW_FILLET_USE_TANGENT_HOLD_LINE
@@ -608,7 +604,7 @@ def _create_hold_line(model, sw=None):
 
 
 def _create_surface_combo(model):
-    """@brief 创建平面到圆柱面的 G2 曲率连续面圆角。"""
+    'Create a G2 curvature-continuous face fillet from a plane to a cylinder.'
     spec = SurfaceCombinationSpec(radius=3.0, curvature_continuous=True)
     top = _find_face(model, lambda box: _near(box[2], mm(20.0)) and _near(box[5], mm(20.0)))
     cylinder = _find_face(
@@ -625,10 +621,10 @@ def _create_surface_combo(model):
     )
     model.ClearSelection2(True)
     if not top.Select2(False, 2) or not cylinder.Select2(True, 4):
-        raise RuntimeError("复杂曲面组合的平面/圆柱面选择失败")
+        raise RuntimeError('Yüzey birleşimi düzlem/silindir seçimi başarısız / Surface-combination plane/cylinder selection failed')
     data = model.FeatureManager.CreateDefinition(SW_FM_FILLET)
     if data is None or not data.Initialize(SW_SIMPLE_FACE):
-        raise RuntimeError("复杂曲面组合 FeatureData 初始化失败")
+        raise RuntimeError('Yüzey birleşimi FeatureData başlatılamadı / Surface-combination FeatureData initialization failed')
     data.DefaultRadius = mm(spec.radius)
     data.CurvatureContinuous = spec.curvature_continuous
     data.PropagateToTangentFaces = spec.propagate_tangent
@@ -639,7 +635,7 @@ def _create_surface_combo(model):
 
 
 def _create_full_round(model):
-    """@brief 将窄棱柱的两侧面和顶面转换为全圆角。"""
+    "Convert a narrow prism's two sides and top face into a full-round."
     spec = FullRoundFilletSpec()
     validation = validate_full_round_spec(spec, face_set_counts=(1, 1, 1))
     side1 = _find_face(model, lambda box: _near(box[1], mm(-6.0)) and _near(box[4], mm(-6.0)))
@@ -647,10 +643,10 @@ def _create_full_round(model):
     side2 = _find_face(model, lambda box: _near(box[1], mm(6.0)) and _near(box[4], mm(6.0)))
     model.ClearSelection2(True)
     if not side1.Select2(False, 2) or not center.Select2(True, 512) or not side2.Select2(True, 4):
-        raise RuntimeError("全圆角三组面选择失败")
+        raise RuntimeError('Full-round için üç yüz grubu seçilemedi / Full-round three-set selection failed')
     data = model.FeatureManager.CreateDefinition(SW_FM_FILLET)
     if data is None or not data.Initialize(SW_SIMPLE_FULL_ROUND):
-        raise RuntimeError("全圆角 FeatureData 初始化失败")
+        raise RuntimeError('Full-round FeatureData başlatılamadı / Full-round FeatureData initialization failed')
     data.PropagateToTangentFaces = spec.propagate_tangent
     for which, faces, label in (
         (SW_FULL_SET_1, (side1,), "Side Set 1"),
@@ -659,26 +655,26 @@ def _create_full_round(model):
     ):
         data.SetFaces(which, _dispatch_array(faces))
         if int(data.GetFaceCount(which)) != len(faces):
-            raise RuntimeError(f"全圆角 {label} 回读数量异常")
+            raise RuntimeError(f"Full-round {label} okunan adet beklenmiyor / readback count mismatch")
     feature = model.FeatureManager.CreateFeature(data)
     return _assert_feature(model, feature, "Advanced_Full_Round"), validation
 
 
 def _create_setback(model):
-    """@brief 用 FeatureFillet3 创建三边角可变圆角及逐边 setback。"""
+    'Create a three-edge corner fillet and per-edge setbacks using FeatureFillet3.'
     spec = SetbackFilletSpec(radius=3.0, distances=(1.0, 1.0, 1.0))
     vertex = _find_vertex(model, (mm(30.0), mm(20.0), mm(18.0)))
     edges = _incident_edges(model, vertex)
     lengths = tuple(_edge_length_mm(edge) for edge in edges)
     validation = validate_setback_spec(spec, incident_edge_lengths_mm=lengths)
     if len(edges) != 3:
-        raise RuntimeError(f"setback 角点应有三条边，实际 {len(edges)}")
+        raise RuntimeError(f"Setback köşesi üç kenar içermeli; gerçek / Setback corner requires three edges; actual: {len(edges)}")
     model.ClearSelection2(True)
     for index, edge in enumerate(edges):
         if not edge.Select2(index > 0, 1):
-            raise RuntimeError(f"setback 第 {index + 1} 条边选择失败")
+            raise RuntimeError(f"Setback kenar / edge {index + 1} seçilemedi / selection failed")
     if not vertex.Select2(True, 0):
-        raise RuntimeError("setback 顶点选择失败")
+        raise RuntimeError('Setback köşesi seçilemedi / Setback vertex selection failed')
     options = SW_FILLET_PROPAGATE + SW_FILLET_UNIFORM_RADIUS + SW_FILLET_CORNER_TYPE
     feature = model.FeatureManager.FeatureFillet3(
         options,
@@ -700,7 +696,7 @@ def _create_setback(model):
 
 
 def _create_width_width_chamfer(model):
-    """@brief 创建两侧距离不同的真实距离-距离倒角。"""
+    'Create a real distance-distance chamfer with unequal side distances.'
     spec = WidthWidthChamferSpec(width1=2.0, width2=4.0)
     edge = _find_edge(
         model,
@@ -714,7 +710,7 @@ def _create_width_width_chamfer(model):
     )
     model.ClearSelection2(True)
     if not edge.Select2(False, 0):
-        raise RuntimeError("宽度-宽度倒角目标边选择失败")
+        raise RuntimeError('Mesafe-mesafe pah hedef kenarı seçilemedi / Distance-distance chamfer edge selection failed')
     options = SW_CHAMFER_TANGENT_PROPAGATION if spec.propagate_tangent else 0
     feature = model.FeatureManager.InsertFeatureChamfer(
         options,
@@ -741,7 +737,7 @@ BUILDERS: Mapping[str, tuple[tuple[float, float, float], Callable[[Any], tuple[A
 
 
 def _feature_data_evidence(feature, kind: str, model=None) -> dict[str, Any]:
-    """@brief 回读高级圆角 FeatureData 的关键事实。"""
+    'Read key facts from advanced-fillet FeatureData.'
     data = get_com_member(feature, "GetDefinition")
     evidence: dict[str, Any] = {
         "name": feature.Name,
@@ -798,7 +794,7 @@ def _feature_data_evidence(feature, kind: str, model=None) -> dict[str, Any]:
 
 
 def _evidence_passes(kind: str, evidence: Mapping[str, Any]) -> bool:
-    """@brief 以 FeatureData 回读值判定高级特征是否真的按请求创建。"""
+    'Use FeatureData readback to verify the advanced feature matches the request.'
     if not evidence.get("definition_available"):
         return False
     if kind == "variable":
@@ -834,7 +830,7 @@ def _evidence_passes(kind: str, evidence: Mapping[str, Any]) -> bool:
 
 
 def _verify_one(session: SolidWorksSession, kind: str, output_dir: Path) -> dict[str, Any]:
-    """@brief 构建并完成一种高级圆角的交付闭环。"""
+    'Build and complete the delivery evidence chain for one advanced fillet.'
     size, builder = BUILDERS[kind]
     basename = f"Advanced_Fillet_{kind}"
     part_path = output_dir / f"{basename}.SLDPRT"
@@ -852,9 +848,9 @@ def _verify_one(session: SolidWorksSession, kind: str, output_dir: Path) -> dict
         _hide_review_helpers(model)
         model.ViewZoomtofit2()
         if not session.save(model, str(part_path)):
-            raise RuntimeError(f"保存失败: {part_path}")
+            raise RuntimeError(f"Kaydetme başarısız / Save failed: {part_path}")
         if not export_to_step(model, str(step_path)):
-            raise RuntimeError(f"STEP 导出失败: {step_path}")
+            raise RuntimeError(f"STEP dışa aktarma başarısız / STEP export failed: {step_path}")
         review, review_path = run_review(
             model,
             output_dir,
@@ -918,33 +914,33 @@ def _verify_one(session: SolidWorksSession, kind: str, output_dir: Path) -> dict
 
 
 def parse_args() -> argparse.Namespace:
-    """@brief 解析命令行参数。"""
-    parser = argparse.ArgumentParser(description="探测并真机验证 SolidWorks 高级圆角能力。")
-    parser.add_argument("--typelib", type=Path, help="sldworks.tlb 路径。")
+    'Parse CLI arguments.'
+    parser = argparse.ArgumentParser(description='SolidWorks gelişmiş radyüs yeteneklerini araştırır ve yerel olarak doğrular / Probe and natively verify advanced fillets.')
+    parser.add_argument("--typelib", type=Path, help='sldworks.tlb yolu / sldworks.tlb path.')
     parser.add_argument(
         "--version", type=int,
-        help="可选 SolidWorks 年份，例如 2026；省略时自动连接默认版本。",
+        help='İsteğe bağlı SolidWorks yılı, ör. 2026; yoksa varsayılan sürüm / Optional SolidWorks year; defaults to registered version.',
     )
     parser.add_argument(
         "--modes", nargs="+", choices=ADVANCED_KINDS, default=list(ADVANCED_KINDS),
-        help="需要验证的高级圆角类型。",
+        help='Doğrulanacak gelişmiş radyüs türü / Advanced fillet type to verify.',
     )
-    parser.add_argument("--verify-solidworks", action="store_true", help="执行真实 SolidWorks 建模回归。")
+    parser.add_argument("--verify-solidworks", action="store_true", help='Gerçek SolidWorks modelleme regresyonunu çalıştır / Run native SolidWorks modeling regression.')
     parser.add_argument(
         "--unsafe-native-hold-line",
         action="store_true",
-        help="仅在隔离实例中复测已知可能导致 SolidWorks 服务器故障的保持线后端。",
+        help='Bilinen sunucu hatası riski olan tutma çizgisi arka ucunu yalnızca yalıtılmış örnekte dene / Retest known-fault hold-line backend only in an isolated instance.',
     )
     parser.add_argument(
         "--output-dir", type=Path,
         default=Path.cwd() / "solidworks_advanced_fillet_output",
-        help="报告和真机产物目录。",
+        help='Rapor ve yerel çıktı dizini / Report and native artifact directory.',
     )
     return parser.parse_args()
 
 
 def main() -> int:
-    """@brief 命令行入口。"""
+    'Command-line entry point.'
     args = parse_args()
     if args.unsafe_native_hold_line:
         os.environ["CAD_STUDIO_UNSAFE_NATIVE_HOLD_LINE"] = "1"
@@ -969,7 +965,7 @@ def main() -> int:
                 if capability["status"] != "interface_ready":
                     capability["runtime"] = {
                         "status": "blocked",
-                        "reason": "类型库缺少必需接口",
+                        "reason": 'Tür kitaplığında gerekli arayüzler eksik / Required interfaces missing from type library',
                     }
                     continue
                 try:

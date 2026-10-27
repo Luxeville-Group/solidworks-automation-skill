@@ -39,7 +39,7 @@
 
   <Target Name="ValidateSolidWorksApiDir" BeforeTargets="ResolveReferences">
     <Error Condition="!Exists('$(SolidWorksApiDir)\SolidWorks.Interop.sldworks.dll')"
-           Text="SolidWorksApiDir 无效；请传入 SolidWorks api\redist 目录。当前值：$(SolidWorksApiDir)" />
+           Text="SolidWorksApiDir geçersiz; SOLIDWORKS api\redist dizinini belirtin. Mevcut değer: $(SolidWorksApiDir)" />
   </Target>
 
   <Target Name="PrepareStrongNameKey" BeforeTargets="CoreCompile">

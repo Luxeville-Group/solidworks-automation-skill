@@ -1,8 +1,8 @@
 """@file dxf_preview_scene.py
-@brief 将 DXF 只读转换为浏览器可安全消费的 PreviewScene JSON。
+@brief Convert DXF read-only into browser-safe PreviewScene JSON.
 
-该转换器不执行 AutoLISP、不解析 DWG，也不修改源文件。超出白名单的实体会记录为限制，
-而不是交给浏览器执行或静默宣称完整显示。
+Do not execute AutoLISP, parse DWG or modify the source. Record entities outside
+the allowlist as limitations rather than executing them or claiming complete display.
 """
 from __future__ import annotations
 
@@ -29,16 +29,16 @@ LAYER_COLORS = {
 
 
 def _point(value: Any) -> list[float]:
-    """@brief 将 ezdxf Vec3 或二元序列转换为有限二维坐标。"""
+    """@brief Convert ezdxf Vec3 or a two-element sequence to finite 2D coordinates."""
     x = float(value.x if hasattr(value, "x") else value[0])
     y = float(value.y if hasattr(value, "y") else value[1])
     if not math.isfinite(x) or not math.isfinite(y):
-        raise ValueError("DXF 包含非有限坐标")
+        raise ValueError("DXF sonlu olmayan koordinatlar içeriyor")
     return [x, y]
 
 
 def _circle_points(center: Any, radius: float, start: float = 0.0, end: float = 360.0) -> list[list[float]]:
-    """@brief 将圆或圆弧离散为稳定的浏览器折线。"""
+    """@brief Discretize circles/arcs into stable browser polylines."""
     cx, cy = _point(center)
     sweep = (end - start) % 360.0 or 360.0
     segments = max(12, min(96, int(math.ceil(sweep / 6.0))))
@@ -49,7 +49,7 @@ def _circle_points(center: Any, radius: float, start: float = 0.0, end: float = 
 
 
 def _dimension_points(entity: Any) -> list[list[float]]:
-    """@brief 提取真实 DIMENSION 定义点，避免依赖渲染块内部实现。"""
+    """@brief Extract actual DIMENSION definition points independently of render-block internals."""
     points = []
     for name in ("defpoint2", "defpoint3", "defpoint", "text_midpoint"):
         if entity.dxf.hasattr(name):
@@ -61,7 +61,7 @@ def _dimension_points(entity: Any) -> list[list[float]]:
 
 
 def _entity_payload(entity: Any) -> dict[str, Any] | None:
-    """@brief 把白名单 DXF 实体转换为 PreviewScene 实体。"""
+    """@brief Convert allowed DXF entities into PreviewScene entities."""
     kind = entity.dxftype()
     layer = str(entity.dxf.get("layer", "0"))
     handle = str(entity.dxf.get("handle", "")) or f"{kind.lower()}-{id(entity)}"
@@ -112,7 +112,7 @@ def _entity_payload(entity: Any) -> dict[str, Any] | None:
 
 
 def _bounds(entities: Iterable[dict[str, Any]]) -> dict[str, float]:
-    """@brief 计算场景二维包围盒。"""
+    """@brief Compute the scene 2D bounding box."""
     points = [point for entity in entities for point in entity.get("points", [])]
     if not points:
         return {"minX": 0.0, "minY": 0.0, "maxX": 1.0, "maxY": 1.0}
@@ -122,23 +122,23 @@ def _bounds(entities: Iterable[dict[str, Any]]) -> dict[str, float]:
 
 
 def dxf_to_preview_scene(source: str | Path, output: str | Path | None = None) -> dict[str, Any]:
-    """@brief 只读解析 DXF，返回并可选写出 PreviewScene 1.0。"""
+    """@brief Parse DXF read-only and return, optionally write, PreviewScene 1.0."""
     import ezdxf
 
     source_path = Path(source).expanduser().resolve()
     if source_path.suffix.lower() != ".dxf":
-        raise ValueError("PreviewScene 转换只接受 DXF")
+        raise ValueError("PreviewScene dönüştürme yalnızca DXF kabul eder")
     if not source_path.is_file():
         raise FileNotFoundError(source_path)
     if source_path.stat().st_size > MAX_DXF_BYTES:
-        raise ValueError(f"DXF 超过 {MAX_DXF_BYTES // 1024 // 1024} MB 安全上限")
+        raise ValueError(f"DXF şu sınırı aşıyor: {MAX_DXF_BYTES // 1024 // 1024} MB")
     document = ezdxf.readfile(source_path)
     modelspace = document.modelspace()
     entities = []
     unsupported = Counter()
     for index, entity in enumerate(modelspace):
         if index >= MAX_ENTITIES:
-            raise ValueError(f"DXF 实体数超过 {MAX_ENTITIES} 安全上限")
+            raise ValueError(f"DXF varlık sayısı şu sınırı aşıyor: {MAX_ENTITIES} güvenlik sınırı")
         if entity.dxftype() not in SUPPORTED_TYPES:
             unsupported[entity.dxftype()] += 1
             continue
@@ -150,7 +150,7 @@ def dxf_to_preview_scene(source: str | Path, output: str | Path | None = None) -
         {"name": name, "color": LAYER_COLORS.get(name.upper(), "#42514e"), "count": count, "visible": True}
         for name, count in sorted(layer_counts.items())
     ]
-    warnings = [f"未显示 {kind}: {count}" for kind, count in sorted(unsupported.items())]
+    warnings = [f"Gösterilmeyen: {kind}: {count}" for kind, count in sorted(unsupported.items())]
     scene = {
         "schemaVersion": "1.0",
         "kind": "dxf-scene",
@@ -160,22 +160,22 @@ def dxf_to_preview_scene(source: str | Path, output: str | Path | None = None) -
         "entities": entities,
         "layers": layers,
         "warnings": warnings,
-        "limitations": ["只读 PreviewScene，不修改 DXF", *warnings],
+        "limitations": ["Salt okunur PreviewScene; DXF değişmez", *warnings],
     }
     if output is not None:
         target = Path(output).expanduser().resolve()
         if target.suffix.lower() != ".json" or not target.name.lower().endswith(".scene.json"):
-            raise ValueError("PreviewScene 输出必须使用 .scene.json 后缀")
+            raise ValueError("PreviewScene çıktısı .scene.json uzantısı kullanmalıdır")
         if target.exists():
-            raise FileExistsError(f"拒绝覆盖已有 PreviewScene: {target.name}")
+            raise FileExistsError(f"Mevcut PreviewScene üzerine yazma reddedildi: {target.name}")
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(json.dumps(scene, ensure_ascii=False, indent=2), encoding="utf-8")
     return scene
 
 
 def main(argv: list[str] | None = None) -> int:
-    """@brief 命令行入口。"""
-    parser = argparse.ArgumentParser(description="将 DXF 转换为安全 PreviewScene JSON")
+    """@brief Command-line entry point."""
+    parser = argparse.ArgumentParser(description="DXF dosyasını güvenli PreviewScene JSON biçimine dönüştür")
     parser.add_argument("source", type=Path)
     parser.add_argument("output", type=Path)
     args = parser.parse_args(argv)

@@ -1,25 +1,25 @@
-# 第 1 周：JS CAD 预览调研
+# Week 1: JS CAD preview research
 
-调研日期：2026-07-31。数据来自 GitHub REST 仓库公开元数据，Stars/Forks 会随时间变化。
+Research date: 2026-07-31. Data comes from public GitHub REST repository metadata; stars and forks change over time.
 
-| 项目 | Stars | Forks | 许可证 | 适合用途 | 本周结论 |
+| Project | Stars | Forks | License | Suitable uses | This week's conclusion |
 |---|---:|---:|---|---|---|
-| [three.js](https://github.com/mrdoob/three.js) | 114,133 | 36,455 | MIT | WebGL 场景、GLTF/STL/OBJ Loader、交互控制 | 作为 CAD Studio 预览底座 |
-| [Online3DViewer](https://github.com/kovacsv/Online3DViewer) | 3,617 | 759 | MIT | 多格式浏览器查看器，支持 STEP/IGES/STL/OBJ 等 | 后续评估其格式适配和 UI 能力 |
-| [replicad](https://github.com/sgenoud/replicad) | 661 | 78 | MIT | 浏览器 OpenCascade 参数化建模 | 作为未来浏览器端参数化实验参考，不进入本周运行时 |
-| [three-cad-viewer](https://github.com/bernhard-42/three-cad-viewer) | 380 | 65 | MIT | 基于 Three.js 的 CAD Viewer 组件 | 参考树结构、选择与相机交互 |
-| [occt-import-js](https://github.com/kovacsv/occt-import-js) | 278 | 54 | LGPL-2.1 | OpenCascade WASM 导入 STEP/IGES/BREP | 暂不直接并入 MIT 主包，先做隔离进程/许可证评估 |
-| [ThatOpen/engine_components](https://github.com/ThatOpen/engine_components) | 691 | 204 | MIT | BIM/IFC 组件和 3D 引擎 | 与机械 CAD 目标不完全匹配，暂不引入 |
+| [three.js](https://github.com/mrdoob/three.js) | 114,133 | 36,455 | MIT | WebGL scenes, GLTF/STL/OBJ loaders, interaction controls | Use as the CAD Studio preview foundation |
+| [Online3DViewer](https://github.com/kovacsv/Online3DViewer) | 3,617 | 759 | MIT | Multiformat browser viewer supporting STEP/IGES/STL/OBJ and more | Evaluate format adaptation and UI capabilities later |
+| [replicad](https://github.com/sgenoud/replicad) | 661 | 78 | MIT | Browser-based OpenCascade parametric modeling | Reference for future browser parametric experiments; exclude from this week's runtime |
+| [three-cad-viewer](https://github.com/bernhard-42/three-cad-viewer) | 380 | 65 | MIT | Three.js CAD viewer component | Reference for tree structures, selection, and camera interaction |
+| [occt-import-js](https://github.com/kovacsv/occt-import-js) | 278 | 54 | LGPL-2.1 | OpenCascade WASM import of STEP/IGES/BREP | Do not directly incorporate into the MIT main package yet; evaluate process isolation and licensing first |
+| [ThatOpen/engine_components](https://github.com/ThatOpen/engine_components) | 691 | 204 | MIT | BIM/IFC components and 3D engine | Not a close fit for mechanical CAD goals; do not introduce yet |
 
-## 本周实现边界
+## This week's implementation scope
 
-- SolidWorks 产物优先显示 STL、GLB/GLTF、OBJ；Three.js Loader 使用动态导入，避免首屏阻塞。
-- DXF 使用浏览器只读解析回退，覆盖 `LINE`、`CIRCLE` 和 `LWPOLYLINE`，解析失败明确显示错误，不伪造 CAD 成功。
-- STEP/IGES、DWG 的真实几何预览仍以原生 SolidWorks/AutoCAD 导出 PNG 或网格产物为准；不把线框占位图当作实体预览。
-- 本地路径仅通过 Tauri `convertFileSrc` 访问；诊断包仍脱敏，不上传 CAD 文件、Prompt 或密钥。
+- Prefer STL, GLB/GLTF, and OBJ for SolidWorks artifact previews. Dynamically import Three.js loaders to avoid blocking initial display.
+- DXF uses a read-only browser parsing fallback supporting `LINE`, `CIRCLE`, and `LWPOLYLINE`. Display parsing errors explicitly; do not fake CAD success.
+- Real geometry previews for STEP/IGES and DWG still depend on native SolidWorks/AutoCAD PNG or mesh exports; wireframe placeholders are not solid previews.
+- Access local paths only through Tauri `convertFileSrc`. Diagnostic packages remain sanitized and exclude CAD files, prompts, and keys.
 
-## 后续评估
+## Further evaluation
 
-1. 用独立 Worker 评估 `occt-import-js` 的 LGPL 组合方式，完成法务和发布包体积检查后再决定是否支持 STEP 浏览器预览。
-2. 对比 Online3DViewer 与当前 Three.js 组件的大模型加载时间、内存和移动窗口交互。
-3. 增加 DXF 图层、尺寸和图框结构化显示；复杂实体回退到 AutoCAD 原生 BMP/PNG 预览。
+1. Evaluate LGPL integration of `occt-import-js` in an isolated Worker; complete legal and package-size checks before deciding on browser STEP preview support.
+2. Compare Online3DViewer with the current Three.js component for large-model load time, memory use, and interaction while moving the window.
+3. Add structured DXF layer, dimension, and drawing-frame display; fall back to native AutoCAD BMP/PNG previews for complex entities.

@@ -1,15 +1,15 @@
 """
-真机冒烟测试：验证新增的建模/测量/规格工具在真实 SolidWorks 上可用。
+Real-machine smoke tests for new modeling, measurement, and specification tools in SolidWorks.
 
-这是**真机回归**，需要本机安装并授权 SolidWorks。它不在默认 pytest 集合里
-（文件名不以 test_ 开头），必须显式运行：
+This is a **real-machine regression** requiring locally installed and licensed SolidWorks. It is excluded from default pytest
+collection (the filename does not start with test_) and must be run explicitly:
 
     python tests/live_smoke_new_tools.py
 
-所有产物写入 tests/output/live_smoke/，不触碰用户已打开的文档：脚本开始时记录
-文档列表，结束时只关闭自己创建的那些。
+All outputs go to tests/output/live_smoke/. User-opened documents are untouched: the script records
+the initial document list and closes only documents it creates.
 
-退出码 0 表示全部通过；非 0 表示有失败项，详细原因打印在 stdout。
+Exit code 0 means every check passed; nonzero means failures, with details printed to stdout.
 """
 from __future__ import annotations
 
@@ -27,7 +27,7 @@ RESULTS = []
 
 
 def record(name, ok, detail=None):
-    """记录一项结果。"""
+    """Record one result."""
     RESULTS.append({"check": name, "ok": bool(ok), "detail": detail})
     status = "PASS" if ok else "FAIL"
     print(f"[{status}] {name}")
@@ -37,12 +37,12 @@ def record(name, ok, detail=None):
 
 
 def section(title):
-    """打印分节标题。"""
+    """Print a section title."""
     print(f"\n{'=' * 70}\n{title}\n{'=' * 70}")
 
 
 def main():
-    """执行真机冒烟测试。"""
+    """Run real-machine smoke tests."""
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
     from scripts import sw_connect, sw_measure, sw_edge_select
@@ -52,75 +52,75 @@ def main():
     from scripts.design_spec import validate_design_spec, compare_verification
     from scripts.build_from_spec import build_from_spec, expand_hole_patterns
 
-    # ---------------------------------------------------------------- 连接
-    section("1. 连接与版本")
+    # ---------------------------------------------------------------- Connection
+    section("1. Connection and version")
     preexisting = []
     try:
         sw, _ = sw_connect.connect_solidworks(wait_seconds=10)
         version = sw_connect.get_sw_version(sw)
-        record("连接 SolidWorks", True, version)
+        record("Connect to SolidWorks", True, version)
         preexisting = [sw_connect.get_com_member(doc, "GetTitle") for doc in (sw_connect.get_com_member(sw, "GetDocuments") or [])]
-        record("记录已打开文档（保护用户文档）", True, {"preexisting": preexisting})
+        record("Record open documents to protect user documents", True, {"preexisting": preexisting})
     except Exception as exc:
-        record("连接 SolidWorks", False, f"{type(exc).__name__}: {exc}")
+        record("Connect to SolidWorks", False, f"{type(exc).__name__}: {exc}")
         return 1
 
-    # -------------------------------------------------- new_document 修复验证
-    section("2. P0-1 new_document 不再误认已打开的文档")
+    # -------------------------------------------------- Verify new_document fix
+    section("2. P0-1 new_document no longer mistakes an existing document for a new one")
     created_models = []
     try:
         model = sw_connect.new_document(sw, "part")
         created_models.append(model)
         title = sw_connect.get_com_member(model, "GetTitle")
         record(
-            "new_document 返回的确实是新文档",
+            "new_document returns an actual new document",
             title not in preexisting,
             {"new_title": title, "preexisting": preexisting},
         )
     except Exception as exc:
-        record("new_document 创建零件", False, f"{type(exc).__name__}: {exc}")
+        record("new_document creates a part", False, f"{type(exc).__name__}: {exc}")
         return 1
 
-    # ------------------------------------------------------------ 建模工具
-    section("3. 建模：草图+拉伸、圆角、倒角")
+    # ------------------------------------------------------------ Modeling tools
+    section("3. Modeling: sketch/extrusion, fillet, chamfer")
     try:
         with sketch(model, "Front Plane") as sketch_ref:
             sketch_corner_rectangle(model, -0.06, -0.04, 0.06, 0.04)
         base_feature = extrude_boss(model, sketch_ref, 0.008)
-        record("创建 120x80x8 板", base_feature is not None,
+        record("Create 120x80x8 plate", base_feature is not None,
                {"feature": sw_connect.get_com_member(base_feature, "Name") if base_feature else None})
     except Exception as exc:
-        record("创建 120x80x8 板", False, f"{type(exc).__name__}: {exc}\n{traceback.format_exc()[:600]}")
+        record("Create 120x80x8 plate", False, f"{type(exc).__name__}: {exc}\n{traceback.format_exc()[:600]}")
 
-    # 语义选边
+    # Semantic edge selection
     try:
         descriptors, errors = sw_edge_select.iter_model_edges(model)
-        record("遍历模型边线", len(descriptors) > 0, {"edge_count": len(descriptors), "errors": errors[:3]})
+        record("Enumerate model edges", len(descriptors) > 0, {"edge_count": len(descriptors), "errors": errors[:3]})
 
         vertical, rejected = sw_edge_select.filter_edges(descriptors, axis="z")
-        record("按 Z 轴筛选竖直边", len(vertical) == 4,
+        record("Filter vertical edges along Z", len(vertical) == 4,
                {"matched": len(vertical), "sample": [item.get("length_mm") for item in vertical[:6]]})
 
         selection = sw_edge_select.select_edges(model, {"axis": "z", "convex_only": True})
-        record("选择凸出的竖直边", selection["status"] == "ok",
+        record("Select convex vertical edges", selection["status"] == "ok",
                {"selected_count": selection.get("selected_count"), "errors": selection.get("errors", [])[:3]})
     except Exception as exc:
-        record("语义选边", False, f"{type(exc).__name__}: {exc}")
+        record("Semantic edge selection", False, f"{type(exc).__name__}: {exc}")
 
-    # 圆角
+    # Fillet
     try:
         selection = sw_edge_select.select_edges(model, {"axis": "z"})
         fillet_feature = fillet(model, 0.004) if selection["status"] == "ok" else None
         model.ClearSelection2(True)
-        record("创建 R4 竖直边圆角", fillet_feature is not None,
+        record("Create R4 vertical-edge fillet", fillet_feature is not None,
                {"selected": selection.get("selected_count"),
                 "feature": sw_connect.get_com_member(fillet_feature, "Name") if fillet_feature else None,
                 "errors": selection.get("errors", [])[:3]})
     except Exception as exc:
-        record("创建 R4 竖直边圆角", False, f"{type(exc).__name__}: {exc}")
+        record("Create R4 vertical-edge fillet", False, f"{type(exc).__name__}: {exc}")
 
-    # 倒角必须在**独立文档**上验证：圆角已经把 4 条竖直边变成了切边，
-    # 在同一模型上继续倒角选到的是圆角产生的切边，不是原始竖边。
+    # Verify chamfers in a separate document: fillets have already turned the four vertical edges into tangent edges,
+    # so selecting them again on that model would select fillet-generated edges rather than the originals.
     try:
         chamfer_model = sw_connect.new_document(sw, "part")
         created_models.append(chamfer_model)
@@ -130,36 +130,36 @@ def main():
         selection = sw_edge_select.select_edges(chamfer_model, {"axis": "z"})
         chamfer_feature = chamfer(chamfer_model, 0.002, 45.0) if selection["status"] == "ok" else None
         chamfer_model.ClearSelection2(True)
-        record("创建 C2 竖直边倒角（独立文档）", chamfer_feature is not None,
+        record("Create C2 vertical-edge chamfer in separate document", chamfer_feature is not None,
                {"selected": selection.get("selected_count"),
                 "feature": sw_connect.get_com_member(chamfer_feature, "Name") if chamfer_feature else None})
     except Exception as exc:
-        record("创建 C2 竖直边倒角（独立文档）", False, f"{type(exc).__name__}: {exc}")
+        record("Create C2 vertical-edge chamfer in separate document", False, f"{type(exc).__name__}: {exc}")
 
-    # 测量
-    section("4. 测量：包围盒与质量属性")
+    # Measurement
+    section("4. Measurement: bounding box and mass properties")
     try:
         box = sw_measure.collect_bounding_box(model)
         size = box.get("size_mm")
         ok = bool(size) and abs(size[0] - 120.0) < 0.5 and abs(size[1] - 80.0) < 0.5 and abs(size[2] - 8.0) < 0.5
-        record("包围盒 = 120 x 80 x 8 mm", ok, {"size_mm": size, "errors": box.get("errors")})
+        record("Bounding box = 120 x 80 x 8 mm", ok, {"size_mm": size, "errors": box.get("errors")})
     except Exception as exc:
-        record("包围盒", False, f"{type(exc).__name__}: {exc}")
+        record("Bounding box", False, f"{type(exc).__name__}: {exc}")
 
     try:
         mass = sw_measure.collect_mass_properties(model)
         volume = mass.get("volume_mm3")
         expected_volume = 120.0 * 80.0 * 8.0
-        # 圆角会去掉一点体积，允许 2% 偏差
+        # Fillets remove a little volume; allow a 2% deviation.
         ok = bool(volume) and abs(volume - expected_volume) / expected_volume < 0.02
-        record("体积接近 76800 mm3", ok,
+        record("Volume near 76800 mm3", ok,
                {"volume_mm3": volume, "expected": expected_volume, "material_assigned": mass.get("material_assigned"),
                 "warnings": mass.get("warnings"), "errors": mass.get("errors")})
     except Exception as exc:
-        record("质量属性", False, f"{type(exc).__name__}: {exc}")
+        record("Mass properties", False, f"{type(exc).__name__}: {exc}")
 
-    # 密度设置：真机实测 IMassProperty.Density 只读、SetOverrideMass 不存在，
-    # 唯一可行路径是 swMaterialPropertyDensity(7) 偏好项。
+    # Real-machine density tests found IMassProperty.Density read-only and SetOverrideMass unavailable;
+    # the only working route is the swMaterialPropertyDensity(7) preference.
     try:
         steel = sw_measure.collect_mass_properties(model, density_kg_m3=7850.0)
         volume_mm3 = steel.get("volume_mm3") or 0.0
@@ -170,22 +170,22 @@ def main():
             and not steel.get("errors")
             and abs(actual_mass_g - expected_mass_g) / max(expected_mass_g, 1e-9) < 0.02
         )
-        record("设置密度 7850 kg/m3 后质量正确", ok,
+        record("Correct mass after setting density to 7850 kg/m3", ok,
                {"mass_g": actual_mass_g, "expected_mass_g": round(expected_mass_g, 3),
                 "implied_density": steel.get("implied_density_kg_m3"),
                 "previous_density": steel.get("previous_density_kg_m3"),
                 "errors": steel.get("errors")})
     except Exception as exc:
-        record("设置密度后质量正确", False, f"{type(exc).__name__}: {exc}")
+        record("Correct mass after setting density", False, f"{type(exc).__name__}: {exc}")
 
-    # --------------------------------------------------------- 设计规格构建
-    section("5. 规格驱动建模（design_spec_build 内核）")
+    # --------------------------------------------------------- Design-spec construction
+    section("5. Specification-driven modeling: design_spec_build core")
     spec = {
         "schema_version": "1.0",
         "part_name": "live_smoke_bracket",
         "units": "mm",
         "base": {"type": "rect_plate", "width": 100, "height": 60, "thickness": 6},
-        # 孔位按图纸标注：原点在板料左下角，位置为孔中心到左/下边的距离。
+        # Drawing-based locations: origin at plate lower left; coordinates are hole-center distances from left/bottom edges.
         "holes": [
             {"id": "H1", "type": "through", "diameter": 6.6, "position": [10, 10]},
             {"id": "H2", "type": "through", "diameter": 6.6, "position": [90, 10]},
@@ -195,42 +195,42 @@ def main():
         "verify": {"envelope_mm": [100, 60, 6], "hole_count": 4, "tolerance_mm": 0.5},
     }
     validation = validate_design_spec(spec)
-    record("规格校验通过", validation["status"] == "ok", validation.get("errors"))
+    record("Specification validation passed", validation["status"] == "ok", validation.get("errors"))
 
     if validation["status"] == "ok":
         try:
             spec_model = sw_connect.new_document(sw, "part")
             created_models.append(spec_model)
             audit = build_from_spec(spec_model, validation["normalized"], apply_fillets=True, verify_geometry=True)
-            record("按规格构建零件", audit["status"] in ("ok", "warn"),
+            record("Build part from specification", audit["status"] in ("ok", "warn"),
                    {"status": audit["status"], "errors": audit.get("errors", [])[:5],
                     "warnings": audit.get("warnings", [])[:5]})
-            record("规格回读：4 个孔全部创建", audit.get("hole_count_created") == 4,
+            record("Specification readback: all four holes created", audit.get("hole_count_created") == 4,
                    {"created": audit.get("hole_count_created"), "requested": audit.get("hole_count_requested")})
 
             verification = audit.get("verification", {})
-            record("规格验证：包围盒与孔数符合", verification.get("status") == "pass",
+            record("Specification verification: bounding box and hole count match", verification.get("status") == "pass",
                    {"status": verification.get("status"), "failed": verification.get("failed"),
                     "checks": verification.get("checks")})
 
             saved = sw_connect.save_document(spec_model, str(OUTPUT_DIR / "live_smoke_bracket.sldprt"))
-            record("保存规格零件", bool(saved), str(OUTPUT_DIR / "live_smoke_bracket.sldprt"))
+            record("Save specification part", bool(saved), str(OUTPUT_DIR / "live_smoke_bracket.sldprt"))
         except Exception as exc:
-            record("按规格构建零件", False, f"{type(exc).__name__}: {exc}\n{traceback.format_exc()[:800]}")
+            record("Build part from specification", False, f"{type(exc).__name__}: {exc}\n{traceback.format_exc()[:800]}")
 
-    # 孔阵列展开（纯计算）
+    # Hole-pattern expansion: pure calculation
     try:
         holes = expand_hole_patterns([
             {"id": "B", "type": "through", "diameter_mm": 5.0, "position_mm": [0.0, 0.0, 0.0],
              "pattern": {"type": "circular", "count": 6, "radius": 30.0, "start_angle": 0.0}},
         ])
-        record("圆周阵列展开为 6 个孔", len(holes) == 6,
+        record("Expand circular pattern to six holes", len(holes) == 6,
                {"count": len(holes), "positions": [hole["position_mm"][:2] for hole in holes[:3]]})
     except Exception as exc:
-        record("孔阵列展开", False, f"{type(exc).__name__}: {exc}")
+        record("Hole-pattern expansion", False, f"{type(exc).__name__}: {exc}")
 
-    # --------------------------------------------------------------- 清理
-    section("6. 清理：只关闭本脚本创建的文档")
+    # --------------------------------------------------------------- Cleanup
+    section("6. Cleanup: close only documents created by this script")
     closed = []
     for doc in created_models:
         try:
@@ -243,21 +243,21 @@ def main():
         remaining = [sw_connect.get_com_member(doc, "GetTitle") for doc in (sw_connect.get_com_member(sw, "GetDocuments") or [])]
     except Exception:
         remaining = None
-    record("关闭脚本创建的文档", True, {"closed": closed, "remaining": remaining})
-    record("用户原有文档未受影响",
+    record("Close script-created documents", True, {"closed": closed, "remaining": remaining})
+    record("Preexisting user documents unaffected",
            remaining is None or all(title in remaining for title in preexisting),
            {"preexisting": preexisting, "remaining": remaining})
 
-    # --------------------------------------------------------------- 汇总
-    section("汇总")
+    # --------------------------------------------------------------- Results
+    section('Özet')
     failed = [item for item in RESULTS if not item["ok"]]
-    print(f"总计 {len(RESULTS)} 项，通过 {len(RESULTS) - len(failed)} 项，失败 {len(failed)} 项")
+    print(f"Total {len(RESULTS)} checks; passed {len(RESULTS) - len(failed)}, failed {len(failed)}")
     report_path = OUTPUT_DIR / "live_smoke_report.json"
     report_path.write_text(
         json.dumps({"results": RESULTS, "failed_count": len(failed)}, ensure_ascii=False, indent=2, default=str),
         encoding="utf-8",
     )
-    print(f"报告: {report_path}")
+    print(f"Report: {report_path}")
     return 1 if failed else 0
 
 

@@ -1,4 +1,4 @@
-"""@brief CAD Studio 专业知识检索回归测试。"""
+"""@brief CAD Studio domain-knowledge retrieval regressions."""
 
 from pathlib import Path
 import urllib.error
@@ -15,9 +15,9 @@ from apps.desktop.cad_workbench.knowledge_retrieval import (
 
 def test_local_knowledge_retrieval_returns_traceable_sources(tmp_path: Path) -> None:
     document = tmp_path / "holes.md"
-    document.write_text("# 螺纹孔\n\nM6 粗牙攻丝底孔通常取 5.0 mm，孔口需要倒角。", encoding="utf-8")
+    document.write_text("# Dişli delik\n\nM6 kaba diş kılavuz matkap çapı genellikle 5.0 mm seçilir; delik ağzına pah gerekir.", encoding="utf-8")
 
-    chunks = retrieve_local_knowledge("M6 螺纹孔攻丝底孔", roots=[tmp_path], top_k=3)
+    chunks = retrieve_local_knowledge("M6 dişli delik kılavuz matkap", roots=[tmp_path], top_k=3)
 
     assert chunks
     assert chunks[0].source == str(document.resolve())
@@ -28,8 +28,8 @@ def test_local_knowledge_retrieval_returns_traceable_sources(tmp_path: Path) -> 
 def test_job_knowledge_context_defaults_to_local_skill_sources() -> None:
     context = build_job_knowledge_context(
         {
-            "objective": "创建带 M6 螺纹孔的 CNC 安装座",
-            "detail": "需要攻丝底孔和孔口倒角",
+            "objective": "M6 dişli delikli CNC montaj ayağı oluştur",
+            "detail": "Kılavuz matkap deliği ve giriş pahı gerekli",
             "uiConfig": {"knowledgeBase": {"topK": 4}},
         }
     )
@@ -42,7 +42,7 @@ def test_job_knowledge_context_defaults_to_local_skill_sources() -> None:
 def test_cloud_knowledge_requires_declared_network_capability() -> None:
     context = build_job_knowledge_context(
         {
-            "objective": "检索轴承座公差知识",
+            "objective": "Rulman yatağı tolerans bilgisi ara",
             "uiConfig": {
                 "knowledgeBase": {
                     "cloudEnabled": True,
@@ -58,14 +58,14 @@ def test_cloud_knowledge_requires_declared_network_capability() -> None:
 
 def test_prompt_includes_rag_source_and_hash() -> None:
     job = {
-        "objective": "创建轴承座",
+        "objective": "Rulman yatağı oluştur",
         "_knowledgeContext": {
             "chunks": [
                 {
-                    "title": "轴承配合",
+                    "title": "Rulman geçmesi",
                     "source": "C:/kb/bearing.md",
                     "sha256": "abc123",
-                    "text": "轴承座孔公差必须按载荷和配合目标复核。",
+                    "text": "Rulman yuvası toleransı yük ve geçme amacına göre incelenmelidir.",
                 }
             ]
         },
@@ -73,17 +73,17 @@ def test_prompt_includes_rag_source_and_hash() -> None:
 
     prompt = compile_codex_prompt(job)
 
-    assert "【RAG 专业知识上下文】" in prompt
+    assert "[RAG  uzmanlık bağlamı]" in prompt
     assert "C:/kb/bearing.md" in prompt
     assert "abc123" in prompt
-    assert "不可信参考数据" in prompt
+    assert "güvenilmeyen referans verileridir" in prompt
 
 
 def test_prompt_enforces_versioned_stage_retry_without_overwrite() -> None:
-    """@brief 局部重跑策略必须进入 Agent Prompt，不能仅作为 UI 提示。"""
+    """@brief Partial rerun policy must enter the agent prompt, not merely UI guidance."""
     prompt = compile_codex_prompt(
         {
-            "objective": "重新生成工程图和 BOM",
+            "objective": "Teknik çizimi ve BOM yeniden oluştur",
             "retryPolicy": {
                 "previousRunId": "run-old",
                 "retryFromStage": "drawing-bom",
@@ -94,10 +94,10 @@ def test_prompt_enforces_versioned_stage_retry_without_overwrite() -> None:
         }
     )
 
-    assert "【重新生成策略】" in prompt
+    assert "[Yeniden üretim politikası]" in prompt
     assert '"retryFromStage": "drawing-bom"' in prompt
-    assert "只执行 retryFromStage 及其后继阶段" in prompt
-    assert "禁止覆盖上一轮 CAD" in prompt
+    assert "yalnızca retryFromStage ve sonraki aşamaları yürütün" in prompt
+    assert "Önceki CAD, çizim, BOM, önizleme ve inceleme raporlarının üzerine yazmayın" in prompt
 
 
 def test_cloud_rag_rejects_arbitrary_environment_variable_name(monkeypatch) -> None:
@@ -105,7 +105,7 @@ def test_cloud_rag_rejects_arbitrary_environment_variable_name(monkeypatch) -> N
 
     with pytest.raises(ValueError, match="CAD_STUDIO_RAG_TOKEN"):
         retrieve_cloud_knowledge(
-            "机械知识",
+            "Mekanik bilgisi",
             {
                 "endpoint": "https://rag.example.test/retrieve",
                 "tokenEnv": "AWS_SECRET_ACCESS_KEY",
@@ -114,7 +114,7 @@ def test_cloud_rag_rejects_arbitrary_environment_variable_name(monkeypatch) -> N
 
 
 def test_cloud_rag_disables_authorized_redirects(monkeypatch) -> None:
-    """@brief 防止 Authorization 头被 urllib 自动转发到重定向目标。"""
+    """@brief Prevent urllib from forwarding Authorization headers to redirect destinations."""
     monkeypatch.setenv("CAD_STUDIO_RAG_TOKEN", "secret-token")
 
     class FakeOpener:
@@ -127,9 +127,9 @@ def test_cloud_rag_disables_authorized_redirects(monkeypatch) -> None:
         lambda handler: FakeOpener(),
     )
 
-    with pytest.raises(RuntimeError, match="云知识库检索失败"):
+    with pytest.raises(RuntimeError, match="Bulut bilgi tabanı araması başarısız"):
         retrieve_cloud_knowledge(
-            "机械知识",
+            "Mekanik bilgisi",
             {"endpoint": "https://rag.example.test/retrieve"},
         )
 
@@ -146,5 +146,5 @@ def test_policy_derives_network_and_cross_workspace_from_knowledge_config() -> N
         }
     )
 
-    assert any("外部网络" in reason for reason in reasons)
-    assert any("跨工作区访问" in reason for reason in reasons)
+    assert any("Dış ağ" in reason for reason in reasons)
+    assert any("Çalışma alanları arası" in reason for reason in reasons)

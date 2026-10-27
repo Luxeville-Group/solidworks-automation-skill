@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """@file acad_preview.py
-@brief 导出 AutoCAD 当前图纸的可视预览，用于截图/视觉审查闭环。
+@brief Export the active AutoCAD drawing as a visual preview for screenshot-based review.
 """
 
 from __future__ import annotations
@@ -15,11 +15,11 @@ from acad_session import AutoCADSession
 
 
 def convert_bmp_to_png(bmp_path: Path, png_path: Path) -> Dict[str, Any]:
-    """@brief 尝试把 AutoCAD BMP 预览转为 PNG。
+    """@brief Attempt to convert an AutoCAD BMP preview to PNG.
 
-    @param bmp_path 输入 BMP。
-    @param png_path 输出 PNG。
-    @return 转换结果。
+    @param bmp_path Input BMP.
+    @param png_path Output PNG.
+    @return Conversion result.
     """
     try:
         from PIL import Image
@@ -76,11 +76,11 @@ try {{
 
 
 def main() -> int:
-    """@brief 命令行入口。"""
-    parser = argparse.ArgumentParser(description="导出 AutoCAD 当前图纸预览")
-    parser.add_argument("--output", required=True, help="输出 PNG 或 BMP 路径")
-    parser.add_argument("--source", help="可选：先打开指定 DWG/DXF")
-    parser.add_argument("--launch", action="store_true", help="允许启动 AutoCAD")
+    """@brief CLI entry point."""
+    parser = argparse.ArgumentParser(description="Export a preview of the active AutoCAD drawing")
+    parser.add_argument("--output", required=True, help="Output PNG or BMP path")
+    parser.add_argument("--source", help="Optionally open this DWG/DXF first")
+    parser.add_argument("--launch", action="store_true", help="Allow starting AutoCAD")
     args = parser.parse_args()
 
     output = Path(args.output).resolve()

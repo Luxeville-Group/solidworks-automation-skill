@@ -1,8 +1,7 @@
 """
-验证 SolidWorks MCP Server 的协议层可用性。
+Validate the SOLIDWORKS MCP Server protocol layer.
 
-该脚本不调用 SolidWorks COM 工具，只启动本地 stdio MCP server 并检查
-`tools/list` 是否包含关键工具，适合在提交前或 CI 中发现 schema/注册错误。
+Do not invoke SOLIDWORKS COM tools. Start the local stdio server and check that tools/list contains essential tools, catching schema/registration errors before commits or in CI.
 """
 from __future__ import annotations
 
@@ -44,7 +43,7 @@ REQUIRED_TOOLS = {
     "solidworks_new_document",
     "solidworks_create_basic_part",
     "solidworks_open_document",
-    # 建模工具：这些是机械工程师实际画零件用的入口，回归保护必须覆盖。
+    # Modeling tools: actual part-modeling entry points require regression coverage.
     "solidworks_sketch_and_extrude",
     "solidworks_revolve",
     "solidworks_fillet",
@@ -53,12 +52,12 @@ REQUIRED_TOOLS = {
     "solidworks_pattern",
     "solidworks_mirror_feature",
     "solidworks_list_edges",
-    # 几何自检工具：机械设计必须能回读实测尺寸和质量。
+    # Geometry checks: mechanical design needs measured dimension and mass readback.
     "solidworks_mass_properties",
     "solidworks_bounding_box",
     "solidworks_interference_check",
     "solidworks_document_units",
-    # 规格驱动建模：可版本控制、幂等、自带验证。
+    # Specification-driven modeling: versionable, idempotent, and self-validating.
     "design_spec_validate",
     "design_spec_build",
     "solidworks_add_component",
@@ -91,14 +90,14 @@ REQUIRED_TOOLS = {
 
 
 def _configure_stdio_utf8() -> None:
-    """在 Windows 旧代码页下尽量使用 UTF-8 输出中文提示。"""
+    """Prefer UTF-8 diagnostics on Windows systems with legacy code pages."""
     for stream in (sys.stdout, sys.stderr):
         if hasattr(stream, "reconfigure"):
             stream.reconfigure(encoding="utf-8", errors="replace")
 
 
 async def _list_tools() -> set[str]:
-    """启动 MCP server 并读取工具列表。"""
+    """Start the MCP server and read its tool list."""
     server_params = StdioServerParameters(
         command=sys.executable,
         args=[str(SERVER_PATH)],
@@ -112,14 +111,14 @@ async def _list_tools() -> set[str]:
 
 
 async def _main() -> int:
-    """执行 MCP 工具清单检查。"""
+    """Check the MCP tool inventory."""
     if not SERVER_PATH.exists():
-        raise FileNotFoundError(f"找不到 MCP Server: {SERVER_PATH}")
+        raise FileNotFoundError(f"MCP Server bulunamadı: {SERVER_PATH}")
     tool_names = await _list_tools()
     missing = sorted(REQUIRED_TOOLS - tool_names)
     if missing:
-        raise AssertionError("MCP 缺少工具: " + ", ".join(missing))
-    print(f"MCP 验证通过: {len(tool_names)} 个工具可见。")
+        raise AssertionError("Eksik MCP araçları: " + ", ".join(missing))
+    print(f"MCP doğrulaması başarılı: {len(tool_names)} araç görünür.")
     return 0
 
 
@@ -128,5 +127,5 @@ if __name__ == "__main__":
     try:
         raise SystemExit(asyncio.run(_main()))
     except Exception as exc:
-        print(f"MCP 验证失败: {exc}", file=sys.stderr)
+        print(f"MCP doğrulaması başarısız: {exc}", file=sys.stderr)
         raise SystemExit(1)

@@ -1,4 +1,4 @@
-"""@brief SW2026 真实文档、结构和损坏文件诊断，使用独立空实例。"""
+"""@brief SW2026 real document, structure, and damaged-file diagnostics in a separate empty instance."""
 import argparse
 import json
 from pathlib import Path
@@ -14,9 +14,9 @@ from scripts.sw_process import solidworks_processes
 
 
 def main(output, source):
-    """@brief 保存真实审查报告，不能用假预览替代 SDK 结果。"""
+    """@brief Save actual review reports; fake previews cannot replace SDK results."""
     if solidworks_processes() != {}:
-        raise RuntimeError("健康度真机验收需要空闲的测试实例")
+        raise RuntimeError("Real-machine health acceptance requires an idle test instance")
     output.mkdir(parents=True, exist_ok=False)
     result = {"status":"failed", "cases":[]}
     sw = None
@@ -27,13 +27,13 @@ def main(output, source):
         print("PHASE connect", flush=True)
         sw, _, metadata = connect_solidworks(version=2026, wait_seconds=60, visible=True, return_metadata=True)
         if not metadata["started_by_cad_studio"]:
-            raise RuntimeError("测试实例归属未确认")
+            raise RuntimeError("Test-instance ownership not confirmed")
         model = open_document(sw, str(source.resolve()), read_only=True, silent=True, raise_on_error=True)
         owned.append(model)
         print("PHASE review_healthy_part", flush=True)
         report, path = run_review(model, str(output / "part"), basename="healthy", expected_outputs=[str(source)])
         if report["model"].get("faulty_features") or not report["checks"]["rebuild_succeeded"]:
-            raise RuntimeError("健康零件被误判为特征故障")
+            raise RuntimeError("Healthy part incorrectly classified as a feature failure")
         result["cases"].append({"name":"healthy_part", "status":"pass", "report":path,
             "feature_health": report["model"]["features"], "evaluation":report["evaluation"]["status"]})
         drawing = new_document(sw, "drawing")
@@ -42,7 +42,7 @@ def main(output, source):
         report, path = run_review(drawing, str(output / "drawing"), basename="empty")
         codes = {item["code"] for item in report["evaluation"]["issues"]}
         if "drawing_views_missing" not in codes or report["evaluation"]["status"] != "fail":
-            raise RuntimeError(f"空工程图未被识别: {report['drawing_structure']}")
+            raise RuntimeError(f"Empty drawing not detected: {report['drawing_structure']}")
         result["cases"].append({"name":"empty_drawing", "status":"pass", "report":path})
         corrupted = output / "corrupted.sldprt"
         corrupted.write_bytes(b"not-a-solidworks-document")
@@ -53,7 +53,7 @@ def main(output, source):
             result["cases"].append({"name":"corrupt_file", "status":"pass", "code":error.code,
                 "raw_errors":error.error_code,"raw_warnings":error.warnings,"message":str(error)})
         else:
-            raise RuntimeError("损坏文件未阻断")
+            raise RuntimeError("Damaged file was not blocked")
         result.update(status="pass",year=metadata["actual_version"],revision=metadata["actual_revision"])
     except Exception as error:
         result["error"] = f"{type(error).__name__}: {error}"

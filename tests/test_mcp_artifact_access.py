@@ -1,4 +1,4 @@
-"""@brief 产物读取的真实文件与边界测试，不依赖 SolidWorks。"""
+"""@brief Real artifact-file and boundary tests without SOLIDWORKS."""
 import json
 import sys
 from pathlib import Path
@@ -41,7 +41,7 @@ def test_modified_file_cannot_reuse_delivery_hash(tmp_path):
     access = ArtifactAccess(tmp_path, tmp_path / "queue")
     ref = access.publish({"output_path": str(artifact)})[0]
     artifact.write_bytes(b"new")
-    with pytest.raises(ValueError, match="内容已变化"):
+    with pytest.raises(ValueError, match="içeriği değişti"):
         access.read(ref["artifact_id"])
 
 

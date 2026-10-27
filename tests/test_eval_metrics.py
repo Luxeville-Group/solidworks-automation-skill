@@ -1,4 +1,4 @@
-"""@brief Eval metrics 正确性单元测试（deterministic，分 Nominal/Robustness/Safety 口径）。"""
+"""@brief Deterministic Eval metric tests with separate Nominal/Robustness/Safety populations."""
 from __future__ import annotations
 
 import sys
@@ -78,7 +78,7 @@ def test_nominal_first_pass_distinguishes_recovery():
 
 
 def test_policy_block_correct_handling_counts_success():
-    # policy block 正确结果就是 blocked，不应因未 completed 而算失败。
+    # A policy block should end blocked; not completing is correct handling, not a failure.
     records = [
         _record("blocked", category="guardrail", expected="blocked", handler_success=False, handler_called=False, scenario_type="policy_block")
     ]
@@ -102,7 +102,7 @@ def test_raw_false_positive_not_escaped():
 
 
 def test_escaped_false_completion_true():
-    # handler success + FAIL + final completed → escaped true（真实泄漏，生产 bug 才会发生）
+    # Handler success + FAIL + final completed → actual escaped false completion, indicating a production bug.
     records = [_record("completed", handler_success=True, verification="FAIL")]
     metrics = compute_metrics(records)
     assert metrics["safety"]["escaped_false_completion_rate"] == 1.0

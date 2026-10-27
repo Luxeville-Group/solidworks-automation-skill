@@ -1,134 +1,51 @@
-# SolidWorks Automation 子技能矩阵
+# SolidWorks Automation subskill matrix
 
-本仓库采用“大仓库 + 多子技能”的组织方式。根技能 `solidworks-automation` 提供 SolidWorks 连接、文档管理、建模 API、导出、自审查和 MCP Server；专项能力放在 `subskills/` 下，每个子技能自包含 `SKILL.md`、`README.md`、`manifest.yaml`、脚本、参考文档和示例。
+The root `solidworks-automation` skill provides connection, document management, modeling APIs, export, review and MCP. Specialist workflows live in `subskills/`, each with its own instructions, metadata, scripts, references and examples. Read the exact scope and capability gates before executing; directory-level status is not a guarantee for every operation.
 
-这种结构参考多技能仓库的管理方式：根 README 负责总入口、安装方式、能力地图和调用路由；每个子技能负责某一类稳定工作流。
+## Index
 
-## 技能索引
-
-| 子技能 | 状态 | 用途 | 入口 |
+| Subskill | Declared status | Purpose | Instructions |
 |---|---|---|---|
-| `solidworks-vibecad` | experimental | 自然语言需求 -> 参数化设计计划、制造规则检查、执行摘要、审查门禁 | `subskills/solidworks-vibecad/SKILL.md` |
-| `solidworks-fillet-chamfer-cnc` | stable | CNC 安装座、参数/碰撞预检、语义选边、有界尺寸降级、孔槽和圆角口袋 | `subskills/solidworks-fillet-chamfer-cnc/SKILL.md` |
-| `solidworks-threaded-holes` | stable | M3-M12 螺纹孔、攻丝底孔、孔口倒角、螺纹属性和 STEP 输出 | `subskills/solidworks-threaded-holes/SKILL.md` |
-| `solidworks-engineering-drawing` | pilot | GB/T 第一角零件图/装配图、尺寸链、孔表、BOM、PDF/BMP 证据和制造交付审视 | `subskills/solidworks-engineering-drawing/SKILL.md` |
-| `autocad-automation` | stable | AutoCAD DWG/DXF 二维绘图、线稿矢量化、图层/文字/标注处理、导出和图纸自检 | `subskills/autocad-automation/SKILL.md` |
+| `solidworks-vibecad` | experimental | Natural-language requirements → parametric plan, manufacturing checks, execution outline and review gates | [SKILL.md](subskills/solidworks-vibecad/SKILL.md) |
+| `solidworks-fillet-chamfer-cnc` | stable | CNC mounting bases, parameter/collision checks, semantic edge selection, bounded dimension fallback, holes/slots and rounded pockets | [SKILL.md](subskills/solidworks-fillet-chamfer-cnc/SKILL.md) |
+| `solidworks-threaded-holes` | stable | M3-M12 threaded/tap-drill holes, mouth chamfers, thread properties and STEP | [SKILL.md](subskills/solidworks-threaded-holes/SKILL.md) |
+| `solidworks-engineering-drawing` | pilot | GB/T first-angle drawings, dimension chains, hole tables, BOM, PDF/BMP evidence and manufacturing-delivery review | [SKILL.md](subskills/solidworks-engineering-drawing/SKILL.md) |
+| `autocad-automation` | stable, with per-backend restrictions | 2D DWG/DXF, line-art vectorization, layers/text/dimensions, export and drawing review | [SKILL.md](subskills/autocad-automation/SKILL.md) |
 
-## 推荐路由
+## Routing examples / Yönlendirme örnekleri
 
-```text
-自然语言需求
-  -> solidworks-vibecad
-  -> 结构化 design_plan.json
-  -> 按零件类型路由到专项子技能
-  -> 工程图需求连接 solidworks-engineering-drawing
-  -> 父技能 scripts/sw_*.py 执行 SolidWorks COM
-  -> sw_review.run_review() 审查
-```
-
-## 什么时候用哪个
-
-### solidworks-vibecad
-
-用户说：
-
-- “把这个需求参数化”
-- “做一个 text-to-CAD 工作流”
-- “把行业知识库和提示词模板固化”
-- “先别直接建模，先出设计计划”
-
-使用：
+| User request / Kullanıcı isteği | Route |
+|---|---|
+| “Parameterize this brief”; “Önce parametrik tasarım planı hazırla” | VibeCAD |
+| “CNC mounting base”; “Radyüs ve pah içeren CNC montaj tabanı” | CNC fillet/chamfer |
+| “M6 tapped hole”; “M6 kılavuz deliği oluştur” | Threaded holes |
+| “Create or edit DWG/DXF”; “AutoCAD ile teknik çizim hazırla” | AutoCAD |
+| “Generate part/assembly drawing”; “Ölçü zinciri, delik tablosu ve BOM içeren teknik resim hazırla” | Engineering drawing |
 
 ```text
-subskills/solidworks-vibecad/SKILL.md
+Natural-language requirements
+  → structured design_plan.json
+  → specialist subskill by part/task type
+  → engineering-drawing subskill when needed
+  → parent scripts/sw_*.py native execution
+  → sw_review.run_review()
 ```
 
-### solidworks-fillet-chamfer-cnc
+The drawing subskill may be called by the root skill, VibeCAD, CNC/hole workflows or the orchestrator; other subskills do not need a reverse dependency.
 
-用户说：
+For final line-art-to-CAD results, preserve only source-derived vectorized lines. Do not retain guessed outer contours, facial ellipses, logo triangles, water lines, replacement text or in-drawing review notes.
 
-- “CNC 安装座”
-- “连接块/支架”
-- “很多圆角和倒角”
-- “减重口袋/长圆槽/沉孔板”
-
-使用：
+## Subskill structure
 
 ```text
-subskills/solidworks-fillet-chamfer-cnc/SKILL.md
+subskills/<name>/
+├── SKILL.md       # Agent entry point and workflow
+├── README.md      # Human entry point
+├── manifest.yaml  # Index metadata
+├── scripts/       # Reusable scripts
+├── references/    # Tested lessons and API details
+├── examples/      # Sample inputs/outputs
+└── agents/        # Optional client metadata
 ```
 
-### solidworks-threaded-holes
-
-用户说：
-
-- “M6 螺纹孔”
-- “攻牙孔”
-- “攻丝底孔”
-- “Hole Wizard / ThreadFeatureData / CosmeticThread”
-
-使用：
-
-```text
-subskills/solidworks-threaded-holes/SKILL.md
-```
-
-### autocad-automation
-
-用户说：
-
-- “用 AutoCAD 画这个”
-- “生成/修改 DWG 或 DXF”
-- “把这张图片线稿转成 CAD”
-- “批量检查图层、文字、块、外部参照”
-- “导出 AutoCAD 原生预览并审查”
-
-使用：
-
-```text
-subskills/autocad-automation/SKILL.md
-```
-
-### solidworks-engineering-drawing
-
-用户说：
-
-- “生成零件图/装配图/工程图”
-- “按 GB/T、第一角投影出图”
-- “补齐尺寸链、孔表、BOM、标题栏”
-- “审查工程图是否能交付制造”
-
-使用：
-
-```text
-subskills/solidworks-engineering-drawing/SKILL.md
-```
-
-该子技能可以被根技能、VibeCAD、孔槽/CNC 子技能或工程编排器按需连接；其他子技能不需要反向依赖它。
-
-注意：普通“照图画 CAD”的最终版只保留原图矢量化线条，不保留手工猜测的外围轮廓、五官椭圆、Logo 三角线、水波线、替代文字或图内审查说明。
-
-## 子技能目录规范
-
-新增子技能时保持：
-
-```text
-subskills/<skill-name>/
-├── SKILL.md             # AI 调用入口和工作流
-├── README.md            # 人类阅读入口
-├── manifest.yaml        # 索引元数据
-├── scripts/             # 可复用脚本
-├── references/          # 实测经验、避坑和 API 说明
-├── examples/            # 示例输入/输出
-└── agents/              # 可选，不同客户端配置
-```
-
-## 质量门禁
-
-每个子技能必须说明：
-
-- 适用场景和不适用场景。
-- 推荐调用父技能的哪些 `scripts/sw_*.py`。
-- SolidWorks API 的稳定策略和降级策略。
-- 输出文件和审查要求。
-- 新踩坑应沉淀到 `references/`。
+Each subskill must state applicable and excluded tasks, parent wrappers to use, API stability/fallback strategies, required outputs and review gates. Record newly discovered failure modes in its references. Apply the [language policy](localization/README.md) to new content.

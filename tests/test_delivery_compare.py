@@ -1,4 +1,4 @@
-"""交付版本比较与重新生成请求测试。"""
+"""Delivery version comparison and regeneration-request tests."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -30,7 +30,7 @@ def test_regeneration_request_preserves_previous_artifacts_and_review_gate():
         source_job_id="job-1",
         failed_stage="drawing-bom",
         capabilities=["drawings_and_bom", "export_delivery", "drawings_and_bom"],
-        assumptions=["单位 mm"],
+        assumptions=["Units: mm"],
         changed_inputs=["plate.sldprt"],
     )
 

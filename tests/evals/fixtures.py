@@ -1,7 +1,7 @@
-"""@brief deterministic Fake handler / reviewer / capability 工厂 + 异常类型。
+"""@brief Deterministic Fake handler/reviewer/capability factories and exception types.
 
-异常类型名与 ``core.recovery._EXCEPTION_KIND`` 对齐，使 ``classify_error`` 能正确
-识别 BACKEND_UNAVAILABLE / CAPABILITY_GAP / USER_ACTION_REQUIRED 等类别。
+Exception names match ``core.recovery._EXCEPTION_KIND`` so ``classify_error`` correctly identifies
+BACKEND_UNAVAILABLE / CAPABILITY_GAP / USER_ACTION_REQUIRED and other categories.
 """
 from __future__ import annotations
 
@@ -9,19 +9,19 @@ from typing import Any, Callable
 
 
 class SolidWorksConnectionError(RuntimeError):
-    """@brief 模拟后端不可用（classify → BACKEND_UNAVAILABLE）。"""
+    """@brief Simulate an unavailable backend, classified as BACKEND_UNAVAILABLE."""
 
 
 class UnsupportedFeatureError(ValueError):
-    """@brief 模拟能力缺口（classify → CAPABILITY_GAP）。"""
+    """@brief Simulate a capability gap, classified as CAPABILITY_GAP."""
 
 
 class DependencyInstallDeclined(RuntimeError):
-    """@brief 模拟用户拒绝安装/授权（classify → USER_ACTION_REQUIRED）。"""
+    """@brief Simulate declined installation/authorization, classified as USER_ACTION_REQUIRED."""
 
 
 class FakeCapabilityFacade:
-    """@brief 可注入的 Capability Facade 替身。"""
+    """@brief Injectable Capability Facade double."""
 
     def __init__(self, candidates=None, capabilities=None):
         self.candidates = candidates or []
@@ -35,14 +35,14 @@ class FakeCapabilityFacade:
 
 
 def success_handler(result: dict[str, Any]) -> Callable[[Any], dict[str, Any]]:
-    """@brief 返回一个总是成功并返回给定 result 的 handler。"""
+    """@brief Return a handler that always succeeds with the supplied result."""
     def run(job=None):
         return dict(result)
     return run
 
 
 def fail_handler(exc: BaseException) -> Callable[[Any], Any]:
-    """@brief 返回一个总是抛出给定异常的 handler。"""
+    """@brief Return a handler that always raises the supplied exception."""
     def run(job=None):
         raise exc
     return run
@@ -64,7 +64,7 @@ def fail_reviewer(error_code: str = "E_FAIL") -> Callable[[], dict[str, Any]]:
     }
 
 
-def blocked_reviewer(reason: str = "环境缺失") -> Callable[[], dict[str, Any]]:
+def blocked_reviewer(reason: str = "Environment dependency missing") -> Callable[[], dict[str, Any]]:
     return lambda: {"status": "blocked", "reason": reason}
 
 
@@ -75,17 +75,17 @@ def crash_reviewer() -> Callable[[], Any]:
 
 
 def ok_result(artifacts: list[str]) -> dict[str, Any]:
-    """@brief 交付物齐全的成功 handler 结果。"""
+    """@brief Successful handler result with complete artifacts."""
     return {"message": "ok", "outputs": [{"kind": a, "path": f"out/{a}"} for a in artifacts]}
 
 
 def incomplete_result() -> dict[str, Any]:
-    """@brief handler 报成功但交付物缺失（用于 False Completion 场景）。"""
-    return {"message": "handler 报成功但缺少交付物", "outputs": []}
+    """@brief Handler success without artifacts, for false-completion scenarios."""
+    return {"message": "Handler reported success but artifacts are missing", "outputs": []}
 
 
 def artifacts_from_result(result: dict[str, Any]) -> list[str]:
-    """@brief 从 handler 结果提取 artifact kind 列表。"""
+    """@brief Extract artifact kinds from handler results."""
     outputs = result.get("outputs") or result.get("artifacts") or []
     if not isinstance(outputs, list):
         return []

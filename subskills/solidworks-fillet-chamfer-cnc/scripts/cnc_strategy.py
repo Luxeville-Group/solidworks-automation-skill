@@ -1,8 +1,4 @@
-"""CNC 多圆角/倒角子技能的离线参数、DFM 约束与执行计划。
-
-@brief 在连接 SolidWorks COM 之前验证参数，并生成可审计的特征计划。
-@details 本模块只使用 Python 标准库，可用于 CI、VibeCAD 和桌面端预检。
-"""
+'Offline parameters, DFM constraints and execution plans for the CNC fillet/chamfer subskill. Validate parameters before connecting SolidWorks COM and generate an auditable feature plan. Uses only the Python standard library for CI, VibeCAD and desktop preflight.'
 
 from __future__ import annotations
 
@@ -16,7 +12,7 @@ from typing import Any, Mapping
 
 @dataclass(frozen=True)
 class MountParameters:
-    """@brief CNC 安装座参数，所有长度单位均为毫米。"""
+    'CNC mounting-base parameters; all lengths are millimeters.'
 
     length: float = 120.0
     width: float = 80.0
@@ -69,32 +65,32 @@ INVALID_BASENAME = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
 
 
 def finite_number(name: str, value: Any) -> float:
-    """@brief 把输入转换为有限浮点数。"""
+    'Convert input to a finite float.'
     try:
         number = float(value)
     except (TypeError, ValueError) as exc:
-        raise ValueError(f"{name} 必须是数值") from exc
+        raise ValueError(f"{name} sayısal olmalıdır / must be numeric") from exc
     if not math.isfinite(number):
-        raise ValueError(f"{name} 必须是有限数值")
+        raise ValueError(f"{name} sonlu sayı olmalıdır / must be finite")
     return number
 
 
 def validate_basename(value: str) -> str:
-    """@brief 验证输出基名，禁止路径逃逸和 Windows 非法字符。"""
+    'Validate the output basename against path escape and invalid Windows characters.'
     basename = str(value).strip()
     if not basename or basename in {".", ".."}:
-        raise ValueError("basename 不能为空或为点路径")
+        raise ValueError('basename boş veya nokta yolu olamaz / basename cannot be empty or a dot path')
     if Path(basename).name != basename or INVALID_BASENAME.search(basename):
-        raise ValueError("basename 只能是文件基名，不能包含路径或 Windows 非法字符")
+        raise ValueError('basename yol veya geçersiz Windows karakteri içeremez / basename must be a filename without paths or invalid Windows characters')
     return basename
 
 
 def _coerce_overrides(overrides: Mapping[str, Any]) -> dict[str, Any]:
-    """@brief 校验参数键并按字段类型转换覆盖值。"""
+    'Validate parameter keys and convert overrides to field types.'
     allowed = {item.name for item in fields(MountParameters)}
     unknown = sorted(set(overrides) - allowed)
     if unknown:
-        raise ValueError(f"未知参数: {', '.join(unknown)}")
+        raise ValueError(f"Bilinmeyen parametre / Unknown parameter: {', '.join(unknown)}")
     result: dict[str, Any] = {}
     for name, value in overrides.items():
         if name == "pocket_shape":
@@ -105,35 +101,35 @@ def _coerce_overrides(overrides: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def parse_set_values(items: list[str] | tuple[str, ...]) -> dict[str, Any]:
-    """@brief 解析重复的 ``--set name=value`` 参数。"""
+    'Parse repeated --set name=value arguments.'
     overrides: dict[str, Any] = {}
     for item in items:
         if "=" not in item:
-            raise ValueError(f"--set 必须使用 name=value 格式: {item}")
+            raise ValueError(f"--set için name=value biçimi gerekir / --set requires name=value: {item}")
         name, value = item.split("=", 1)
         name = name.strip()
         if not name or not value.strip():
-            raise ValueError(f"--set 的名称和值不能为空: {item}")
+            raise ValueError(f"--set adı ve değeri boş olamaz / --set name and value cannot be empty: {item}")
         overrides[name] = value.strip()
     return _coerce_overrides(overrides)
 
 
 def load_parameter_file(path: Path) -> dict[str, Any]:
-    """@brief 读取 JSON 参数文件；支持直接对象或 ``parameters`` 包装对象。"""
+    'Read a parameter JSON file, accepting a direct object or a parameters wrapper.'
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
-        raise ValueError(f"无法读取参数文件 {path}: {exc}") from exc
+        raise ValueError(f"Parametre dosyası okunamıyor / Cannot read parameter file {path}: {exc}") from exc
     if not isinstance(payload, dict):
-        raise ValueError("参数文件根节点必须是 JSON 对象")
+        raise ValueError('Parametre dosyasının kökü JSON nesnesi olmalıdır / Parameter-file root must be a JSON object')
     values = payload.get("parameters", payload)
     if not isinstance(values, dict):
-        raise ValueError("parameters 必须是 JSON 对象")
+        raise ValueError('parameters bir JSON nesnesi olmalıdır / parameters must be a JSON object')
     return _coerce_overrides(values)
 
 
 def parameter_positions(params: MountParameters) -> dict[str, list[tuple[float, float]]]:
-    """@brief 返回孔位的唯一真源，供建模与离线碰撞检查共同使用。"""
+    'Return the shared hole-position source for modeling and offline collision checks.'
     mount = [
         (x, y)
         for x in (-params.mount_hole_x, params.mount_hole_x)
@@ -152,7 +148,7 @@ def _circle_gap(
     second: tuple[float, float],
     second_radius: float,
 ) -> float:
-    """@brief 计算两个圆形加工特征之间的净间距。"""
+    'Compute net clearance between two circular machining features.'
     return math.dist(first, second) - first_radius - second_radius
 
 
@@ -162,7 +158,7 @@ def _point_to_centered_slot_gap(
     size_x: float,
     size_y: float,
 ) -> float:
-    """@brief 计算圆形特征到原点水平或垂直长圆槽的净间距。"""
+    'Compute clearance from a circular feature to an origin-centered horizontal/vertical obround slot.'
     if size_x >= size_y:
         slot_radius = size_y / 2.0
         half_centerline = max(0.0, size_x / 2.0 - slot_radius)
@@ -175,7 +171,7 @@ def _point_to_centered_slot_gap(
 
 
 def analyze_parameters(params: MountParameters) -> dict[str, Any]:
-    """@brief 执行无 COM 的工程参数和二维包络检查。"""
+    'Run engineering-parameter and 2D-envelope checks without COM.'
     errors: list[str] = []
     warnings: list[str] = []
 
@@ -183,109 +179,109 @@ def analyze_parameters(params: MountParameters) -> dict[str, Any]:
         value = finite_number(name, getattr(params, name))
         if name in NONNEGATIVE_FIELDS:
             if value < 0.0:
-                errors.append(f"{name} 不能小于 0")
+                errors.append(f"{name} 0'dan küçük olamaz / cannot be below 0")
         elif value <= 0.0:
-            errors.append(f"{name} 必须大于 0")
+            errors.append(f"{name} 0'dan büyük olmalıdır / must be above 0")
 
     if params.pocket_shape not in POCKET_SHAPES:
-        errors.append(f"pocket_shape 必须是 {sorted(POCKET_SHAPES)} 之一")
+        errors.append(f"pocket_shape şu seçeneklerden biri olmalıdır / pocket_shape must be one of: {sorted(POCKET_SHAPES)} seçenekleri / options")
     if not 5.0 <= params.chamfer_angle_deg <= 85.0:
-        errors.append("chamfer_angle_deg 必须在 5 到 85 度之间")
+        errors.append('chamfer_angle_deg 5 ile 85 derece arasında olmalıdır / chamfer_angle_deg must be between 5 and 85 degrees')
     if params.boss_length + 2.0 * params.minimum_feature_web > params.length:
-        errors.append("boss_length 未在基体长度方向保留最小台阶宽度")
+        errors.append('boss_length taban uzunluğunda minimum basamak genişliğini bırakmıyor / boss_length leaves insufficient step width along the base')
     if params.boss_width + 2.0 * params.minimum_feature_web > params.width:
-        errors.append("boss_width 未在基体宽度方向保留最小台阶宽度")
+        errors.append('boss_width taban genişliğinde minimum basamak genişliğini bırakmıyor / boss_width leaves insufficient step width across the base')
     if params.base_corner_radius * 2.0 >= min(params.length, params.width):
-        errors.append("base_corner_radius 过大，外轮廓圆角会自交或退化")
+        errors.append('base_corner_radius çok büyük; radyüs kendini kesebilir veya bozulabilir / base_corner_radius risks self-intersection or degeneration')
     if params.boss_corner_radius * 2.0 >= min(params.boss_length, params.boss_width):
-        errors.append("boss_corner_radius 过大，凸台圆角会自交或退化")
+        errors.append('boss_corner_radius çok büyük; radyüs kendini kesebilir veya bozulabilir / boss_corner_radius risks self-intersection or degeneration')
 
     if params.top_chamfer > params.thickness / 2.0:
-        errors.append("top_chamfer 不能大于基体厚度的一半")
+        errors.append('top_chamfer taban kalınlığının yarısını aşamaz / top_chamfer cannot exceed half the base thickness')
     if params.bottom_chamfer > params.thickness / 2.0:
-        errors.append("bottom_chamfer 不能大于基体厚度的一半")
+        errors.append('bottom_chamfer taban kalınlığının yarısını aşamaz / bottom_chamfer cannot exceed half the base thickness')
     if params.top_chamfer + params.bottom_chamfer >= params.thickness:
-        errors.append("顶面与底面倒角在厚度方向没有保留实体")
+        errors.append('Üst ve alt pahlar kalınlık yönünde katı bırakmıyor / Top and bottom chamfers leave no solid through the thickness')
     if params.boss_top_chamfer > params.boss_height / 2.0:
-        errors.append("boss_top_chamfer 不能大于凸台高度的一半")
+        errors.append('boss_top_chamfer çıkıntı yüksekliğinin yarısını aşamaz / boss_top_chamfer cannot exceed half the boss height')
     if params.base_corner_radius and params.top_chamfer > params.base_corner_radius:
-        warnings.append("top_chamfer 大于 base_corner_radius，外轮廓交汇处求解风险较高")
+        warnings.append('top_chamfer, base_corner_radius değerini aşıyor; kesişimde çözüm riski yüksek / top_chamfer exceeds base_corner_radius; increased junction solver risk')
     if params.boss_corner_radius and params.boss_top_chamfer > params.boss_corner_radius:
-        warnings.append("boss_top_chamfer 大于 boss_corner_radius，凸台交汇处求解风险较高")
+        warnings.append('boss_top_chamfer, boss_corner_radius değerini aşıyor; kesişimde çözüm riski yüksek / boss_top_chamfer exceeds boss_corner_radius; increased junction solver risk')
 
     if params.counterbore_diameter <= params.mount_hole_diameter:
-        errors.append("counterbore_diameter 必须大于 mount_hole_diameter")
+        errors.append('counterbore_diameter, mount_hole_diameter değerinden büyük olmalıdır / counterbore_diameter must exceed mount_hole_diameter')
     if params.counterbore_depth >= params.thickness - params.minimum_bottom_wall:
-        errors.append("counterbore_depth 未保留 minimum_bottom_wall")
+        errors.append('counterbore_depth, minimum_bottom_wall bırakmıyor / counterbore_depth does not preserve minimum_bottom_wall')
     if params.pocket_depth >= params.thickness - params.minimum_bottom_wall:
-        errors.append("pocket_depth 未保留 minimum_bottom_wall")
+        errors.append('pocket_depth, minimum_bottom_wall bırakmıyor / pocket_depth does not preserve minimum_bottom_wall')
     if params.hole_chamfer > params.counterbore_depth / 2.0:
-        errors.append("hole_chamfer 相对沉孔深度过大")
+        errors.append('hole_chamfer havşa derinliğine göre çok büyük / hole_chamfer is too large for the counterbore depth')
 
     positions = parameter_positions(params)
     mount_radius = params.counterbore_diameter / 2.0 + params.hole_chamfer
     dowel_radius = params.dowel_hole_diameter / 2.0 + params.hole_chamfer
     for label, points, radius in (
-        ("安装沉孔", positions["mount"], mount_radius),
-        ("定位孔", positions["dowel"], dowel_radius),
+        ('Montaj havşası / Mounting counterbore', positions["mount"], mount_radius),
+        ('Konumlandırma deliği / Dowel hole', positions["dowel"], dowel_radius),
     ):
         for x, y in points:
             if abs(x) + radius + params.minimum_edge_wall > params.length / 2.0:
-                errors.append(f"{label} X={x:g} 超出基体或未保留外边壁厚")
+                errors.append(f"{label} X={x:g} taban dışında veya kenar et kalınlığı yetersiz / outside base or insufficient edge wall")
             if abs(y) + radius + params.minimum_edge_wall > params.width / 2.0:
-                errors.append(f"{label} Y={y:g} 超出基体或未保留外边壁厚")
+                errors.append(f"{label} Y={y:g} taban dışında veya kenar et kalınlığı yetersiz / outside base or insufficient edge wall")
 
     all_holes = [
         *(('mount', point, mount_radius) for point in positions["mount"]),
         *(('dowel', point, dowel_radius) for point in positions["dowel"]),
     ]
     if len(set(positions["dowel"])) != len(positions["dowel"]):
-        errors.append("两个定位孔位置重合；dowel_hole_x 与 dowel_hole_y 不能同时为 0")
+        errors.append('İki konumlandırma deliği çakışıyor; dowel_hole_x ve dowel_hole_y birlikte 0 olamaz / Dowel holes coincide; x and y cannot both be zero')
     for index, (first_kind, first, first_radius) in enumerate(all_holes):
         for second_kind, second, second_radius in all_holes[index + 1 :]:
             gap = _circle_gap(first, first_radius, second, second_radius)
             if gap < params.minimum_feature_web:
                 errors.append(
-                    f"{first_kind} 孔 {first} 与 {second_kind} 孔 {second} 的净间距 "
-                    f"{gap:.3f} mm 小于 minimum_feature_web"
+                    f"{first_kind} delik / hole {first} ve / and {second_kind} delik / hole {second} net aralık / net clearance "
+                    f"{gap:.3f} mm, minimum_feature_web değerinden küçük / mm is below minimum_feature_web"
                 )
 
     slot_major = max(params.slot_length, params.slot_width)
     if not math.isclose(params.slot_length, slot_major):
-        warnings.append("slot_length 小于 slot_width；建模时会自动按较长尺寸作为槽轴方向")
+        warnings.append('slot_length, slot_width değerinden küçük; uzun boyut kanal ekseni olarak kullanılacak / slot_length is below slot_width; the longer dimension becomes the slot axis')
     if params.slot_length + 2.0 * params.minimum_edge_wall > params.length:
-        errors.append("中心长圆槽在长度方向未保留外边壁厚")
+        errors.append('Merkez uzun delik uzunluk yönünde kenar etini korumuyor / Center slot leaves insufficient end wall')
     if params.slot_width + 2.0 * params.minimum_edge_wall > params.width:
-        errors.append("中心长圆槽在宽度方向未保留外边壁厚")
+        errors.append('Merkez uzun delik genişlik yönünde kenar etini korumuyor / Center slot leaves insufficient side wall')
     if params.slot_length > params.boss_length or params.slot_width > params.boss_width:
-        warnings.append("中心槽超出凸台包络，将同时切入基体；确认这是贯穿通道而非封闭凸台槽")
+        warnings.append('Merkez kanal çıkıntı sınırını aşıp tabana giriyor; kapalı cep yerine geçiş istendiğini doğrulayın / Center slot cuts beyond the boss into the base; confirm a through channel is intended')
 
     if abs(params.pocket_center_x) + params.pocket_length / 2.0 + params.minimum_edge_wall > params.length / 2.0:
-        errors.append("减重口袋在 X 方向超出基体或未保留外边壁厚")
+        errors.append('Hafifletme cebi X yönünde tabanı aşıyor veya kenar eti yetersiz / Pocket exceeds X bounds or leaves insufficient edge wall')
     if params.pocket_width / 2.0 + params.minimum_edge_wall > params.width / 2.0:
-        errors.append("减重口袋在 Y 方向超出基体或未保留外边壁厚")
+        errors.append('Hafifletme cebi Y yönünde tabanı aşıyor veya kenar eti yetersiz / Pocket exceeds Y bounds or leaves insufficient edge wall')
     center_slot_half_x = params.slot_length / 2.0
     pocket_inner_x = abs(params.pocket_center_x) - params.pocket_length / 2.0
     slot_pocket_web = pocket_inner_x - center_slot_half_x
     if slot_pocket_web < params.minimum_feature_web:
         errors.append(
-            f"中心槽与减重口袋的 X 向净间距 {slot_pocket_web:.3f} mm "
-            "小于 minimum_feature_web"
+            f"Merkez kanal ile cep arasında X net aralığı / X clearance between center slot and pocket {slot_pocket_web:.3f} mm "
+            'minimum_feature_web değerinden küçük / below minimum_feature_web'
         )
     if params.pocket_shape == "rectangle":
-        warnings.append("矩形口袋含尖锐内角；CNC 交付应给出刀具圆角或改用 rounded_slot")
+        warnings.append('Dikdörtgen cep keskin iç köşeler içeriyor; CNC için takım radyüsü belirtin veya rounded_slot kullanın / Rectangular pocket has sharp internal corners; specify tool radius or use rounded_slot')
 
     for kind, point, radius in all_holes:
         gap = _point_to_centered_slot_gap(point, radius, params.slot_length, params.slot_width)
         if gap < params.minimum_feature_web:
-            errors.append(f"{kind} 孔 {point} 与中心槽净间距 {gap:.3f} mm 不足")
+            errors.append(f"{kind} delik / hole {point} merkez kanala net aralık / clearance to center slot {gap:.3f} mm yetersiz / mm is insufficient")
         pocket_dx = abs(abs(point[0]) - abs(params.pocket_center_x)) - params.pocket_length / 2.0
         pocket_dy = abs(point[1]) - params.pocket_width / 2.0
         approximate_gap = math.hypot(max(0.0, pocket_dx), max(0.0, pocket_dy)) - radius
         if pocket_dx <= 0.0 and pocket_dy <= 0.0:
             approximate_gap = -radius
         if approximate_gap < params.minimum_feature_web:
-            errors.append(f"{kind} 孔 {point} 与减重口袋包络净间距不足")
+            errors.append(f"{kind} delik / hole {point} cep sınırına net aralık yetersiz / insufficient clearance to pocket envelope")
 
     return {
         "status": "blocked" if errors else "pass_with_warnings" if warnings else "pass",
@@ -302,7 +298,7 @@ def analyze_parameters(params: MountParameters) -> dict[str, Any]:
 
 
 def require_valid_parameters(params: MountParameters) -> dict[str, Any]:
-    """@brief 参数存在硬错误时立即阻断 COM 建模。"""
+    'Block COM modeling immediately on hard parameter errors.'
     report = analyze_parameters(params)
     if report["errors"]:
         raise ValueError("；".join(report["errors"]))
@@ -310,7 +306,7 @@ def require_valid_parameters(params: MountParameters) -> dict[str, Any]:
 
 
 def build_parameters(*overrides: Mapping[str, Any]) -> tuple[MountParameters, dict[str, Any]]:
-    """@brief 按传入顺序叠加参数，并返回校验后的不可变对象。"""
+    'Apply parameter overrides in order and return a validated immutable object.'
     params = MountParameters()
     for values in overrides:
         params = replace(params, **_coerce_overrides(values))
@@ -319,19 +315,19 @@ def build_parameters(*overrides: Mapping[str, Any]) -> tuple[MountParameters, di
 
 
 def fallback_values(value_mm: float, policy: str) -> list[float]:
-    """@brief 生成有界且可追溯的尺寸降级阶梯。"""
+    'Generate a bounded, traceable dimension-fallback ladder.'
     if value_mm <= 0.0:
         return []
     if policy == "strict":
         return [value_mm]
     if policy != "progressive":
-        raise ValueError("failure_policy 必须为 strict 或 progressive")
+        raise ValueError('failure_policy strict veya progressive olmalıdır / failure_policy must be strict or progressive')
     values = [value_mm, value_mm * 0.75, value_mm * 0.5]
     return list(dict.fromkeys(round(item, 6) for item in values if item >= 0.1))
 
 
 def build_operation_plan(params: MountParameters, failure_policy: str = "progressive") -> list[dict[str, Any]]:
-    """@brief 生成语义目标、期望边数和尺寸降级均明确的执行计划。"""
+    'Generate a plan with explicit semantic targets, expected edge counts and dimension fallbacks.'
     operations = [
         ("outer_treatments", "Fillet_Base_Corners", "fillet", "base_vertical_edges", 4, params.base_corner_radius),
         ("outer_treatments", "Fillet_Boss_Corners", "fillet", "boss_vertical_edges", 4, params.boss_corner_radius),
@@ -386,7 +382,7 @@ def plan_payload(
     validation: Mapping[str, Any],
     failure_policy: str,
 ) -> dict[str, Any]:
-    """@brief 返回可直接序列化的 v2 计划载荷。"""
+    'Return a directly serializable v2 plan payload.'
     return {
         "schema_version": 2,
         "units": "mm",

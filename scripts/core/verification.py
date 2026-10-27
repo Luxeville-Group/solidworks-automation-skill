@@ -1,22 +1,16 @@
-"""@brief Verification Adapter —— 把既有 Reviewer 结果统一成 VerificationResult。
+"""@brief Adapt existing Reviewer results to VerificationResult.
 
-本模块**不**实现任何 CAD / 几何 / 工程图 / 文件事实检查，也不重建 Artifact Ledger
-或重写 Reviewer Gate。它只做三件事：
+This module implements no CAD, geometry, drawing or file-fact checks and does not
+rebuild Artifact Ledger or Reviewer Gate. It calls an injected Reviewer (or accepts
+existing results), normalizes statuses and constructs VerificationResult.
 
-1. 调用既有 Reviewer（通过注入的 callable，或直接接收已有 Review 结果）；
-2. 把不同 Reviewer 的返回格式标准化为统一状态；
-3. 生成统一的 :class:`~core.state.VerificationResult`。
+The Reviewer owns checks; this adapter only translates their results. Execution
+Core combines execution.success and VerificationResult to decide final success.
+core.capability.requires_review decides whether review is required; this module
+reads no capability configuration and performs no recovery, retry, fallback or repair.
 
-职责边界：
-
-- Reviewer 负责「检查」；本 Adapter 只负责「把检查结果翻译成统一语言」。
-- ``Tool Success != Task Success`` 由调用方（后续 Execution Core）联合
-  ``execution.success`` 与 ``VerificationResult`` 判定；本模块不据此做决策。
-- 是否需要 Review 由 ``core.capability.requires_review`` 决定；本模块不读能力配置。
-- 不做 Recovery / retry / backend fallback / 自动修复。
-
-安全原则：**无法验证 ≠ PASS**。Reviewer 缺失、异常、返回未知状态时，一律安全
-降级为 ``BLOCKED``，并保留 ``reason`` / ``error_code`` 供后续 Recovery 使用。
+Unverifiable results never become PASS. Missing Reviewers, exceptions and unknown
+statuses become BLOCKED, preserving reason/error_code for recovery.
 """
 from __future__ import annotations
 
@@ -25,10 +19,10 @@ from typing import Any, Callable, Iterable, Mapping, Sequence
 from .state import VerificationResult, VerificationStatus
 from .trace import emit
 
-# 已确认的历史返回格式 → 统一状态。全部来自仓库现有 Reviewer 的正式字段，或 V2
-# 明确要求的别名；未收录的字符串一律由 normalize_status 安全降级为 BLOCKED。
+# Confirmed legacy formats and explicit V2 aliases map to unified statuses;
+# normalize_status safely degrades any unlisted value to BLOCKED.
 _STATUS_MAP: dict[str, VerificationStatus] = {
-    # 已确认的 Review 顶层 status 字段
+    # Confirmed top-level Review status fields
     "pass": VerificationStatus.PASS,
     "warn": VerificationStatus.WARN,
     "warning": VerificationStatus.WARN,
@@ -36,7 +30,7 @@ _STATUS_MAP: dict[str, VerificationStatus] = {
     "fail": VerificationStatus.FAIL,
     "failed": VerificationStatus.FAIL,
     "blocked": VerificationStatus.BLOCKED,
-    # V2 明确要求的工具/证据层别名
+    # Tool/evidence aliases explicitly required by V2
     "passed": VerificationStatus.PASS,
     "ok": VerificationStatus.PASS,
     "success": VerificationStatus.PASS,
@@ -55,13 +49,13 @@ _STATUS_PRIORITY: dict[VerificationStatus, int] = {
     VerificationStatus.PASS: 0,
 }
 
-# 这些 severity 视为非关键/信息性，即使 status=fail 也不升级为 FAIL（降为 WARN）。
+# These severities are informational/noncritical: fail becomes WARN rather than FAIL.
 _NON_BLOCKING_SEVERITY = frozenset(
     {"p2", "low", "info", "informational", "optional", "note", "debug"}
 )
 
-# 最终状态 → Trace 事件类型（沿用 Phase 2 的 append-only 事件 schema，通过
-# verification_status 字段承载真实状态；warned/blocked 为 Phase 3 追加的事件名）。
+# Final status -> Trace event type, preserving Phase 2 append-only events;
+# verification_status carries actual state; warned/blocked were added in Phase 3.
 _STATUS_EVENT: dict[VerificationStatus, str] = {
     VerificationStatus.PASS: "verification.passed",
     VerificationStatus.FAIL: "verification.failed",
@@ -71,7 +65,7 @@ _STATUS_EVENT: dict[VerificationStatus, str] = {
 
 
 def normalize_status(value: Any) -> VerificationStatus:
-    """@brief 把历史状态字符串归一化为 VerificationStatus，未知值安全降级 BLOCKED。"""
+    """@brief Normalize legacy status strings; safely degrade unknown values to BLOCKED."""
     if isinstance(value, VerificationStatus):
         return value
     if value is None or str(value).strip() == "":
@@ -80,7 +74,7 @@ def normalize_status(value: Any) -> VerificationStatus:
 
 
 def aggregate_statuses(statuses: Iterable[VerificationStatus | str]) -> VerificationStatus:
-    """@brief 按 BLOCKED > FAIL > WARN > PASS 确定性聚合，空集合安全降级 BLOCKED。"""
+    """@brief Aggregate deterministically as BLOCKED > FAIL > WARN > PASS; empty sets become BLOCKED."""
     normalized = [normalize_status(item) for item in statuses]
     if not normalized:
         return VerificationStatus.BLOCKED
@@ -88,7 +82,7 @@ def aggregate_statuses(statuses: Iterable[VerificationStatus | str]) -> Verifica
 
 
 def check_status(check: Mapping[str, Any]) -> VerificationStatus:
-    """@brief 归一化单个 Check，尊重 severity/required/optional，信息性失败降级 WARN。"""
+    """@brief Normalize a Check respecting severity/required/optional; informational failures become WARN."""
     status = normalize_status(check.get("status"))
     if status == VerificationStatus.FAIL:
         severity = str(check.get("severity") or "").strip().lower()
@@ -100,13 +94,13 @@ def check_status(check: Mapping[str, Any]) -> VerificationStatus:
 
 
 def aggregate_checks(checks: Iterable[Mapping[str, Any]]) -> VerificationStatus:
-    """@brief 聚合一组原始 Check 为统一状态（尊重 severity/required）。"""
+    """@brief Aggregate raw Checks respecting severity and required."""
     normalized = [check_status(item) for item in checks if isinstance(item, Mapping)]
     return aggregate_statuses(normalized)
 
 
 def _coerce_results(value: Any) -> list[Mapping[str, Any]]:
-    """@brief 把 reviewer 返回值（dict / list / None）归一化为结果列表。"""
+    """@brief Normalize reviewer dict/list/None into a result list."""
     if value is None:
         return []
     if isinstance(value, Mapping):
@@ -117,7 +111,7 @@ def _coerce_results(value: Any) -> list[Mapping[str, Any]]:
 
 
 def _status_from_result(result: Mapping[str, Any]) -> VerificationStatus:
-    """@brief 从单个 Review 结果取正式 status 字段，兼容 run_review 的 evaluation.status。"""
+    """@brief Read formal Review status, including run_review evaluation.status."""
     raw = result.get("status")
     if raw is None and isinstance(result.get("evaluation"), Mapping):
         raw = result["evaluation"].get("status")
@@ -125,7 +119,7 @@ def _status_from_result(result: Mapping[str, Any]) -> VerificationStatus:
 
 
 def _result_reason(status: VerificationStatus, results: list[Mapping[str, Any]]) -> str | None:
-    """@brief 取聚合后最终状态对应的 reason/message，无则返回 None。"""
+    """@brief Return reason/message for the aggregate final state, or None."""
     if status == VerificationStatus.PASS:
         return None
     for result in results:
@@ -139,7 +133,7 @@ def _result_reason(status: VerificationStatus, results: list[Mapping[str, Any]])
 
 
 def _result_error_code(status: VerificationStatus, results: list[Mapping[str, Any]]) -> str | None:
-    """@brief 取聚合后最终状态对应的 error_code。"""
+    """@brief Return error_code associated with the aggregate final state."""
     if status == VerificationStatus.PASS:
         return None
     for result in results:
@@ -152,7 +146,7 @@ def _result_error_code(status: VerificationStatus, results: list[Mapping[str, An
 
 
 def _dedup_artifacts(items: Iterable[Any]) -> list[dict[str, Any]]:
-    """@brief 合并交付物列表并按 path 去重，保留顺序。"""
+    """@brief Merge artifacts and deduplicate paths while preserving order."""
     seen: set[str] = set()
     result: list[dict[str, Any]] = []
     for item in items:
@@ -180,7 +174,7 @@ def _trace_event(
     message: str = "",
     data: Mapping[str, Any] | None = None,
 ) -> None:
-    """@brief 写 Trace 事件；观测失败绝不能影响验证结果。"""
+    """@brief Write Trace events without allowing observation failure to affect verification."""
     if trace_dir is None:
         return
     try:
@@ -195,12 +189,12 @@ def _trace_event(
             data=data,
         )
     except Exception:
-        # 可观测性不应成为业务成功的前置依赖。
+        # Observability must not become a prerequisite for business success.
         pass
 
 
 def _execution_summary(execution: Any) -> dict[str, Any] | None:
-    """@brief 从 execution 提取最小上下文摘要（仅用于 Trace，不做判定）。"""
+    """@brief Extract minimal execution context for Trace only, without judging it."""
     if execution is None:
         return None
     if isinstance(execution, Mapping):
@@ -222,14 +216,15 @@ def verify(
     run_id: str | None = None,
     step_id: str | None = None,
 ) -> VerificationResult:
-    """@brief 调用 Reviewer 并把结果统一为 VerificationResult（薄入口）。
+    """@brief Call the Reviewer and normalize to VerificationResult.
 
-    :param reviewer: 零参 callable，返回单个 Review 结果 dict、结果 list，或 None。
-                     生产环境传入真实 Reviewer（如 evaluate_ledger），测试注入 Fake。
-    :param reviewer_result: 直接传入既有 Review 结果（dict / list），替代 reviewer。
-    :param artifacts: 既有 Artifact Ledger 事实（path/exists/size/hash/kind）。
-    :param evidence: 既有 Evidence 引用，原样挂到 VerificationResult.evidence。
-    :param trace_dir: 可选 queue 目录；提供时写入 verification.* 事件（失败不影响结果）。
+    :param reviewer: Zero-argument callable returning dict, list or None. Use the
+        actual reviewer, such as evaluate_ledger, in production; inject fakes in tests.
+    :param reviewer_result: Existing dict/list result instead of calling reviewer.
+    :param artifacts: Existing Artifact Ledger facts: path/exists/size/hash/kind.
+    :param evidence: Existing references attached unchanged to evidence.
+    :param trace_dir: Optional queue folder for verification.* events; writing
+        failure does not affect the verification result.
     """
     _trace_event(
         "verification.started",
@@ -238,25 +233,25 @@ def verify(
         step_id=step_id,
         capability_id=capability_id,
         status=None,
-        message="开始验证",
+        message="Doğrulama başlıyor",
         data=_execution_summary(execution),
     )
 
     results: list[Mapping[str, Any]] = []
     reviewer_error: Exception | None = None
     if reviewer_result is not None:
-        # 既有 Review 结果优先：Worker/Handler 已产生 reviewer_result 时不再重复调用 Reviewer。
+        # Prefer existing results: do not repeat Reviewer calls when Worker/Handler already produced them.
         results = _coerce_results(reviewer_result)
     elif reviewer is not None:
         try:
             results = _coerce_results(reviewer())
-        except Exception as exc:  # noqa: BLE001 - Reviewer 异常必须安全降级，不能冒泡。
+        except Exception as exc:  # noqa: BLE001 - safely degrade Reviewer exceptions rather than propagating them.
             reviewer_error = exc
 
     if reviewer_error is not None:
         verdict = VerificationResult(
             status=VerificationStatus.BLOCKED,
-            reason=f"Reviewer 执行失败: {type(reviewer_error).__name__}",
+            reason=f"Reviewer çalıştırılamadı: {type(reviewer_error).__name__}",
             checks=[{"id": "verification_reviewer_error", "status": "blocked", "message": str(reviewer_error)}],
             error_code="reviewer_error",
             manual_review_required=False,
@@ -275,7 +270,7 @@ def verify(
     if not results:
         verdict = VerificationResult(
             status=VerificationStatus.BLOCKED,
-            reason="未配置 Reviewer 且无既有 Review 结果，无法完成验证",
+            reason="Reviewer yapılandırılmadı ve mevcut Review sonucu yok; verification tamamlanamıyor",
             error_code="verification_unavailable",
         )
         _trace_event(
@@ -327,7 +322,7 @@ def verify(
         step_id=step_id,
         capability_id=capability_id,
         status=verdict.status,
-        message=verdict.reason or ("验证通过" if verdict.status == VerificationStatus.PASS else ""),
+        message=verdict.reason or ("Doğrulama başarılı" if verdict.status == VerificationStatus.PASS else ""),
     )
     return verdict
 

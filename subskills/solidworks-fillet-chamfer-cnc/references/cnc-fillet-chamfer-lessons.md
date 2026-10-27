@@ -1,42 +1,42 @@
-# CNC 多圆角/倒角建模与验收经验
+# CNC Fillet/Chamfer Modeling and Acceptance Lessons
 
-## v2 能力边界
+## Version 2 capability boundaries
 
-当前真机路径除恒定半径边圆角、角度倒角和孔口倒角外，已经覆盖六条彼此隔离的高级路径。能力必须按“版本 + 输入拓扑”声明，不能因为 SolidWorks UI 支持就跨环境标记稳定：
+Beyond constant-radius edge fillets, angle chamfers and hole-mouth chamfers, six isolated advanced paths have native tests. Declare support by version and input topology; UI availability alone does not establish stability across environments:
 
-- 三中间控制点可变半径、setback corner、face fillet、full-round、平面—圆柱面 G2 组合和非对称宽度-宽度倒角已有 SolidWorks 2026 SP1.1 最小真机回归。
-- 保持线/保持面圆角在本机 SW2026 SP1.1 仍为 `blocked`：投影分割线和 mark `2/4/8` 能确定性生成；Python、C# PIA、SWBasic 和官方要求的进程内非托管 C++ 均已实测，故障边界收敛到 `ISetHoldLines`，不是 Python 单一语言限制。原生探测可能令 SolidWorks 服务器故障，默认禁止，只有隔离实例显式授权才复测。
-- 顶点倒角、自由曲面间 G1/G2、复杂退刀槽和五轴曲面清根仍未覆盖。
+- Three-intermediate-point variable radius, setback corner, face fillet, full-round, plane–cylinder G2 and asymmetric width-width chamfers have minimal SW2026 SP1.1 native regressions.
+- Hold-line/hold-face fillets remain blocked on local SW2026 SP1.1. Projected split lines and marks 2/4/8 are deterministic, but Python, C# PIA, SWBasic and in-process unmanaged C++ all converge on ISetHoldLines failure. Native probes may crash the SOLIDWORKS server; rerun only with explicit authorization in an isolated instance.
+- Vertex chamfers, freeform-surface G1/G2, complex relief grooves and five-axis surface cleanup are not covered.
 
-扩展这些能力时，先查目标 SolidWorks 版本的官方 API，再用最小零件完成创建、保存、关闭、重开、特征树回读、STEP 导出和多视角预览。只有连续回归通过后才能修改能力等级。
+For extensions, consult target-version official APIs, then create/save/close/reopen/read features/export STEP/review multiple views on a minimal part. Upgrade capability levels only after repeated regressions pass.
 
-## v2 离线门禁
+## Version 2 offline gates
 
-`scripts/cnc_strategy.py` 在 COM 之前检查：
+scripts/cnc_strategy.py checks before COM:
 
-- 所有数值有限且尺寸为正；允许为零的圆角/倒角会明确禁用对应操作。
-- 凸台相对基体的台阶宽度，圆角半径和倒角深度上限。
-- 安装沉孔、定位孔、中心槽、减重口袋的包络、边壁和特征间净距。
-- 沉孔和口袋的剩余底壁，以及沉孔直径必须大于通孔直径。
-- 矩形减重口袋的尖锐内角 DFM 警告；默认使用长圆槽口袋。
+- Finite numbers and positive dimensions; permitted zero fillet/chamfer values explicitly disable the operation.
+- Boss-to-base shoulder width and limits on fillet radius/chamfer depth.
+- Mounting counterbores, locating holes, center slots and weight-reduction pockets: envelopes, walls and clearances.
+- Remaining floor thickness below counterbores/pockets, and counterbore diameter greater than through-hole diameter.
+- DFM warnings for sharp internal corners in rectangular pockets; obround pockets are the default.
 
-模板默认定位孔改为 `(0, ±24)` mm。旧值 `(±32, 0)` mm 会与总长 62 mm、宽 16 mm 的中心槽相交，不能继续作为“独立定位孔”交付。
+Default locating holes are now at (0, ±24) mm. The old (±32, 0) mm positions intersect a 62 mm-long, 16 mm-wide center slot and cannot be delivered as independent locating holes.
 
-## 这次学到的事
+## Lessons from validation
 
-本次“CNC 铝合金安装座”验证表明，SolidWorks COM 自动化可以稳定生成多圆角/倒角模型，但必须控制建模顺序和选边方法。成功模型包含底板、中心凸台、安装孔、沉孔、定位孔、中心长槽、减重口袋、真实 Fillet 和 Chamfer 特征，并通过 `sw_review` 规则审查。
+The CNC aluminum-mount validation showed repeatable multi-fillet/chamfer COM modeling when feature order and edge selection are controlled. The successful model included a baseplate, center boss, mounting holes/counterbores, locating holes, center slot, weight-reduction pockets and real Fillet/Chamfer features, passing sw_review rules.
 
-最重要的结论：
+Key findings:
 
-- 圆角/倒角多的零件，要先让主体拓扑简单，再逐步增加复杂度。
-- 大圆角和外轮廓倒角放在孔槽之前，比放在所有切除之后稳定。
-- 用实体边对象选择比用自动边名或坐标点击稳定。
-- 每个 SolidWorks 特征返回值都要检查 `None` / `False`，失败就立刻中止或降级。
-- 同名输出文件如果已在 SolidWorks 打开，保存会失败，典型表现为 `SaveAs` 错误码 `1`。
+- Begin with simple topology and add complexity gradually.
+- Large fillets and outer chamfers are more stable before holes/slots than after every cut.
+- Actual edge-object selection is more stable than generated names or coordinate clicks.
+- Check each feature return for None/False; stop or explicitly degrade on failure.
+- Saving to a same-name output already open in SOLIDWORKS can fail, commonly with SaveAs error 1.
 
-## 推荐 API 和封装
+## Recommended APIs and wrappers
 
-必须优先调用父技能已有封装：
+Prefer the existing parent wrappers:
 
 ```python
 from sw_session import SolidWorksSession
@@ -46,7 +46,7 @@ from sw_review import run_review
 from sw_appearance import set_document_appearance
 ```
 
-常用 SolidWorks API：
+Common SOLIDWORKS APIs:
 
 ```python
 model.FeatureManager.FeatureExtrusion3(...)
@@ -62,11 +62,11 @@ curve.IsCircle()
 curve.CircleParams()
 ```
 
-pywin32 下 `GetStartVertex`、`GetEndVertex`、`FirstFeature` 等成员可能表现为伪可调用属性，读取时用 `get_com_member()`。
+In pywin32, GetStartVertex, GetEndVertex, FirstFeature and similar members may be callable-looking properties; read with get_com_member().
 
-## 稳定选边模式
+## Stable edge selection
 
-不要依赖 `Edge1`、`Edge2` 或空名称坐标选择。推荐模式：
+Avoid Edge1/Edge2 or unnamed coordinate selections. Recommended pattern:
 
 ```python
 def edge_points(edge):
@@ -96,9 +96,9 @@ def select_edges(model, predicate):
     return count
 ```
 
-按端点、圆心、半径、方向和所在平面分类边线。模板使用 0.05 mm 几何容差，并对每类目标声明精确期望数量：基础体立角 4 条，圆角后的外轮廓 8 条，四个沉孔加两个定位孔的孔口圆边 6 条。
+Classify by endpoints, circle center, radius, direction and plane. The template uses 0.05 mm tolerance and exact counts: four base vertical corners, eight outer edges after filleting and six mouth circles for four counterbores plus two locating holes.
 
-每次选择都要记录与 `Edge1` 无关的签名：
+Record signatures independent of generated edge names for every selection:
 
 ```json
 {
@@ -108,113 +108,113 @@ def select_edges(model, predicate):
 }
 ```
 
-数量不符是拓扑歧义，不是“容差不够”。此时停止并输出全部候选签名；禁止自动放宽到毫米级容差或继续调用特征 API。
+A wrong count indicates ambiguous topology, not simply insufficient tolerance. Stop and report all candidate signatures; do not expand to millimeter-scale tolerances or continue to feature creation.
 
-### 既有模型选边
+### Selecting edges in existing models
 
-模板的 4/8/6 数量断言只适用于对应安装座拓扑。修改既有零件时：
+The template's 4/8/6 counts apply only to that mounting-body topology. For existing parts:
 
-1. 先导出候选边签名清单和等轴测预览。
-2. 用用户给出的基准面、特征、尺寸范围和相邻面限定目标，不复用模板固定数量。
-3. 把新的期望数量写进该任务的操作计划，并由人工确认一次。
-4. 操作完成后重新枚举边；不要复用圆角/倒角前缓存的 COM Edge 对象。
+1. Export candidate edge signatures and an isometric preview.
+2. Restrict targets using supplied datums, features, dimensional ranges and adjacent faces; do not reuse fixed template counts.
+3. Record the new expected count in the job plan and obtain human confirmation.
+4. Re-enumerate edges after editing; do not reuse COM Edge objects cached before filleting/chamfering.
 
-## 推荐特征顺序
+## Recommended feature order
 
-用于 CNC 安装座、连接块、机加工基座：
+For CNC mounts, connector blocks and machined bases:
 
-1. 基础矩形底板拉伸。
-2. 顶部凸台拉伸。
-3. 外轮廓大圆角和顶/底边倒角。
-4. 减重口袋。
-5. 贯穿安装孔。
-6. 沉孔/沉头台阶。
-7. 定位孔。
-8. 中心长圆槽。
-9. 孔口小倒角。
-10. 保存、导出 STEP、审查预览。
+1. Extrude the rectangular baseplate.
+2. Extrude the top boss.
+3. Apply large outer fillets and top/bottom edge chamfers.
+4. Cut weight-reduction pockets.
+5. Cut through mounting holes.
+6. Add counterbores/countersunk steps.
+7. Add locating holes.
+8. Cut the central obround slot.
+9. Apply small mouth chamfers.
+10. Save, export STEP and review previews.
 
-如果步骤 3 放在孔槽之后，SolidWorks 可能在复杂拓扑上求解很久。若必须后置，先减少半径、减少边数，逐类测试。
+Moving step 3 after holes/slots can cause long solves on complex topology. If necessary, reduce radius and selected-edge count, testing one class at a time.
 
-## 半径和降级策略
+## Radius and fallback policies
 
-保守默认值：
+Conservative example defaults:
 
-- 底板立角大圆角：R6-R10
-- 凸台立角圆角：R3-R6
-- 外轮廓倒角：C0.8-C2
-- 凸台顶面倒角：C0.5-C1
-- 孔口倒角：C0.3-C0.8
+- Base vertical-corner fillets: R6–R10.
+- Boss vertical-corner fillets: R3–R6.
+- Outer chamfers: C0.8–C2.
+- Boss top chamfers: C0.5–C1.
+- Hole-mouth chamfers: C0.3–C0.8.
 
-模板提供两种明确策略：
+The template defines two policies:
 
-- `strict`：只尝试请求尺寸，失败即停止，适合尺寸不可协商的图纸交付。
-- `progressive`：依次尝试请求值的 100%、75%、50%，最小不低于 0.1 mm。
+- strict: try only the requested dimensions and stop on failure; appropriate when dimensions are nonnegotiable.
+- progressive: try 100%, 75%, then 50% of the request, never below 0.1 mm.
 
-`progressive` 不是静默修复。参数 JSON 必须同时记录 `requested_value_mm`、`actual_value_mm`、状态 `degraded` 和每次失败信息；对外说明必须使用实际尺寸。
+Progressive is not silent repair. Record requested_value_mm, actual_value_mm, degraded status and each failure in parameter JSON; external descriptions must use actual dimensions.
 
-人工排障顺序：
+Manual troubleshooting order:
 
-1. 减小半径/倒角距离。
-2. 减少一次选择的边数。
-3. 把大圆角前置到孔槽之前。
-4. 若用户允许，显式把非关键槽口/口袋圆角设置为 `0` 后重新生成计划。
-5. 关键圆角或倒角不得自动跳过；无法满足时保持阻断。
+1. Reduce radius/chamfer distance.
+2. Select fewer edges at once.
+3. Move large fillets before holes/slots.
+4. With user permission, explicitly set noncritical pocket/slot fillets to 0 and regenerate the plan.
+5. Never silently skip critical fillets/chamfers; retain blocked status when requirements cannot be met.
 
-特征 API 返回非空后仍需 `ForceRebuild3(False)`，并用特征名从树中回读。返回 `None` 才允许进入下一档尺寸；若返回非空但重建后特征消失，应停止而不是继续叠加新特征。
+A nonempty feature return still requires ForceRebuild3(False) and named feature-tree read-back. Only None permits the next fallback size. If a returned feature disappears after rebuild, stop instead of stacking more features.
 
-## 推荐扩展路线
+## Recommended extensions
 
-按收益与风险排序：
+Ordered by benefit and risk:
 
-1. **通用既有模型边清单**：导出边-面邻接、曲线类型、长度、包围盒和几何签名，供用户确认语义分组。
-2. **更多加工特征**：键槽、燕尾槽、T 型槽、退刀槽、O 形圈槽和沉头孔；每类先补参数/碰撞检查，再接 COM。
-3. **多实体和配置**：为每个实体、配置独立保存选边证据，禁止跨配置复用临时拓扑引用。
-4. **高级圆角/倒角**：多控制点可变半径、face/full-round、setback、G2 曲面组合和宽度-宽度倒角采用六条独立执行路径与证据，不做一个万能封装；保持线保留独立负向探测。
+1. **General edge inventory for existing models:** export edge/face adjacency, curve type, length, bounds and signatures for human confirmation of semantic groups.
+2. **Additional machining features:** keyways, dovetail slots, T-slots, relief grooves, O-ring grooves and countersinks; add parameter/collision checks for each before connecting COM.
+3. **Multiple bodies and configurations:** store edge-selection evidence independently for each body and configuration; never reuse temporary topology references across configurations.
+4. **Advanced fillets/chamfers:** use six independent execution paths and evidence sets for multipoint variable-radius, face/full-round, setback, G2 surface combinations and distance-distance chamfers; do not use one universal wrapper. Keep hold-line negative probes separate.
 
-## SolidWorks 2026 高级圆角实测结论
+## SolidWorks 2026 advanced fillet test results
 
-- 可变半径：`FeatureFillet3`，目标边使用 mark 1，中间 `POINTREF` 使用 mark 256；25%/50%/75% 控制点分别回读 R3/R6/R4，位置读回值是百分数 `25/50/75`，不是比例 `0.25/0.5/0.75`。
-- face fillet：`CreateDefinition(swFmFillet)` → `Initialize(swFaceFillet)` → `SetFaces`；两组面分别回读 `Type=2`。
-- G2 曲面组合：圆柱顶平面与圆柱侧面分别写入两个 face set，设置 `CurvatureContinuous=true`；重开后必须仍读回 `Type=2` 和 G2 标志。
-- full-round：同样使用 `ISimpleFilletFeatureData2`，侧面组 1、中心面组、侧面组 2 分开写入并检查数量，回读 `Type=3`。
-- setback：`FeatureFillet3` 中三条交汇边 mark 1、角点 mark 0；距离必须使用 `SAFEARRAY<double>`。在 pywin32 下，普通 `tuple` 可被 COM 接受但求解返回 `None`，必须用 `VARIANT(VT_ARRAY | VT_R8, ...)`。
-- 宽度-宽度倒角：`InsertFeatureChamfer` 的 `ChamferType=2`，两侧宽度写入 `Width/OtherDist`，不是顶点倒角参数槽；`GetEdgeChamferDistance` 的 side 索引为 `0/1`。
-- 六项均应独立生成零件，避免前一个高级圆角改变后续拓扑；只有保存、STEP、重开、FeatureData 和审查报告全通过才标记 `verified`。
-- 保持线：官方要求面组 mark `2/4`、保持线 mark `8` 并设置 `HoldLines`；`ISetHoldLines` 又明确仅支持进程内非托管 C++。当前实现因此包含 C# PIA、SWBasic 和 MSVC x64 原生桥接，不再把后端固定为 Python。SW2026 SP1.1 / Revision 34.1.1 在原生 `ISetHoldLines` 调用处仍复现服务器故障，默认返回结构化阻断；当前回归严格要求创建后及重开后 `GetHoldLineCount=1`，不会把普通 `Fillet` 或分割线特征误报为成功。
+- Variable radius: use `FeatureFillet3`, mark 1 for the target edge and mark 256 for intermediate `POINTREF` objects. Read back R3/R6/R4 at 25%/50%/75%; returned positions are percentages `25/50/75`, not fractions `0.25/0.5/0.75`.
+- Face fillet: `CreateDefinition(swFmFillet)` → `Initialize(swFaceFillet)` → `SetFaces`; both face sets must read back `Type=2`.
+- G2 surface combination: put the cylinder top plane and cylindrical side face into separate face sets and set `CurvatureContinuous=true`; after reopening, verify `Type=2` and the G2 flag.
+- Full-round: also use `ISimpleFilletFeatureData2`; populate side set 1, center set and side set 2 separately, check their counts, and read back `Type=3`.
+- Setback: in `FeatureFillet3`, mark the three intersecting edges 1 and the corner vertex 0; distances require `SAFEARRAY<double>`. With pywin32, COM can accept an ordinary `tuple` while the solver returns `None`; use `VARIANT(VT_ARRAY | VT_R8, ...)`.
+- Distance-distance chamfer: set `InsertFeatureChamfer` `ChamferType=2` and write the two distances to `Width/OtherDist`, not the vertex-chamfer parameter slots; `GetEdgeChamferDistance` side indices are `0/1`.
+- Generate a separate part for each of the six cases so an earlier advanced fillet does not change later topology. Mark `verified` only after save, STEP export, reopen, FeatureData readback and review report all pass.
+- Hold lines: the official API requires face-set marks `2/4`, hold-line mark `8` and `HoldLines`; `ISetHoldLines` explicitly supports only in-process unmanaged C++. The implementation therefore includes C# PIA, SWBasic and an MSVC x64 native bridge rather than relying only on Python. SW2026 SP1.1 / Revision 34.1.1 still reproduces a server fault at native `ISetHoldLines`, so the default returns a structured block. Regression requires `GetHoldLineCount=1` both after creation and after reopening; an ordinary `Fillet` or split-line feature must not be reported as success.
 
-官方接口依据：
+Official API references:
 
 - [IFeatureManager.FeatureFillet3](https://help.solidworks.com/2026/English/api/sldworksapi/SOLIDWORKS.Interop.sldworks~SOLIDWORKS.Interop.sldworks.IFeatureManager~FeatureFillet3.html)
 - [ISimpleFilletFeatureData2](https://help.solidworks.com/2026/English/api/sldworksapi/SolidWorks.Interop.sldworks~SolidWorks.Interop.sldworks.ISimpleFilletFeatureData2.html)
 - [HoldLines](https://help.solidworks.com/2025/english/api/sldworksapi/SolidWorks.Interop.sldworks~SolidWorks.Interop.sldworks.ISimpleFilletFeatureData2~HoldLines.html)
-- [ISetHoldLines（仅进程内非托管 C++）](https://help.solidworks.com/2025/English/api/sldworksapi/SolidWorks.Interop.sldworks~SolidWorks.Interop.sldworks.ISimpleFilletFeatureData2~ISetHoldLines.html)
+- [ISetHoldLines (in-process unmanaged C++ only)](https://help.solidworks.com/2025/English/api/sldworksapi/SolidWorks.Interop.sldworks~SolidWorks.Interop.sldworks.ISimpleFilletFeatureData2~ISetHoldLines.html)
 - [InsertFeatureChamfer](https://help.solidworks.com/2026/english/api/sldworksapi/SolidWorks.Interop.sldworks~SolidWorks.Interop.sldworks.IFeatureManager~InsertFeatureChamfer.html)
 
-## 开源复杂支架回归
+## Open-source complex bracket regression
 
-第二条复杂回归采用 MIT 许可的 [parametric-bracket-library](https://github.com/archimedes-market/parametric-bracket-library) `l_gusset`，锁定提交 `5b285130...`、CadQuery 2.8.0 和生成 STEP 的 SHA-256 `cc2d38a4...`。CadQuery 源模型包含两块垂直安装板、三角加强筋与六孔；SW2026 STEP 导入基线为 `1 solid / 18 faces / 49 edges`。增强脚本在同一实体上创建四中间控制点可变半径圆角（位置 `20/40/60/80%`，半径 `1.2/1.8/0.9/1.5 mm`）和 C0.8/C1.4 宽度-宽度倒角，并以处理后 `20 faces / 55 edges`、重开 FeatureData 和四视角审查作为闭环证据。
+The second complex regression uses the MIT-licensed [parametric-bracket-library](https://github.com/archimedes-market/parametric-bracket-library) `l_gusset`, pinned to commit `5b285130...`, CadQuery 2.8.0 and generated STEP SHA-256 `cc2d38a4...`. The CadQuery model contains two perpendicular mounting plates, a triangular gusset and six holes; the SW2026 STEP-import baseline is `1 solid / 18 faces / 49 edges`. On the same body, the enhancement script creates a four-point variable-radius fillet (positions `20/40/60/80%`, radii `1.2/1.8/0.9/1.5 mm`) and a C0.8/C1.4 distance-distance chamfer. Evidence includes final `20 faces / 55 edges`, reopened FeatureData and four-view review.
 
-原有 FreeCAD-library 案例继续提供另一套独立来源和几何签名验证：
+The existing FreeCAD-library case provides another independent source and geometry-signature check:
 
-选用 FreeCAD-library 的 `2020_corner_bracket-Corner.step`，固定提交 `b342740f...` 与 SHA-256 `25e3fbc1...`。该件包含底板、立板、加强结构、孔和长圆槽；源拓扑回读为 `1 solid / 40 faces / 98 edges / 64 vertices`。脚本按清单锁定端点 `(-0,-20,3)→(-0,-3,20) mm`、长度 `24.041631 mm` 的唯一斜边，实际创建 C0.2/C0.4 宽度-宽度倒角；处理与重开拓扑均为 `1 solid / 41 faces / 101 edges / 66 vertices`。复杂件结果补充证明真实拓扑上的求解和持久化，六个受控样例仍负责高级参数的独立精确读回。
+Use FreeCAD-library `2020_corner_bracket-Corner.step`, pinned to commit `b342740f...` and SHA-256 `25e3fbc1...`. It contains a base plate, upright plate, reinforcing structure, holes and an obround slot; the source topology is `1 solid / 40 faces / 98 edges / 64 vertices`. The script selects the unique diagonal edge with endpoints `(-0,-20,3)→(-0,-3,20) mm` and length `24.041631 mm`, then creates a real C0.2/C0.4 distance-distance chamfer. Processed and reopened topology must both be `1 solid / 41 faces / 101 edges / 66 vertices`. This complex case adds solver and persistence evidence on real topology; the six controlled cases still provide independent exact readback of advanced parameters.
 
-案例采用 FreeCAD-library 的 [CC BY 3.0](https://github.com/FreeCAD/FreeCAD-library) 许可，贡献者署名和下载哈希写入 `examples/open_source_corner_bracket_case.json`。
-5. **制造验收**：加入刀具直径、刀长、最小内圆角、装夹方向、可达性和工序建议；规则通过仍需 CAM/工艺人员复核。
+The case uses FreeCAD-library under [CC BY 3.0](https://github.com/FreeCAD/FreeCAD-library); contributor attribution and download hashes are recorded in `examples/open_source_corner_bracket_case.json`.
+5. **Manufacturing acceptance:** add tool diameter, tool length, minimum internal radius, clamping direction, accessibility and operation recommendations. Passing rules still requires CAM/process-engineer review.
 
-## 常见故障
+## Common failures
 
-### 拉伸返回 None
+### Extrusion returns None
 
-常见原因是复杂圆角草图没有闭合。改用简单矩形草图拉伸，再对立角做真实 Fillet。
+A complex rounded sketch is often not closed. Extrude a simple rectangular sketch, then apply real Fillet features to the vertical corners.
 
-### 圆角/倒角卡很久
+### Fillet/chamfer takes too long
 
-多半是切孔后拓扑复杂、半径过大或选边过宽。先单独测试每一类边：底板立角、凸台立角、顶边、底边、孔口。
+Likely causes include complex topology after hole cuts, excessive radius or overly broad edge selection. Test each edge group separately: base vertical corners, boss vertical corners, top edges, bottom edges and hole mouths.
 
-### SaveAs 错误码 1
+### SaveAs error code 1
 
-目标文件可能已经在 SolidWorks 中打开。新建前关闭同名文档：
+The target file may already be open in SolidWorks. Close a document with the same name before creating it:
 
 ```python
 try:
@@ -223,18 +223,18 @@ except Exception:
     pass
 ```
 
-### 预览偏透明或颜色怪
+### Preview appears transparent or oddly colored
 
-不要把外观问题当作几何失败。先确认审查报告和预览非空。外观要求高时使用 `set_document_appearance(model, "silver")` 或拆装配体分组件上色。
+Do not treat an appearance problem as geometry failure. First check the review report and ensure previews are not blank. For precise appearance requirements, use `set_document_appearance(model, "silver")` or split into assembly components and color them separately.
 
-## 审查清单
+## Review checklist
 
-完成后读取 review report，至少确认：
+Read the review report after completion and confirm at least:
 
 - `evaluation.status`
 - `checks.previews_created`
 - `checks.previews_not_blank`
 - `checks.expected_outputs_exist`
-- `model.features` 中是否有 `Fillet`、`Chamfer`、`Cut` 特征
+- Whether `model.features` contains the expected `Fillet`, `Chamfer` and `Cut` features.
 
-若规则审查通过，还要人工看 `isometric` 和 `top` 预览，确认主体比例、孔位、沉孔、长槽、口袋和圆角方向。
+After rule-based review passes, also inspect the `isometric` and `top` previews manually for proportions, hole positions, counterbores, slots, pockets and fillet directions.

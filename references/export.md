@@ -1,60 +1,60 @@
-# 文件导出参考
+# File Export Reference
 
-## 支持的导出格式
+## Supported export formats
 
-| 格式 | 扩展名 | 需要 ExportData | 说明 |
+| Format | Extensions | ExportData required | Description |
 |---|---|---|---|
-| STEP | `.step` `.stp` | 否 | 通用 3D 交换格式 |
-| IGES | `.igs` `.iges` | 否 | 传统交换格式 |
-| STL | `.stl` | 否 | 3D 打印/网格 |
-| Parasolid | `.x_t` `.x_b` | 否 | 高精度内核格式 |
-| PDF | `.pdf` | 是（IExportPdfData） | 工程图导出 |
-| DXF/DWG | `.dxf` `.dwg` | 否 | 2D 图纸/展开图 |
-| 3D PDF | `.pdf` | 是 | 3D 嵌入式 PDF |
-| eDrawings | `.eprt` `.easm` `.edrw` | 否 | 轻量查看格式 |
+| STEP | `.step` `.stp` | No | General 3D exchange |
+| IGES | `.igs` `.iges` | No | Legacy exchange |
+| STL | `.stl` | No | 3D printing/mesh |
+| Parasolid | `.x_t` `.x_b` | No | High-fidelity kernel format |
+| PDF | `.pdf` | Yes (IExportPdfData) | Drawing export |
+| DXF/DWG | `.dxf` `.dwg` | No | 2D drawings/flat patterns |
+| 3D PDF | `.pdf` | Yes | PDF with embedded 3D |
+| eDrawings | `.eprt` `.easm` `.edrw` | No | Lightweight viewing |
 
-## SaveAs 错误码
+## SaveAs error codes
 
-| 值 | 名称 | 说明 |
+| Value | Name | Description |
 |---|---|---|
-| 0 | swGenericSaveError | 通用错误 |
-| 1 | swReadOnlySaveError | 只读文件 |
-| 2 | swFileNameEmpty | 文件名为空 |
-| 3 | swFileNameContainsAtSign | 文件名包含 @ |
-| 5 | swFileSaveFormatNotAvailable | 格式不可用 |
-| 6 | swFileSaveAsDoNotOverwrite | 不覆盖现有文件 |
-| 9 | swFileSaveAsInvalidFileExtension | 无效扩展名 |
+| 0 | swGenericSaveError | General error |
+| 1 | swReadOnlySaveError | Read-only file |
+| 2 | swFileNameEmpty | Empty filename |
+| 3 | swFileNameContainsAtSign | Filename contains @ |
+| 5 | swFileSaveFormatNotAvailable | Format unavailable |
+| 6 | swFileSaveAsDoNotOverwrite | Existing file must not be overwritten |
+| 9 | swFileSaveAsInvalidFileExtension | Invalid extension |
 
-## SaveAs 警告码
+## SaveAs warning codes
 
-| 值 | 名称 | 说明 |
+| Value | Name | Description |
 |---|---|---|
-| 1 | swFileSaveWarning_RebuildError | 重建错误 |
-| 2 | swFileSaveWarning_NeedsRebuild | 需要重建 |
-| 4 | swFileSaveWarning_ViewsNeedUpdate | 视图需更新 |
+| 1 | swFileSaveWarning_RebuildError | Rebuild error |
+| 2 | swFileSaveWarning_NeedsRebuild | Rebuild required |
+| 4 | swFileSaveWarning_ViewsNeedUpdate | Views need updating |
 
-## STL 导出质量设置
+## STL export quality
 
 ```python
-# 设置 STL 输出质量
+# Set STL output quality.
 # swUserPreferenceIntegerValue_e.swExportStlUnits = 78
 model.SetUserPreferenceIntegerValue(78, 0)  # 0=Fine, 1=Coarse
 
-# 设置自定义偏差和角度
+# Set custom deviation and angle.
 # swSTLDeviation
-model.SetUserPreferenceDoubleValue(0x00000F, 0.005)  # 偏差（米）
+model.SetUserPreferenceDoubleValue(0x00000F, 0.005)  # Deviation (meters)
 # swSTLAngleTolerance
-model.SetUserPreferenceDoubleValue(0x000010, 0.174)  # 角度容差（弧度，约10°）
+model.SetUserPreferenceDoubleValue(0x000010, 0.174)  # Angular tolerance (radians, approximately 10 degrees)
 ```
 
-## 批量转换示例
+## Batch conversion example
 
 ```python
 import os
 from sw_connect import open_document
 
 def batch_convert(sw, input_dir, output_dir, input_ext=".sldprt", output_ext=".step"):
-    """批量转换目录下的所有文件"""
+    """Convert all files in a directory."""
     os.makedirs(output_dir, exist_ok=True)
 
     for filename in os.listdir(input_dir):
@@ -63,68 +63,68 @@ def batch_convert(sw, input_dir, output_dir, input_ext=".sldprt", output_ext=".s
             base = os.path.splitext(filename)[0]
             output_path = os.path.join(output_dir, base + output_ext)
 
-            # 打开；STEP/STP/IGES/IGS 会自动走 LoadFile4(..., "r", ...)
+            # Open; STEP/STP/IGES/IGS automatically use LoadFile4(..., "r", ...).
             errors = VARIANT(pythoncom.VT_BYREF | pythoncom.VT_I4, 0)
             warnings = VARIANT(pythoncom.VT_BYREF | pythoncom.VT_I4, 0)
             model = open_document(sw, input_path, silent=True)
 
             if model:
-                # 导出
+                # Export.
                 model.Extension.SaveAs(output_path, 0, 1, None, errors, warnings)
                 sw.CloseDoc(model.GetTitle())
-                print(f"已转换: {filename} -> {base + output_ext}")
+                print(f"Converted: {filename} -> {base + output_ext}")
 ```
 
-## 可审计批量导出
+## Auditable batch export
 
-`scripts/sw_export.py::batch_export_formats()` 支持多个输入、多个输出格式，并对每个输出记录：
+`scripts/sw_export.py::batch_export_formats()` supports multiple inputs and output formats, recording for each output:
 
-- SolidWorks API 返回值；
-- 文件是否存在、字节数；
-- 文件签名是否在本轮发生变化；
-- 原文档是否已由用户打开。
+- SolidWorks API return value;
+- File existence and byte count;
+- Whether the file signature changed during this run;
+- Whether the source document was already open by the user.
 
-默认不覆盖已有文件，也不关闭用户原先打开的 SolidWorks 文档。同名源文件会产生相同目标名时直接阻止，不以最后写入者覆盖前一个结果。
+By default, existing files are not overwritten and user-opened SolidWorks documents are not closed. If equal source basenames produce a target-name collision, stop rather than letting the last write replace an earlier result.
 
 ## Pack and Go
 
-`scripts/sw_delivery.py::pack_and_go()` 使用 SolidWorks 原生 `IModelDocExtension.GetPackAndGo()`、`IPackAndGo.SetSaveToName()` 和 `IModelDocExtension.SavePackAndGo()`。这些签名已由本机 SolidWorks 2024/2026 Interop、类型库与官方 API Help 交叉核对。
+`scripts/sw_delivery.py::pack_and_go()` uses native SolidWorks `IModelDocExtension.GetPackAndGo()`, `IPackAndGo.SetSaveToName()` and `IModelDocExtension.SavePackAndGo()`. Signatures were cross-checked against local SolidWorks 2024/2026 Interop, type libraries and official API Help.
 
-兼容性说明：官方与 Interop 都把 `GetPackAndGo()` 暴露为零参数返回 `IPackAndGo`；但本机 SW2024/2026 + pywin32 运行时对象会报“非选择性的参数”。封装函数会先走 pywin32 官方零参数路径，失败后改用 `comtypes` 早绑定调用原生 Pack and Go，并保留 pywin32 错误上下文。`comtypes` 优先附着活动实例，只有确认由本次回退创建的实例才允许退出。
+Compatibility: official documentation and Interop expose zero-argument `GetPackAndGo()` returning `IPackAndGo`, but local SW2024/2026 pywin32 runtime objects can report a required/nonoptional argument. The wrapper first tries the official pywin32 call, then falls back to early-bound `comtypes`, retaining the original error context. `comtypes` attaches to an active instance first; only an instance confirmed as created by this fallback may be exited.
 
-安全边界：
+Safety boundaries:
 
-1. 当前文档必须已经保存到磁盘。
-2. 目标目录非空时默认拒绝；只有显式 `overwrite=True` 才继续。
-3. `GetDocumentNames()` 的保存前枚举不作为最终成功条件；先执行 `SavePackAndGo()`，再以本轮实际落盘文件和 `GetDependencies2` 做依赖审计。`AddExternalDocuments` 用于外部附加文件，不用于补装配体原生零件。
-4. 返回逐文件大小、SHA-256 和 `produced_this_run`；状态码非零、本轮没有真实文件或暂存源文件缺失时不得标记成功。
-5. 本机 SW2026 SP01.1 连续三次回归中，保存前原生枚举和实际落盘均包含 1 个 `.SLDASM` 与 2 个 `.SLDPRT`，`document_count=3`、状态码均为 0、`missing_dependencies=[]`，未使用暂存回退。
-6. 若其他版本或复杂装配在实际落盘后仍缺依赖，默认 `fallback_policy=stage_dependencies` 按 `GetDependencies2` 生成 `backend=solidworks-native+staged_dependencies`、`status=pilot` 的暂存包和 `cadstudio-pack-manifest.json`；严格原生语义使用 `fallback_policy=blocked`。
-7. 无论哪种模式，外部引用、Toolbox、配置、压缩组件和关联工程图仍需人工抽查。
+1. The current document must already be saved to disk.
+2. Reject a nonempty destination directory by default; proceed only with explicit `overwrite=True`.
+3. Pre-save `GetDocumentNames()` enumeration is not final success evidence. Run `SavePackAndGo()`, then audit actual new files and `GetDependencies2`. `AddExternalDocuments` is for supplementary external files, not missing native assembly parts.
+4. Return per-file size, SHA-256 and `produced_this_run`. Nonzero status codes, no actual new files or missing staging sources must not be marked successful.
+5. In three consecutive local SW2026 SP01.1 regressions, pre-save enumeration and actual files both contained one `.SLDASM` and two `.SLDPRT`: `document_count=3`, all status codes zero, `missing_dependencies=[]`, with no staging fallback.
+6. If other versions or complex assemblies still lack dependencies after native saving, default `fallback_policy=stage_dependencies` uses `GetDependencies2` to create a staged package with `backend=solidworks-native+staged_dependencies`, `status=pilot` and `cadstudio-pack-manifest.json`. Use `fallback_policy=blocked` for strict native semantics.
+7. In either mode, external references, Toolbox, configurations, suppressed components and associated drawings require human spot checks.
 
-严格模式漏依赖时返回稳定门禁字段：`status=blocked`、`stage=review`、
-`error_code=SW_PACK_AND_GO_DEPENDENCY_ENUMERATION_INCOMPLETE`。默认暂存模式会返回
-`status=pilot`、`error_code=SW_PACK_AND_GO_NATIVE_ENUMERATION_INCOMPLETE`，这表示文件包可继续交付但不是原生 Pack and Go，必须人工复核。
+Missing dependencies in strict mode return stable gate fields: `status=blocked`, `stage=review`,
+`error_code=SW_PACK_AND_GO_DEPENDENCY_ENUMERATION_INCOMPLETE`. Default staging returns
+`status=pilot`, `error_code=SW_PACK_AND_GO_NATIVE_ENUMERATION_INCOMPLETE`: the package may proceed to delivery but is not native Pack and Go and requires human review.
 
-批量导出每种格式前都会激活源文档，并回读 `ActiveDoc.GetPathName()`。这是因为 SW2024
-对 STL 等导出器可能使用活动文档，即使对另一个 `IModelDoc2.Extension.SaveAs()` 调用返回成功；
-路径不一致时必须停止，避免把装配体组件错误导出成目标零件 STL。
+Before every batch-export format, activate the source document and read back `ActiveDoc.GetPathName()`. SW2024
+exporters such as STL may use the active document even when `IModelDoc2.Extension.SaveAs()` on another document reports success.
+Stop on path mismatch to avoid exporting an assembly component in place of the intended part STL.
 
-## 拆分 STEP 再装配的坐标规则
+## Coordinates when splitting and reassembling STEP
 
-把一个复杂 STEP/Compound 拆成多个 STEP 以便 SolidWorks 稳定导入时，不要假设分件在
-SolidWorks 中仍以局部原点表示。部分导出器会保留实体原始绝对坐标；此时
-`AddComponent5(..., x=0, y=0, z=0)` 可能把每个分件按包围盒中心放到装配原点，造成组件全部重叠。
+When splitting a complex STEP/Compound into separate STEP files for stable SolidWorks import, do not assume each imported part
+uses its local origin. Some exporters preserve the original absolute solid coordinates; in that case
+`AddComponent5(..., x=0, y=0, z=0)` may place every part's bounding-box center at the assembly origin, overlapping all components.
 
-推荐 manifest 同时保存：
+The manifest should preserve:
 
-- `label`：稳定组件名。
-- `step`：分件 STEP 路径。
-- `color_hex`：预期颜色。
-- `bbox.center_mm` / `bbox.center_m`：分件导出前的全局包围盒中心。
-- `bbox.size_mm`：用于导入后核对尺度。
+- `label`: stable component name.
+- `step`: individual STEP path.
+- `color_hex`: expected color.
+- `bbox.center_mm` / `bbox.center_m`: global bounding-box center before export.
+- `bbox.size_mm`: dimensions for post-import scale checks.
 
-装配时按 `bbox.center_m` 插入组件，并在保存前抽查总装包围盒、关键组件 Transform 和四视图。
+Insert each component at `bbox.center_m`; before saving, inspect the total assembly envelope, key component transforms and four views.
 
 ```python
 center = item["bbox"]["center_m"]
@@ -138,8 +138,8 @@ component = add_component(
 )
 ```
 
-验证重点：
+Key checks:
 
-1. 车、机架、壳体等总装外形尺寸应接近原始 STEP。
-2. 不要只验证组件数；组件全部叠在原点时数量和颜色回读也可能全部通过。
-3. `run_review()` 结果必须配合 PNG/BMP 目视检查。
+1. Overall vehicle, frame or enclosure dimensions should approximate the original STEP.
+2. Do not check component count alone: count and color readback can pass even when everything overlaps at the origin.
+3. Combine `run_review()` results with visual PNG/BMP inspection.

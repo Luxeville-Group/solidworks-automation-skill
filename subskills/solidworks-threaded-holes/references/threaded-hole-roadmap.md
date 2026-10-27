@@ -1,67 +1,67 @@
-# SolidWorks 螺纹孔扩展路线图
+# SolidWorks threaded-hole roadmap
 
-本路线图区分“值得扩展”和“已稳定支持”。未达到验收门槛的项目不得写入 `verified` 能力声明。
+This roadmap distinguishes useful extensions from stable supported features. Do not add a `verified` capability claim until its acceptance gates pass.
 
-## P0：核心正确性（已完成）
+## P0: Core correctness (completed)
 
-- 贯穿底孔改为真正 `Through All`。
-- 补齐有限数、正值、深度链、孔位边界和底孔小于公称直径校验。
-- 使用 `Metric Tap` + 选择标记 `1` 打通真实内螺纹 ThreadFeatureData。
-- 支持公差属性、右旋/左旋和表外 ISO 公制规格（需用户明确底孔）。
-- 重建后回读特征树，分离 API 尝试与最终证据。
-- 3D 螺旋线保持真实螺距，证据预览与清洁交付预览分离。
+- Replace through tap-drill holes with true `Through All` cuts.
+- Validate finite/positive values, depth chains, hole boundaries and tap-drill diameter below nominal diameter.
+- Enable real internal-thread ThreadFeatureData using `Metric Tap` and selection mark `1`.
+- Support tolerance properties, right/left hand and out-of-table ISO metric sizes with explicit user-supplied tap-drill diameters.
+- Read back the feature tree after rebuild, separating API attempts from final evidence.
+- Preserve actual pitch in the 3D helix and separate evidence previews from clean delivery previews.
 
-## P1：原生孔语义与现有零件（优先级最高）
+## P1: Native hole semantics and existing parts (highest priority)
 
 ### 1. Hole Wizard5 / WizardHoleFeatureData2
 
-目标：在用户要求标准孔标注、孔表或数据库驱动螺纹规格时，优先创建原生 Hole Wizard 攻丝孔，而不是底孔 + Thread 组合。
+Goal: when standard hole callouts, hole tables or database-driven thread sizes are required, prefer native Hole Wizard tapped holes over a tap-drill + Thread combination.
 
-需要实现：
+Implementation needed:
 
-- 封装 `HoleWizard5` 和 `IWizardHoleFeatureData2`，明确 ISO/DIN/GB/ANSI 标准、紧固件类型、规格、孔深、攻丝深度、底孔直径与公差等级。
-- 探测本机 Hole Wizard/Toolbox 数据库路径和可用规格，不猜测枚举或尺寸字符串。
-- 从保存后特征数据回读 `ThreadDepth`、`TapDrillDiameter`、`ThreadClass` 和孔位点。
-- 补充 SW2024/SW2026、中英文界面的版本矩阵。
+- Wrap `HoleWizard5` and `IWizardHoleFeatureData2`, explicitly specifying ISO/DIN/GB/ANSI standard, fastener type, size, hole depth, tapping depth, tap-drill diameter and tolerance class.
+- Probe local Hole Wizard/Toolbox database paths and available sizes; do not guess enum values or size strings.
+- Read back `ThreadDepth`, `TapDrillDiameter`, `ThreadClass` and hole-position points from saved feature data.
+- Extend the SW2024/SW2026 version and UI-language test matrix; add Turkish UI coverage for this fork.
 
-验收门槛：盲孔/贯穿各至少 3 次连续成功；重开 SLDPRT 后仍能回读标准、规格、底孔、螺纹深度和孔位；生成的工程图孔标注与模型一致。
+Acceptance: at least three consecutive successes each for blind and through holes; standard, size, tap-drill diameter, thread depth and position remain readable after reopening SLDPRT; drawing callouts match the model.
 
-### 2. 修改现有零件与批量孔位
+### 2. Existing-part modification and multiple hole positions
 
-目标：将模板从“新建矩形样件”扩展为对现有 SLDPRT 的语义实体选择和多孔创建。
+Goal: extend the template from new rectangular samples to semantic entity selection and multiple-hole creation in existing SLDPRT files.
 
-需要实现：
+Implementation needed:
 
-- 使用 `sw_entity_reference.py` 以平面法向、边界、坐标系和持久引用选面，不用“前/上/右基准面 + 固定偏置”。
-- 支持显式孔位列表、矩形/圆周阵列、多孔规格组和各孔独立证据。
-- 修改前检测相交、边距、薄壁和已有特征冲突；局部失败不得留下半完成模型。
+- Use `sw_entity_reference.py` to select faces by normal, bounds, coordinate system and persistent reference, rather than front/top/right planes plus fixed offsets.
+- Support explicit position lists, rectangular/circular patterns, groups of different hole sizes and separate evidence for each hole.
+- Detect intersections, edge clearances, thin walls and existing-feature conflicts before modifying; partial failures must not leave a half-completed model.
 
-验收门槛：至少覆盖平面、侧面、斜面和多实体零件；每个孔的位置、轴向、直径和深度都能从 B-Rep 与特征树交叉验证。
+Acceptance: cover planar, side, inclined and multibody parts; cross-check every hole's position, axis, diameter and depth using both B-Rep and the feature tree.
 
-## P2：螺纹标准数据化
+## P2: Thread-standard data
 
-目标：用版本化数据表替代内联的少量粗牙字典。
+Goal: replace the small inline coarse-thread dictionary with versioned data tables.
 
-- ISO 公制粗牙/细牙，并分离切削丝锥与挤压丝锥底孔。
-- UNC/UNF/UNEF、NPT/NPTF、BSPP/BSPT；英制和管螺纹不得复用 `Metric Tap` 轮廓。
-- 公差等级、旋向、多头螺纹、材料/螺纹百分比和底孔选型来源。
-- 每条数据包含标准版本、来源、单位、适用范围和“必须人工确认”标记。
+- ISO metric coarse/fine threads, with separate tap-drill sizes for cutting and forming taps.
+- UNC/UNF/UNEF, NPT/NPTF and BSPP/BSPT; do not reuse `Metric Tap` profiles for imperial or pipe threads.
+- Tolerance class, hand, multistart threads, material/thread percentage and tap-drill selection sources.
+- Record standard edition, source, units, scope and a manual-confirmation flag for every entry.
 
-验收门槛：Schema 验证、边界测试、单位换算测试和与权威表格的抽样核对全部通过。
+Acceptance: schema validation, boundary tests, unit-conversion tests and sample comparisons against authoritative tables all pass.
 
-## P3：制造真实性
+## P3: Manufacturing realism
 
-- 盲孔标准钻尖角，区分“圆柱全深”和“至钻尖总深”。
-- 有效全牙深度、攻丝引导牙、不完整牙、底部退刀与排屑余量。
-- 孔口倒角根据公称直径、标准和用户工艺确定，不再使用单一 M6 经验值泛化。
-- 可选显式牙型扫掠仅用于 3D 打印、渲染或客户明确要求；需要独立的性能、自相交、文件大小和 STEP 重开门禁。
+- Standard blind-hole drill-point angles, distinguishing full cylindrical depth from total depth to the drill tip.
+- Effective full-thread depth, tap lead, incomplete threads, bottom relief and chip allowance.
+- Determine mouth chamfers from nominal diameter, standard and requested process instead of generalizing one M6 example.
+- Optional explicit thread-profile sweeps only for 3D printing, rendering or explicit customer requirements; require separate performance, self-intersection, file-size and STEP-reopen gates.
 
-验收门槛：参数证据与 B-Rep 实测深度一致；不会把平底孔宣称为真实钻孔；每种制造假设均写入交付报告。
+Acceptance: parameter evidence agrees with B-Rep depth measurements; flat-bottom holes are not represented as drilled-hole geometry; record every manufacturing assumption in the delivery report.
 
-## P4：工程图、PMI 与 CAM 证据
+## P4: Drawing, PMI and CAM evidence
 
-- 自动生成并回读符合 GB/ISO 习惯的螺纹孔标注，包含规格、公差、深度、数量和定位尺寸。
-- 与 `solidworks-engineering-drawing` 的孔表/孔槽明细表对接，模型属性、工程图文本和 B-Rep 证据三方一致。
-- 对 STEP AP242/PMI 和 CAM 特征识别做单独能力探测；普通 STEP 中存在螺纹实体不等于 CAM 能自动识别攻丝工序。
+- Generate and read back thread-hole callouts following applicable GB/ISO conventions, including size, tolerance, depth, count and locating dimensions.
+- Integrate with `solidworks-engineering-drawing` hole/hole-slot tables; model properties, drawing text and B-Rep evidence must agree.
+- Probe STEP AP242/PMI and CAM feature recognition separately; a thread solid in ordinary STEP does not establish automatic recognition of a tapping operation.
 
-验收门槛：孔标注内容可结构化回读，关键字与尺寸都经 PDF/工程图实际交付复核，不以“调用成功”替代标注可读性。
+Acceptance: callout content is readable as structured data, and keywords/dimensions are checked in actual PDF/drawing deliverables; a successful API call does not establish readability.

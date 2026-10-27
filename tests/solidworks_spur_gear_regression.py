@@ -1,4 +1,4 @@
-"""SolidWorks 2026 标准渐开线直齿轮创建、保存、导出与重开回归。"""
+"""SolidWorks 2026 standard involute spur-gear creation, save, export, and reopen regression."""
 from __future__ import annotations
 
 import argparse
@@ -31,7 +31,7 @@ CASE = SpurGearSpec(
 
 
 def _validate_native_geometry(measurements: dict, expected: dict, *, stage: str) -> None:
-    """@brief 交叉检查包围盒、齿宽和中心孔，拒绝只有脚本自报参数的结果。"""
+    """@brief Cross-check bounding box, face width, and bore; reject results supported only by script-declared parameters."""
     envelope = measurements.get("envelope_mm") or {}
     actual_axes = sorted(float(envelope.get(name) or 0.0) for name in ("length", "width", "height"))
     expected_axes = sorted([
@@ -40,16 +40,16 @@ def _validate_native_geometry(measurements: dict, expected: dict, *, stage: str)
         float(expected["face_width"]),
     ])
     if any(abs(actual - wanted) > 0.12 for actual, wanted in zip(actual_axes, expected_axes)):
-        raise RuntimeError(f"{stage}: 包围盒不符合齿顶圆/齿宽，actual={actual_axes}, expected={expected_axes}")
+        raise RuntimeError(f"{stage}: bounding box does not match addendum circle/face width, actual={actual_axes}, expected={expected_axes}")
 
     bore = float(expected["bore_diameter"])
     holes = measurements.get("holes") or []
     if bore > 0.0 and not any(abs(float(item.get("diameter_mm") or 0.0) - bore) <= 0.02 for item in holes):
-        raise RuntimeError(f"{stage}: 未从 B-Rep 回读到直径 {bore} mm 的中心孔")
+        raise RuntimeError(f"{stage}: B-Rep readback did not find a {bore} mm diameter bore")
 
 
 def run_regression(output_dir: Path, *, visible: bool = True, wait_seconds: int = 12) -> dict:
-    """@brief 创建 m2/z24 标准直齿轮并验证原生 SLDPRT、STEP、预览和重开几何。"""
+    """@brief Create an m2/z24 standard spur gear and verify native SLDPRT, STEP, previews, and reopened geometry."""
     output_dir.mkdir(parents=True, exist_ok=True)
     part_path = output_dir / "involute_spur_gear_m2_z24.SLDPRT"
     step_path = output_dir / "involute_spur_gear_m2_z24.step"
@@ -67,18 +67,18 @@ def run_regression(output_dir: Path, *, visible: bool = True, wait_seconds: int 
     model = new_document(sw, "part")
     feature, evidence = create_external_spur_gear(model, CASE)
     if feature is None:
-        raise RuntimeError("齿轮拉伸特征为空")
+        raise RuntimeError("Gear extrusion feature is empty")
     model.ForceRebuild3(False)
     created_measurements = collect_geometry_measurements(model)
-    _validate_native_geometry(created_measurements, evidence["dimensions_mm"], stage="创建后")
+    _validate_native_geometry(created_measurements, evidence["dimensions_mm"], stage="after creation")
     bodies = tuple(get_com_member(model, "GetBodies2", 0, False) or ())
     if len(bodies) != 1:
-        raise RuntimeError(f"创建后固体数量异常: {len(bodies)}")
+        raise RuntimeError(f"Unexpected solid count after creation: {len(bodies)}")
 
     if not save_document(model, str(part_path)):
-        raise RuntimeError("齿轮 SLDPRT 保存失败")
+        raise RuntimeError("Gear SLDPRT save failed")
     if not export_to_step(model, str(step_path)):
-        raise RuntimeError("齿轮 STEP 导出失败")
+        raise RuntimeError("Gear STEP export failed")
     report, report_path = run_review(
         model,
         str(review_dir),
@@ -90,10 +90,10 @@ def run_regression(output_dir: Path, *, visible: bool = True, wait_seconds: int 
     sw.CloseDoc(title)
     reopened = open_document(sw, str(part_path), silent=True, raise_on_error=True)
     reopened_measurements = collect_geometry_measurements(reopened)
-    _validate_native_geometry(reopened_measurements, evidence["dimensions_mm"], stage="重开后")
+    _validate_native_geometry(reopened_measurements, evidence["dimensions_mm"], stage="after reopen")
     reopened_summary = collect_model_summary(reopened)
     if not any(item.get("name") == evidence["feature_name"] for item in reopened_summary.get("features", [])):
-        raise RuntimeError("重开后未找到命名齿轮拉伸特征")
+        raise RuntimeError("Named gear-extrusion feature missing after reopen")
 
     return {
         "status": "ok",
@@ -112,8 +112,8 @@ def run_regression(output_dir: Path, *, visible: bool = True, wait_seconds: int 
 
 
 def main() -> int:
-    """@brief 命令行入口。"""
-    parser = argparse.ArgumentParser(description="运行真实 SolidWorks 渐开线直齿轮回归。")
+    '@brief Command-line entry point.'
+    parser = argparse.ArgumentParser(description="Run real SolidWorks involute spur-gear regression.")
     parser.add_argument("--output-dir", default=str(Path(tempfile.gettempdir()) / "solidworks_spur_gear_regression"))
     parser.add_argument("--hidden", action="store_true")
     parser.add_argument("--wait-seconds", type=int, default=12)

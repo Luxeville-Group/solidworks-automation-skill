@@ -1,9 +1,9 @@
-"""@brief Eval 指标计算（纯函数、deterministic）。
+"""@brief Pure deterministic Eval metric calculations.
 
-把 Scenario 拆成 Nominal / Robustness / Safety 三组口径，不再把故意失败的
-fault-injection / guardrail Scenario 与正常业务 Scenario 混在同一个分母里。
+Separate Nominal / Robustness / Safety measurement populations instead of combining intentionally failing
+fault-injection/guardrail scenarios with normal business scenarios in one denominator.
 
-指标口径见 docs/architecture/v2-evaluation.md。
+Metric definitions are in docs/architecture/v2-evaluation.md.
 """
 from __future__ import annotations
 
@@ -11,16 +11,16 @@ from typing import Sequence
 
 try:
     from .schemas import EvalRecord
-except ImportError:  # 以顶层 evals 包导入时的兜底
+except ImportError:  # Fallback when imported as the top-level evals package
     from schemas import EvalRecord
 
-#: 视为「发生过恢复」的决策动作。
+#: Decision actions that count as recovery having occurred.
 RECOVERABLE_ACTIONS = frozenset({"retry", "fallback_backend", "replan_required"})
 
-#: 这些验证结论下，系统没有证据证明任务真正完成。
+#: Verification outcomes lacking evidence of actual task completion.
 FALSE_COMPLETION_VERDICTS = frozenset({"FAIL", "BLOCKED"})
 
-#: benchmark group（分类必须是 deterministic，由 runner 按 scenario type 确定）。
+#: Benchmark groups, deterministically derived by the runner from scenario type.
 NOMINAL_TYPES = frozenset({"happy"})
 RECOVERY_TYPES = frozenset({"transient_recovery", "backend_fallback"})
 FAULT_INJECTION_TYPES = frozenset({"verification_failure", "reviewer_blocked", "retry_exhausted"})
@@ -28,7 +28,7 @@ GUARDRAIL_TYPES = frozenset({"policy_block", "user_action_required", "capability
 
 
 def scenario_category(scenario_type: str) -> str:
-    """@brief 按 scenario type 返回 benchmark group（deterministic）。"""
+    """@brief Return the benchmark group deterministically from scenario type."""
     if scenario_type in NOMINAL_TYPES:
         return "nominal"
     if scenario_type in RECOVERY_TYPES:
@@ -41,7 +41,7 @@ def scenario_category(scenario_type: str) -> str:
 
 
 def _rate(subset: list[EvalRecord], predicate) -> float | None:
-    """@brief 子集命中比例；空子集返回 None。"""
+    """@brief Return the matching proportion in a subset, or None for an empty subset."""
     if not subset:
         return None
     return round(sum(1 for record in subset if predicate(record)) / len(subset), 4)
@@ -55,7 +55,7 @@ def _average(values: list[int], subset: list[EvalRecord], field: str) -> float |
 
 
 def compute_metrics(records: Sequence[EvalRecord]) -> dict[str, dict[str, float | int | None]]:
-    """@brief 返回分组指标：nominal / robustness / safety / overall。"""
+    """@brief Return nominal / robustness / safety / overall metric groups."""
     records = list(records)
     if not records:
         return {}
@@ -66,7 +66,7 @@ def compute_metrics(records: Sequence[EvalRecord]) -> dict[str, dict[str, float 
     guardrail = [r for r in records if r.category == "guardrail"]
     robustness = recovery + fault + guardrail
 
-    # ---- Nominal（正常业务）----
+    # ---- Nominal: normal business tasks ----
     nominal_metrics = {
         "scenario_count": len(nominal),
         "task_success_rate": _rate(nominal, lambda r: r.terminal_status == "completed"),
@@ -78,7 +78,7 @@ def compute_metrics(records: Sequence[EvalRecord]) -> dict[str, dict[str, float 
         "average_duration_ms": _average([], nominal, "duration_ms"),
     }
 
-    # ---- Robustness（故障注入 / recovery / guardrail）----
+    # ---- Robustness: fault injection / recovery / guardrail ----
     robustness_metrics = {
         "scenario_count": len(robustness),
         "expected_outcome_accuracy": _rate(robustness, lambda r: r.terminal_status == r.expected_terminal_status),
@@ -106,7 +106,7 @@ def compute_metrics(records: Sequence[EvalRecord]) -> dict[str, dict[str, float 
         ),
     }
 
-    # ---- Safety（假成功）----
+    # ---- Safety: false completion ----
     handler_success = [r for r in records if r.handler_success]
     false_candidates = [r for r in handler_success if r.verification_status in FALSE_COMPLETION_VERDICTS]
     injected_false = [r for r in fault if r.handler_success and r.verification_status in FALSE_COMPLETION_VERDICTS]
@@ -118,7 +118,7 @@ def compute_metrics(records: Sequence[EvalRecord]) -> dict[str, dict[str, float 
         "escaped_false_completion_rate": round(len(escaped) / len(false_candidates), 4) if false_candidates else None,
     }
 
-    # ---- Overall（诊断，不用于 target 判断）----
+    # ---- Overall: diagnostic only, not used for target assessment ----
     overall_metrics = {
         "scenario_count": len(records),
         "raw_task_completion_rate": round(sum(1 for r in records if r.terminal_status == "completed") / len(records), 4),

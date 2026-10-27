@@ -1,10 +1,4 @@
-"""草图选择缓存的生命周期回归测试。
-
-锁定两类缺陷：
-1. 模块级全局字典跨文档累积 COM 引用，长跑进程无法释放已关闭文档。
-2. 仅以 ``id(model)`` / ``id(_oleobj_)`` 作键时，COM 代理被 GC 后 CPython 会复用
-   内存地址，旧缓存可能错误命中新文档，导致特征建到错误的文档上。
-"""
+"Sketch-selection cache lifecycle regressions. Global dictionaries can retain COM references across documents, and id(model)/id(_oleobj_) keys can be reused after GC, incorrectly selecting an old document's sketch. Tests cover both retention and identity reuse."
 import gc
 import sys
 import types
@@ -15,7 +9,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
-# 在导入 sw_part 之前注入 COM 依赖替身，避免真机依赖。
+# Inject COM stubs before importing sw_part to avoid native dependencies.
 sys.modules.setdefault(
     "sw_preflight",
     types.SimpleNamespace(
@@ -32,7 +26,7 @@ sys.modules.setdefault(
         get_com_member=lambda obj, attr, *args: getattr(obj, attr)(*args)
         if args or callable(getattr(obj, attr))
         else getattr(obj, attr),
-        # sw_part 在导入时需要这个工厂（用于 Select4 的 Callout 参数）
+        # sw_part imports this factory for Select4 Callout arguments.
         create_empty_dispatch_variant=lambda: None,
         mm=lambda value: value / 1000.0,
         deg=lambda value: value * 3.141592653589793 / 180.0,
@@ -43,7 +37,7 @@ import sw_part  # noqa: E402
 
 
 class FakeModel:
-    """@brief 带标题/路径指纹的最小文档对象。"""
+    'Minimal document with title/path fingerprints.'
 
     def __init__(self, title, path=""):
         self._title = title
@@ -59,7 +53,7 @@ class FakeModel:
 
 @pytest.fixture(autouse=True)
 def _clean_cache():
-    """@brief 每个用例前后清空缓存，避免用例间串扰。"""
+    'Clear caches before and after each case to prevent cross-test interference.'
     sw_part.clear_sketch_selection_cache()
     yield
     sw_part.clear_sketch_selection_cache()
@@ -70,7 +64,7 @@ def _ref(name="Sketch1", source="test"):
 
 
 def test_cache_hit_within_same_document():
-    """@brief 同一文档内应命中缓存，避免退化为 SelectByID2("SKETCH")。"""
+    'Hit the cache within one document rather than falling back to SelectByID2(SKETCH).'
     model = FakeModel("Part1")
     ref = _ref()
 
@@ -80,7 +74,7 @@ def test_cache_hit_within_same_document():
 
 
 def test_cache_does_not_leak_across_documents():
-    """@brief 不同文档之间不得互相命中。"""
+    'Do not share cache hits between documents.'
     first = FakeModel("Part1")
     second = FakeModel("Assembly1")
 
@@ -90,11 +84,11 @@ def test_cache_does_not_leak_across_documents():
 
 
 def test_cache_rejects_reused_ole_object_id():
-    """@brief 核心缺陷：COM 地址被复用后不得误命中旧文档的草图。"""
+    "Reused COM addresses must not hit an old document's sketch."
     original = FakeModel("Part1")
     sw_part._cache_sketch_ref(original, _ref())
 
-    # 模拟 CPython 复用内存地址：新文档拿到与旧文档相同的底层 ole 对象标识。
+    # Simulate CPython address reuse by sharing an underlying OLE-object identity.
     reused = FakeModel("DifferentPart")
     reused._oleobj_ = original._oleobj_
 
@@ -102,7 +96,7 @@ def test_cache_rejects_reused_ole_object_id():
 
 
 def test_cache_rejects_reused_id_after_gc():
-    """@brief 原文档被回收后，其缓存条目必须失效。"""
+    'Invalidate cache entries after their source document is collected.'
     model = FakeModel("Part1")
     sw_part._cache_sketch_ref(model, _ref())
 
@@ -114,17 +108,17 @@ def test_cache_rejects_reused_id_after_gc():
 
 
 def test_cache_invalidated_when_active_document_switches():
-    """@brief 文档标题变化（同一 COM 地址换绑文档）必须使缓存失效。"""
+    'Invalidate when a title changes at the same COM address.'
     model = FakeModel("Part1")
     sw_part._cache_sketch_ref(model, _ref())
 
-    model._title = "Part2"  # 同一地址，文档已切换
+    model._title = "Part2"  # Same address, different document.
 
     assert sw_part._find_cached_sketch_ref(model, "Sketch1") is None
 
 
 def test_cache_entries_are_bounded():
-    """@brief 缓存条目数必须有上限，防止长跑进程无界增长。"""
+    'Bound cache size for long-running processes.'
     for index in range(sw_part._SKETCH_CACHE_LIMIT + 10):
         model = FakeModel(f"Part{index}")
         sw_part._cache_sketch_ref(model, _ref(f"Sketch{index}"))
@@ -133,7 +127,7 @@ def test_cache_entries_are_bounded():
 
 
 def test_clear_cache_for_single_document():
-    """@brief 按文档定向清理时不影响其它文档。"""
+    'Targeted document cleanup leaves other documents intact.'
     first = FakeModel("Part1")
     second = FakeModel("Part2")
     first_ref = _ref()
@@ -149,7 +143,7 @@ def test_clear_cache_for_single_document():
 
 
 def test_clear_cache_all():
-    """@brief 全量清理后缓存为空。"""
+    'Full cleanup empties the cache.'
     sw_part._cache_sketch_ref(FakeModel("Part1"), _ref())
     sw_part._cache_sketch_ref(FakeModel("Part2"), _ref())
 
@@ -159,6 +153,6 @@ def test_clear_cache_all():
 
 
 def test_explicit_sketch_ref_bypasses_cache():
-    """@brief 直接传入 SketchSelectionRef 时无需查缓存。"""
+    'Direct SketchSelectionRef inputs bypass cache lookup.'
     ref = _ref()
     assert sw_part._find_cached_sketch_ref(FakeModel("Part1"), ref) is ref

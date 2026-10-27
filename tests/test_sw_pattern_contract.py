@@ -1,4 +1,4 @@
-"""@brief 阵列按官方签名与选择标记测试，不接受任意参数的假成功。"""
+'Test patterns against official signatures and selection marks; arbitrary-argument stubs must not fake success.'
 import math
 import sys
 from pathlib import Path
@@ -28,7 +28,7 @@ class Manager:
 
 
 def model_with_edge(selectable=True):
-    """@brief 只实现官方选择表面，记录 mark 和请求方向。"""
+    'Implement only official selection methods and record mark/requested direction.'
     model = SimpleNamespace(FeatureManager=Manager(), marks=[], cleared=[])
     edge = FakeEdge(start_m=(.04, 0, 0), end_m=(0, 0, 0))
     edge.Select4 = lambda append, data: model.marks.append(data.Mark) is None and selectable
@@ -41,7 +41,7 @@ def model_with_edge(selectable=True):
 
 
 def test_linear_pattern_direction_and_official_slots():
-    """@brief 数量/间距正确且负向原生边被翻转，方向不会乘单位换算。"""
+    'Verify count/spacing and reversal of negative native edges; direction is not multiplied by unit conversion.'
     model = model_with_edge()
     feature = sw_pattern.linear_pattern(model, "Seed", (1, 0, 0), .012, 4)
     assert feature.Name == "LinearPattern1"

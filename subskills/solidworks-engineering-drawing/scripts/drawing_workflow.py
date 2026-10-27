@@ -1,6 +1,4 @@
-"""
-SolidWorks 工程图操作工具
-"""
+"""SolidWorks engineering-drawing operations."""
 import math
 import re
 from fractions import Fraction
@@ -26,7 +24,7 @@ PAPER_SIZES = {
 
 STANDARD_DRAWING_SCALES = (10.0, 5.0, 2.0, 1.0, 0.5, 0.2, 0.1, 0.05, 0.02, 0.01)
 
-# SolidWorks.Interop.swconst.swAlignDimensionType_e（SW2026 Interop 反射确认）。
+# SolidWorks.Interop.swconst.swAlignDimensionType_e, confirmed through SW2026 Interop reflection.
 ALIGN_DIMENSION_TYPES = {
     "auto_arrange": 0,
     "space_evenly": 1,
@@ -39,7 +37,7 @@ ALIGN_DIMENSION_TYPES = {
 }
 
 # SolidWorks.Interop.swconst.swAutoInsertCenterMarkTypes_e
-# （SW2026 Interop 反射与官方 API 帮助交叉确认）。
+# Cross-checked against SW2026 Interop reflection and official API help.
 AUTO_CENTER_MARK_TARGETS = {
     "holes": 1,
     "fillets": 2,
@@ -48,7 +46,7 @@ AUTO_CENTER_MARK_TARGETS = {
 
 
 def _safe_member(obj, name, *args, default=None):
-    """@brief 读取工程图 COM 成员，失败时返回默认值。"""
+    """Read a drawing COM member, returning the default value on failure."""
     if obj is None:
         return default
     try:
@@ -59,7 +57,7 @@ def _safe_member(obj, name, *args, default=None):
 
 
 def _as_sequence(value):
-    """@brief 统一 COM 数组、元组和单对象返回值。"""
+    """Normalize COM arrays, tuples, and single-object results."""
     if value is None:
         return []
     if isinstance(value, (list, tuple)):
@@ -68,7 +66,7 @@ def _as_sequence(value):
 
 
 def _normalise_box(value):
-    """@brief 将 COM Outline/GetBox 数组统一为二维边界框。"""
+    """Normalize COM Outline/GetBox arrays into two-dimensional bounds."""
     if isinstance(value, dict) and {"left", "bottom", "right", "top"} <= set(value):
         try:
             x1, y1, x2, y2 = (float(value[key]) for key in ("left", "bottom", "right", "top"))
@@ -94,13 +92,13 @@ def _normalise_box(value):
 
 
 def _annotation_box(owner):
-    """@brief 读取尺寸、注释或表格注解的二维包围盒。"""
+    """Read two-dimensional bounds of dimension, note, or table annotations."""
     annotation = _safe_member(owner, "GetAnnotation") or owner
     return _normalise_box(_safe_member(annotation, "GetBox"))
 
 
 def _view_display_dimensions(view):
-    """@brief 兼容数组接口与链式接口，返回视图中的真实 DisplayDimension。"""
+    """Return real DisplayDimension objects from a view using array or linked-list interfaces."""
     dimensions = _as_sequence(_safe_member(view, "GetDisplayDimensions", default=[]))
     if dimensions:
         return dimensions
@@ -112,16 +110,12 @@ def _view_display_dimensions(view):
 
 
 def auto_arrange_drawing_dimensions(drawing_model, *, spacing_m=0.01, mode="auto_arrange") -> dict:
-    """@brief 使用 SolidWorks 官方 AlignDimensions 对每个视图的尺寸自动排列。
-
-    该接口只负责 SolidWorks 自身的尺寸布局，不提供尺寸文字包围盒，也不能证明最终
-    图面无重叠。调用后仍必须导出 PDF/BMP 做视觉复核。
-    """
+    """Automatically arrange each view's dimensions with SolidWorks AlignDimensions. This API controls native dimension layout but provides no dimension-text bounds and cannot prove that the final drawing has no overlap. Export PDF/BMP and perform a visual review afterward."""
     spacing, spacing_valid = _finite_positive(spacing_m, 0.01)
     if not spacing_valid or spacing > 0.1:
-        raise ValueError("spacing_m 必须是 (0, 0.1] 米范围内的有限数值。")
+        raise ValueError("spacing_m, metre cinsinden (0, 0.1] aralığında sonlu bir sayı olmalıdır.")
     if mode not in ALIGN_DIMENSION_TYPES:
-        raise ValueError(f"未知尺寸排列模式: {mode}")
+        raise ValueError(f"Bilinmeyen ölçü düzenleme modu: {mode}")
     extension = _safe_member(drawing_model, "Extension")
     if extension is None or not hasattr(extension, "AlignDimensions"):
         return {
@@ -200,12 +194,12 @@ def auto_arrange_drawing_dimensions(drawing_model, *, spacing_m=0.01, mode="auto
         "manual_review_required": True,
         "retryable": bool(failed_results),
         "error_code": error_code,
-        "limitations": ["官方排列接口不返回文字包围盒；排列后仍需 PDF/BMP 目视复核。"],
+        "limitations": ["Resmî hizalama API'si metin sınırlarını döndürmez; düzenlemeden sonra PDF/BMP görsel incelemesi gerekir."],
     }
 
 
 def _finite_positive(value, default):
-    """@brief 将 COM 数值转成有限正数，否则使用保守默认值。"""
+    """Convert a COM value to a finite positive number, otherwise use a conservative default."""
     try:
         number = float(value)
     except (TypeError, ValueError):
@@ -216,7 +210,7 @@ def _finite_positive(value, default):
 
 
 def _dimension_text_evidence(display_dimension) -> dict:
-    """@brief 收集尺寸文字片段；不伪造 SolidWorks 最终格式化文本。"""
+    """Collect dimension text fragments without fabricating SolidWorks' final formatted text."""
     parts = []
     for index, label in ((0, "all"), (1, "prefix"), (2, "suffix"), (3, "callout_above"), (4, "callout_below")):
         value = str(_safe_member(display_dimension, "GetText", index, default="") or "")
@@ -229,8 +223,8 @@ def _dimension_text_evidence(display_dimension) -> dict:
         rendered_value_available = True
     else:
         explicit = [item["text"] for item in parts if item["kind"] != "all"]
-        # GetText() 在 SW2026 常只返回用户前后缀，不返回格式化后的主尺寸值。
-        # 用 8 个等宽字符作为主值占位，避免把空字符串估成零宽度。
+        # In SW2026, GetText() often returns only user prefixes/suffixes rather than the formatted main dimension.
+        # Use eight fixed-width characters as the main-value placeholder so an empty string is not estimated as zero width.
         lines = ["".join(explicit) + "0000.000"]
         source = "explicit_parts_plus_conservative_value_placeholder" if explicit else "conservative_value_placeholder"
         rendered_value_available = False
@@ -243,11 +237,7 @@ def _dimension_text_evidence(display_dimension) -> dict:
 
 
 def estimate_dimension_text_box(display_dimension, *, padding_m=None) -> dict:
-    """@brief 用 IAnnotation 锚点和 ITextFormat 保守估算尺寸文字边界。
-
-    SW2026 没有尺寸文字的原生 bounding-box API。本函数输出任意旋转文字都能
-    被覆盖的轴对齐外接方框，并明确标记 ``source=estimated``；不能作为原生几何证据。
-    """
+    """Conservatively estimate dimension-text bounds from the IAnnotation anchor and ITextFormat. SW2026 has no native dimension-text bounding-box API. Return an axis-aligned enclosing square covering any rotation and explicitly mark source=estimated; this is not native geometry evidence."""
     annotation = _safe_member(display_dimension, "GetAnnotation")
     position = _as_sequence(_safe_member(annotation, "GetPosition", default=[]))
     try:
@@ -278,7 +268,7 @@ def estimate_dimension_text_box(display_dimension, *, padding_m=None) -> dict:
     lines = text["estimation_lines"] or ["0000.000"]
 
     def line_units(line):
-        """@brief 估算单行字宽；中文和全角字符按一个字高计。"""
+        """Estimate one line's width, counting CJK and full-width characters as one character-height wide."""
         units = 0.0
         for character in line or " ":
             units += 1.0 if ord(character) > 0xFF else 0.62
@@ -289,7 +279,7 @@ def estimate_dimension_text_box(display_dimension, *, padding_m=None) -> dict:
     estimated_width = max_units * char_height * width_factor * spacing_factor
     estimated_height = line_count * char_height * 1.25
     padding = max(0.001, char_height * 0.4) if padding_m is None else max(0.0, float(padding_m))
-    # 尺寸文字角度未由 API 暴露；使用矩形对角线作为任意旋转下的方形包络。
+    # The API does not expose the text angle; use the rectangle diagonal as a square envelope covering any rotation.
     half_extent = math.hypot(estimated_width, estimated_height) / 2.0 + padding
     box = None
     if position_available:
@@ -328,35 +318,32 @@ def estimate_dimension_text_box(display_dimension, *, padding_m=None) -> dict:
         "padding_m": padding,
         "orientation_assumption": "unknown_angle_conservative_square_envelope",
         "limitations": [
-            "SolidWorks 2026 IAnnotation 不提供尺寸文字原生包围盒",
-            "主尺寸格式化值可能不由 GetText 返回，缺失时使用保守占位宽度",
-            "估算只能用于碰撞风险筛查，最终交付仍需 PDF/BMP 目视复核",
+            "SolidWorks 2026 IAnnotation, ölçü metni için özgün bounding box sağlamaz",
+            "GetText biçimlendirilmiş ana ölçü değerini döndürmeyebilir; eksikse korumacı bir yer tutucu genişlik kullanılır",
+            "Tahmin yalnızca çakışma riski taramasıdır; son teslim için PDF/BMP görsel incelemesi gerekir",
         ],
     }
 
 
 def select_drawing_template(candidates, *, paper_size="A3", require_gbt=True) -> dict:
-    """@brief 从本机候选中选择图幅匹配且具有 GB/T 标识的图框模板。
-
-    仅把文件名和扩展名作为候选证据，不把命名匹配宣称为模板内容已合规。
-    """
+    """Select a locally available sheet-format template matching the paper size and GB/T naming. Treat filename/extension matching as candidate evidence only, not proof of compliant template content."""
     paper_size = str(paper_size).upper()
     if paper_size not in PAPER_SIZES:
-        raise ValueError(f"不支持的图幅: {paper_size}")
+        raise ValueError(f"Desteklenmeyen pafta boyutu: {paper_size}")
     inspected = []
     for raw_path in candidates or []:
         path = Path(raw_path).expanduser().resolve()
         name = path.stem.casefold()
-        compact_name = re.sub(r"[^a-z0-9\u4e00-\u9fff]", "", name)
+        compact_name = re.sub(r"[^a-z0-9çğıöşü\u4e00-\u9fff]", "", name)
         is_format = path.suffix.casefold() == ".slddrt"
         paper_match = paper_size.casefold() in name
         gbt_match = (
             "gbt" in compact_name
-            or "国标" in compact_name
+            or "\u56fd\u6807" in compact_name
             or bool(re.search(r"(?:^|[^a-z0-9])gb(?:t)?(?:[^a-z0-9]|$)", name, re.IGNORECASE))
         )
         path_text = str(path).casefold()
-        localized_candidate = any(token in path_text for token in ("chinese-simplified", "chinese_simplified", "简体中文"))
+        localized_candidate = any(token in path_text for token in ("chinese-simplified", "chinese_simplified", "\u7b80\u4f53\u4e2d\u6587"))
         score = int(path.is_file()) * 8 + int(is_format) * 4 + int(paper_match) * 2 + int(gbt_match) + int(localized_candidate) * 2
         inspected.append({
             "path": str(path),
@@ -393,20 +380,20 @@ def plan_standard_view_layout(
     title_block_width_m=0.180,
     title_block_height_m=0.055,
 ) -> dict:
-    """@brief 为三视图计算不会侵入标题栏的自适应或指定比例布局。"""
+    """Calculate an adaptive or explicit-scale three-view layout that avoids the title block."""
     paper_size = str(paper_size).upper()
     projection = str(projection).lower()
     if projection not in {"first_angle", "third_angle"}:
-        raise ValueError("projection 必须是 first_angle 或 third_angle")
+        raise ValueError("projection \u5fc5\u987b\u662f first_angle \u6216 third_angle")
     spec = PAPER_SIZES.get(paper_size)
     if spec is None:
-        raise ValueError(f"不支持的图幅: {paper_size}")
+        raise ValueError(f"Desteklenmeyen pafta boyutu: {paper_size}")
     try:
         width, height, depth = (float(item) for item in model_size_m)
     except (TypeError, ValueError) as exc:
-        raise ValueError("model_size_m 必须包含三个米制外形尺寸") from exc
+        raise ValueError("model_size_m metre cinsinden üç dış ölçü içermelidir") from exc
     if min(width, height, depth) <= 0 or not all(math.isfinite(item) for item in (width, height, depth)):
-        raise ValueError("模型外形尺寸必须为有限正数")
+        raise ValueError("Modelin dış ölçüleri sonlu ve pozitif olmalıdır")
 
     sheet_width = spec["width_m"]
     sheet_height = spec["height_m"]
@@ -478,7 +465,7 @@ def plan_standard_view_layout(
     origin_y = working_bottom + max(0.0, (available_height - layout_h) / 2.0)
 
     def view_record(name, left, bottom, view_width, view_height):
-        """@brief 创建单个视图的中心点与边界框记录。"""
+        """Create a record of one view's center and bounding box."""
         return {
             "name": name,
             "center": [left + view_width / 2.0, bottom + view_height / 2.0],
@@ -486,7 +473,7 @@ def plan_standard_view_layout(
         }
 
     if projection == "first_angle":
-        # GB/T 第一角投影：俯视在主视下方，右视在主视左侧。
+        # GB/T first-angle projection: top view below front, right view to the left of front.
         views = [
             view_record("*Front", origin_x + right_w + gap_m, origin_y + top_h + gap_m, front_w, front_h),
             view_record("*Top", origin_x + right_w + gap_m, origin_y, top_w, top_h),
@@ -520,13 +507,13 @@ def plan_standard_view_layout(
 
 
 def _scale_ratio(scale):
-    """@brief 将浮点比例转换为 SolidWorks 可接受的整数比。"""
+    """Convert a floating-point scale into an integer ratio accepted by SolidWorks."""
     ratio = Fraction(float(scale)).limit_denominator(1000)
     return ratio.numerator, ratio.denominator
 
 
 def _apply_view_layout(view, item, numerator, denominator) -> dict:
-    """@brief 将已创建视图移动到规划中心并设置独立比例。"""
+    """Move created views to planned centers and set their independent scales."""
     center = [float(item["center"][0]), float(item["center"][1])]
     if hasattr(view, "UseParentScale"):
         view.UseParentScale = False
@@ -538,7 +525,7 @@ def _apply_view_layout(view, item, numerator, denominator) -> dict:
     if method is not None:
         moved = bool(get_com_member(view, "SetViewPosition", position, False))
         if not moved:
-            raise RuntimeError(f"SetViewPosition 返回失败: {center}")
+            raise RuntimeError(f"SetViewPosition başarısız: {center}")
     else:
         view.Position = position
     actual_position = _view_position(view)
@@ -548,7 +535,7 @@ def _apply_view_layout(view, item, numerator, denominator) -> dict:
         and abs(actual_position[1] - center[1]) <= 1e-5
     )
     if not position_verified:
-        raise RuntimeError(f"视图位置回读不一致: requested={center}, actual={actual_position}")
+        raise RuntimeError(f"Görünüş konumunun geri okuması tutarsız: requested={center}, actual={actual_position}")
     return {
         "name": item["name"],
         "actual_name": str(_safe_member(view, "Name", default="")),
@@ -561,26 +548,26 @@ def _apply_view_layout(view, item, numerator, denominator) -> dict:
 
 
 def _normalise_orientation(value):
-    """@brief 将 SolidWorks 标准视图方向统一为 front/top/right 键。"""
-    compact = re.sub(r"[^a-z\u4e00-\u9fff]", "", str(value or "").casefold())
+    """Normalize SolidWorks standard-view orientations to front/top/right keys."""
+    compact = re.sub(r"[^a-zçğıöşü\u4e00-\u9fff]", "", str(value or "").casefold())
     aliases = {
         "front": "front",
         "top": "top",
         "right": "right",
-        "frontview": "front",
-        "topview": "top",
-        "rightview": "right",
-        "前视": "front",
-        "主视": "front",
-        "上视": "top",
-        "俯视": "top",
-        "右视": "right",
+        "frontview": "front", "ön": "front", "öngörünüş": "front",
+        "topview": "top", "üst": "top", "üstgörünüş": "top",
+        "rightview": "right", "sağ": "right", "sağgörünüş": "right",
+        "\u524d\u89c6": "front",
+        "\u4e3b\u89c6": "front",
+        "\u4e0a\u89c6": "top",
+        "\u4fef\u89c6": "top",
+        "\u53f3\u89c6": "right",
     }
     return aliases.get(compact)
 
 
 def _view_position(view):
-    """@brief 读取工程图视图中心位置。"""
+    """Read a drawing view's center position."""
     values = _as_sequence(_safe_member(view, "Position", default=[]))
     try:
         if len(values) < 2:
@@ -591,24 +578,24 @@ def _view_position(view):
 
 
 def _set_view_center(view, center) -> list[float]:
-    """@brief 移动视图并回读中心点，供真实包围盒二次排布复用。"""
+    """Move a view and read back its center for reuse during layout from actual bounds."""
     target = [float(center[0]), float(center[1])]
     position = VARIANT(pythoncom.VT_ARRAY | pythoncom.VT_R8, target)
     method = getattr(view, "SetViewPosition", None)
     if method is not None:
         moved = bool(get_com_member(view, "SetViewPosition", position, False))
         if not moved:
-            raise RuntimeError(f"SetViewPosition 返回失败: {target}")
+            raise RuntimeError(f"SetViewPosition başarısız: {target}")
     else:
         view.Position = position
     actual = _view_position(view)
     if actual is None or abs(actual[0] - target[0]) > 1e-5 or abs(actual[1] - target[1]) > 1e-5:
-        raise RuntimeError(f"视图位置回读不一致: requested={target}, actual={actual}")
+        raise RuntimeError(f"Görünüş konumunun geri okuması tutarsız: requested={target}, actual={actual}")
     return [float(actual[0]), float(actual[1])]
 
 
 def _refine_standard_view_spacing(view_objects, view_records, projection, gap_m=0.018) -> dict:
-    """@brief 根据 SolidWorks 实际视图边界消除三视图之间的确认重叠。"""
+    """Remove confirmed three-view overlaps using actual SolidWorks view bounds."""
     required = {"front", "top", "right"}
     if set(view_objects) < required:
         return {"status": "review_required", "method": "native_outline", "adjustments": [], "error_code": "DRAWING_VIEW_OUTLINES_INCOMPLETE"}
@@ -668,7 +655,7 @@ def _refine_standard_view_spacing(view_objects, view_records, projection, gap_m=
 
 
 def _collect_drawing_views(drawing_model):
-    """@brief 同时尝试 Sheet.GetViews 与 GetFirstView 链读取真实模型视图。"""
+    """Read actual model views through both Sheet.GetViews and the GetFirstView chain."""
     sheet = _safe_member(drawing_model, "GetCurrentSheet")
     views = _as_sequence(_safe_member(sheet, "GetViews", default=[]))
     if len(views) >= 3:
@@ -685,7 +672,7 @@ def _collect_drawing_views(drawing_model):
 
 
 def _map_native_standard_views(views):
-    """@brief 依据方向名、基准视图关系和原始位置映射第三角三视图。"""
+    """Map third-angle views using orientation names, base-view relationships, and original positions."""
     by_orientation = {}
     diagnostics = []
     for view in views:
@@ -720,7 +707,7 @@ def _map_native_standard_views(views):
 
 
 def _map_standard_views_from_sheet_views(sheet_views):
-    """@brief 从整张图纸视图中筛出并映射前、俯、右三个标准视图。"""
+    """Filter and map front, top, and right standard views from all sheet views."""
     oriented_fronts = [
         view for view in sheet_views
         if _normalise_orientation(_safe_member(view, "GetOrientationName", default="")) == "front"
@@ -736,7 +723,7 @@ def _map_standard_views_from_sheet_views(sheet_views):
 
 
 def create_adaptive_standard_views(drawing_model, part_path, layout) -> dict:
-    """@brief 按预先计算的布局创建前、俯、右三个真实工程图视图。"""
+    """Create actual front, top, and right drawing views from the precomputed layout."""
     created = []
     view_objects = {}
     numerator, denominator = layout.get("scale_ratio") or _scale_ratio(layout["scale"])
@@ -746,9 +733,9 @@ def create_adaptive_standard_views(drawing_model, part_path, layout) -> dict:
         if view is None:
             if not created:
                 projection = str(layout.get("projection", "third_angle")).lower()
-                # 部分 SolidWorks 版本（包括当前 SW2026 COM 代理）没有
-                # CreateFirstAngleViews2。先用可用的原生三视图 API 建立视图，
-                # 再按 DrawingSpec 的第一角/第三角布局重新定位并回读位置。
+                # Some SolidWorks versions, including the current SW2026 COM proxy, lack
+                # CreateFirstAngleViews2. First create views using the available native three-view API,
+                # then reposition them according to DrawingSpec first-/third-angle layout and read back the positions.
                 method_candidates = (
                     ("CreateFirstAngleViews2", "Create3rdAngleViews2")
                     if projection == "first_angle"
@@ -871,21 +858,15 @@ def create_adaptive_standard_views(drawing_model, part_path, layout) -> dict:
 
 
 def create_standard_views(drawing_model, part_path):
-    """
-    创建标准三视图（第三角投影法）
-
-    参数:
-        drawing_model: IDrawingDoc
-        part_path: 零件文件路径
-    """
+    """Create standard third-angle views. drawing_model is IDrawingDoc; part_path is the part-file path."""
     return drawing_model.Create3rdAngleViews2(part_path)
 
 
 def create_standard_views_with_projection(drawing_model, part_path, projection="first_angle"):
-    """@brief 按指定投影法创建原生三视图并返回明确失败状态。"""
+    """Create native three-view projections using the specified method and return explicit failure states."""
     projection = str(projection).lower()
     if projection not in {"first_angle", "third_angle"}:
-        raise ValueError("projection 必须是 first_angle 或 third_angle")
+        raise ValueError("projection \u5fc5\u987b\u662f first_angle \u6216 third_angle")
     method_name = "CreateFirstAngleViews2" if projection == "first_angle" else "Create3rdAngleViews2"
     method = getattr(drawing_model, method_name, None)
     if method is None:
@@ -908,17 +889,7 @@ def create_standard_views_with_projection(drawing_model, part_path, projection="
 
 
 def add_view(drawing_model, part_path, view_name, x, y, scale=None):
-    """
-    添加单个视图
-
-    参数:
-        view_name: 视图方向名称
-            "*Front", "*Back", "*Top", "*Bottom",
-            "*Left", "*Right", "*Isometric",
-            "*Trimetric", "*Dimetric"
-        x, y: 视图放置位置（米）
-        scale: 视图比例（如 0.5 表示 1:2），None 使用图纸默认
-    """
+    """Add a view. view_name accepts *Front, *Back, *Top, *Bottom, *Left, *Right, *Isometric, *Trimetric, or *Dimetric. x/y are placement coordinates in meters. scale is a ratio (0.5 means 1:2); None uses the sheet default."""
     view = drawing_model.CreateDrawViewFromModelView3(
         part_path, view_name, x, y, 0
     )
@@ -928,28 +899,23 @@ def add_view(drawing_model, part_path, view_name, x, y, scale=None):
 
 
 def add_section_view(drawing_model, x, y):
-    """在当前选择的剖切线位置创建剖视图"""
+    """Create a section view at the currently selected cutting line."""
     return drawing_model.CreateSectionViewAt5(x, y, 0, "", 0, None, 0)
 
 
 def add_detail_view(drawing_model, x, y, scale=2.0):
-    """创建局部放大视图"""
+    """Create a magnified detail view."""
     return drawing_model.CreateDetailViewAt4(x, y, 0, 0, scale, 0, "")
 
 
 def insert_dimensions(drawing_model, view=None):
-    """
-    自动标注尺寸（模型项目）
-
-    参数:
-        view: 目标视图对象，None 则标注所有视图
-    """
-    # SolidWorks 2024 新增 InsertModelAnnotations4，返回实际插入的 IAnnotation
-    # 数组；旧版/动态代理仍可能只有 InsertModelAnnotations3。优先使用 4，
-    # 再回退到 3，避免把“方法返回 True”误当成已经插入尺寸。
-    # SW2024 swInsertAnnotation_e：32768=标记为工程图的模型尺寸。
-    # 8 是通用尺寸类型、524288 是未标记尺寸；本机 SW2024 对二者组合静默
-    # 返回 None，而 32768 会返回真实 IAnnotation 数组。
+    """Insert automatic dimensions from model items. view is the target view object; None annotates all views."""
+    # SolidWorks 2024 added InsertModelAnnotations4, which returns the inserted IAnnotation
+    # array. Older versions/dynamic proxies may expose only InsertModelAnnotations3. Prefer 4,
+    # then fall back to 3; a True return value alone does not prove that dimensions were inserted.
+    # SW2024 swInsertAnnotation_e: 32768 means model dimensions marked for drawing.
+    # 8 is the general dimension type; 524288 means unmarked dimensions. This SW2024 installation silently
+    # returns None for their combination, while 32768 returns actual IAnnotation objects.
     args4 = (
         0,          # swImportModelItemsFromEntireModel
         32768,      # swInsertDimensionsMarkedForDrawing
@@ -957,13 +923,13 @@ def insert_dimensions(drawing_model, view=None):
         False, False,
     )
     args3 = args4[:6]
-    # 官方 API 示例要求先激活一个工程图视图；未激活时 SW2024 会静默返回空结果。
+    # The official API example first activates a drawing view; SW2024 silently returns empty results without activation.
     try:
         sheet = _safe_member(drawing_model, "GetCurrentSheet")
         views = _as_sequence(_safe_member(sheet, "GetViews", default=[]))
         if views:
-            # 三视图第一个通常是前视图；通过对象 Name 读取失败时使用已知顺序，
-            # 但仍要求 SelectByID2/ActivateView 真正返回成功。
+            # The first three-view item is usually front; use the known order if reading Name fails,
+            # but still require SelectByID2/ActivateView to return success.
             first_view = views[0]
             name = _safe_member(first_view, "Name", default="")
             if name:
@@ -976,7 +942,7 @@ def insert_dimensions(drawing_model, view=None):
                     )
                 get_com_member(drawing_model, "ActivateView", name)
     except Exception:
-        # 激活失败仍继续尝试，让结构复核决定是否有真实尺寸证据。
+        # Continue after activation failure and let structural review determine whether actual dimension evidence exists.
         pass
     owners = (drawing_model, getattr(drawing_model, "Extension", None))
     for owner in owners:
@@ -993,8 +959,8 @@ def insert_dimensions(drawing_model, view=None):
                 return get_com_member(owner, "InsertModelAnnotations3", *args3)
         except (AttributeError, TypeError, pythoncom.com_error):
             continue
-    # 新建三视图后 SW2024 有时尚未建立可导入的视图缓存；强制重建后仅重试
-    # 一次。使用“标记为工程图”与消重语义，不会靠重复调用制造重复尺寸。
+    # After creating views, SW2024 may not yet have an importable view cache. Force a rebuild and retry
+    # once. Marked-for-drawing and deduplication semantics prevent repeated calls from creating duplicate dimensions.
     try:
         get_com_member(drawing_model, "ForceRebuild3", False)
         get_com_member(drawing_model, "GraphicsRedraw2")
@@ -1005,12 +971,12 @@ def insert_dimensions(drawing_model, view=None):
                     return inserted
     except (AttributeError, TypeError, pythoncom.com_error):
         pass
-    # 调用方可以继续做结构复核，但必须把缺少真实尺寸证据显示为 warning。
+    # The caller may continue structural review but must report missing actual dimension evidence as warning.
     return False
 
 
 def _note_text(note):
-    """@brief 读取 INote 的实际文字，兼容动态 COM 未公开成员名称的情况。"""
+    """Read actual INote text, including dynamic COM proxies that omit member names."""
     text = _safe_member(note, "GetText")
     if isinstance(text, str):
         return text
@@ -1018,14 +984,14 @@ def _note_text(note):
     if ole_object is None:
         return ""
     try:
-        # SW2026 sldworks.tlb: INote.GetText 的 DISPID 为 2，返回 BSTR。
+        # SW2026 sldworks.tlb: INote.GetText has DISPID 2 and returns BSTR.
         return str(ole_object.InvokeTypes(2, 0, 1, (8, 0), ()) or "")
     except Exception:
         return ""
 
 
 def _note_annotation(note):
-    """@brief 获取 INote 对应的 IAnnotation；动态 COM 不公开该成员时按类型库调用。"""
+    """Get the INote IAnnotation, invoking the type-library member when dynamic COM does not expose it."""
     annotation = _safe_member(note, "GetAnnotation")
     if annotation is not None:
         return annotation
@@ -1033,7 +999,7 @@ def _note_annotation(note):
     if ole_object is None:
         return None
     try:
-        # SW2026 sldworks.tlb: INote.GetAnnotation 的 DISPID 为 85。
+        # SW2026 sldworks.tlb: INote.GetAnnotation has DISPID 85.
         from win32com.client.dynamic import Dispatch
 
         return Dispatch(ole_object.InvokeTypes(85, 0, 1, (9, 0), ()))
@@ -1042,7 +1008,7 @@ def _note_annotation(note):
 
 
 def _set_annotation_position(annotation, x, y, z=0.0):
-    """@brief 设置 IAnnotation 的图纸坐标，返回 SolidWorks 的布尔结果。"""
+    """Set IAnnotation sheet coordinates and return the SolidWorks boolean result."""
     try:
         result = get_com_member(annotation, "SetPosition2", x, y, z)
         if isinstance(result, bool):
@@ -1053,14 +1019,14 @@ def _set_annotation_position(annotation, x, y, z=0.0):
     if ole_object is None:
         return False
     try:
-        # SW2026 sldworks.tlb: IAnnotation.SetPosition2 的 DISPID 为 91。
+        # SW2026 sldworks.tlb: IAnnotation.SetPosition2 has DISPID 91.
         return bool(ole_object.InvokeTypes(91, 0, 1, (11, 0), ((5, 1), (5, 1), (5, 1)), x, y, z))
     except Exception:
         return False
 
 
 def _annotation_position(annotation):
-    """@brief 回读 IAnnotation 图纸坐标，坐标不可用时返回 None。"""
+    """Read back IAnnotation sheet coordinates; return None when unavailable."""
     position = _safe_member(annotation, "GetPosition")
     values = _as_sequence(position)
     try:
@@ -1073,13 +1039,13 @@ def _annotation_position(annotation):
 
 
 def _note_box(note, annotation):
-    """@brief 优先读取 INote 的图纸空间范围；没有时退回通用注释边界。"""
+    """Prefer INote sheet-space extents, falling back to generic annotation bounds."""
     extent = _safe_member(note, "GetExtent")
     if extent is None:
         ole_object = getattr(note, "_oleobj_", None)
         if ole_object is not None:
             try:
-                # SW2026 sldworks.tlb: INote.GetExtent 的 DISPID 为 22。
+                # SW2026 sldworks.tlb: INote.GetExtent has DISPID 22.
                 extent = ole_object.InvokeTypes(22, 0, 1, (12, 0), ())
             except Exception:
                 extent = None
@@ -1087,7 +1053,7 @@ def _note_box(note, annotation):
 
 
 def _note_evidence(note):
-    """@brief 收集注释的文字、位置和边界，作为工程图结构证据。"""
+    """Collect note text, positions, and bounds as drawing structural evidence."""
     annotation = _note_annotation(note)
     return {
         "text": _note_text(note),
@@ -1097,14 +1063,7 @@ def _note_evidence(note):
 
 
 def add_note(drawing_model, x, y, text):
-    """@brief 创建并验证工程图文字注释。
-
-    @param drawing_model SolidWorks IModelDoc2 工程图对象。
-    @param x 注释锚点 X 坐标（米）。
-    @param y 注释锚点 Y 坐标（米）。
-    @param text 需要写入图纸的非空文字。
-    @return 包含 COM 回读文字、坐标和边界的可审计结果。
-    """
+    """Create and verify a drawing text note. drawing_model is an IModelDoc2 drawing; x/y are anchor coordinates in meters; text must be nonempty. Return auditable COM read-back text, coordinates, and bounds."""
     expected_text = str(text)
     if not expected_text.strip() or not all(math.isfinite(float(value)) for value in (x, y)):
         return {
@@ -1124,7 +1083,7 @@ def add_note(drawing_model, x, y, text):
     annotation = _note_annotation(note)
     positioned = _set_annotation_position(annotation, float(x), float(y)) if annotation is not None else False
     if positioned:
-        # 刷新文字与坐标；边界仍必须在视图重枚举后的结构审查阶段读取。
+        # Refresh text and coordinates; bounds must still be read during structural review after re-enumerating views.
         _safe_member(drawing_model, "ForceRebuild3", False)
     evidence = _note_evidence(note)
     position = evidence.get("position_m") or []
@@ -1151,48 +1110,27 @@ def add_note(drawing_model, x, y, text):
 
 
 def insert_bom_table(drawing_model, template_path, x, y, bom_type=1, config_name=""):
-    """
-    插入 BOM 表
-
-    参数:
-        template_path: BOM 模板路径（.sldbomtbt）
-        x, y: 表格放置位置（米）
-        bom_type: 1=顶层, 2=仅零件, 3=缩进
-        config_name: 配置名称
-    """
+    """Insert a BOM table. template_path is a .sldbomtbt template; x/y are placement coordinates in meters. bom_type: 1=top-level, 2=parts-only, 3=indented. config_name specifies the configuration."""
     return drawing_model.InsertBomTable4(
         template_path, x, y, bom_type, config_name, "", False
     )
 
 
 def set_sheet_format(drawing_model, format_path):
-    """
-    设置图纸格式（图框）
-
-    参数:
-        format_path: 图纸格式文件路径（.slddrt）
-    """
+    """Set the sheet format (drawing frame). format_path points to a .slddrt file."""
     sheet = drawing_model.GetCurrentSheet()
     return sheet.SetTemplateName(format_path)
 
 
 def add_sheet(drawing_model, paper_size=7, template_path="", first_angle=True):
-    """
-    添加新图纸
-
-    参数:
-        paper_size: 纸张大小
-            0=A, 1=B, 2=C, 3=D, 4=E,
-            5=A4, 6=A3, 7=A2, 8=A1, 9=A0
-        template_path: 图纸格式模板路径
-    """
+    """Add a sheet. paper_size: 0=A, 1=B, 2=C, 3=D, 4=E, 5=A4, 6=A3, 7=A2, 8=A1, 9=A0. template_path points to a sheet-format template."""
     return drawing_model.NewSheet4(
         "", paper_size, 12, 1.0, 1.0, bool(first_angle), template_path, 0, 0, "", 0, 0, 0, 0, 0, 0
     )
 
 
 def add_a3_sheet(drawing_model, template_candidates, *, require_gbt=True, projection="first_angle") -> dict:
-    """@brief 选择本机 A3 图框并创建横向 A3 工程图页。"""
+    """Select a local A3 sheet format and create a landscape A3 drawing sheet."""
     selection = select_drawing_template(template_candidates, paper_size="A3", require_gbt=require_gbt)
     if selection["selected"] is None:
         return {
@@ -1219,7 +1157,7 @@ def add_a3_sheet(drawing_model, template_candidates, *, require_gbt=True, projec
 
 
 def setup_current_sheet_as_a3(drawing_model, template_candidates, *, require_gbt=True, projection="first_angle") -> dict:
-    """@brief 使用 IDrawingDoc.SetupSheet6 将当前页设置为横向 A3。"""
+    """Set the current sheet to landscape A3 using IDrawingDoc.SetupSheet6."""
     selection = select_drawing_template(template_candidates, paper_size="A3", require_gbt=require_gbt)
     if selection["selected"] is None:
         return {
@@ -1241,7 +1179,7 @@ def setup_current_sheet_as_a3(drawing_model, template_candidates, *, require_gbt
         }
     projection = str(projection).lower()
     if projection not in {"first_angle", "third_angle"}:
-        raise ValueError("projection 必须是 first_angle 或 third_angle")
+        raise ValueError("projection \u5fc5\u987b\u662f first_angle \u6216 third_angle")
     try:
         configured = bool(get_com_member(
             drawing_model,
@@ -1287,7 +1225,7 @@ def setup_current_sheet_as_a3(drawing_model, template_candidates, *, require_gbt
 
 
 def get_all_views(drawing_model):
-    """获取当前图纸上的所有视图"""
+    """Get all views on the current sheet."""
     sheet = get_com_member(drawing_model, "GetCurrentSheet")
     views = get_com_member(sheet, "GetViews")
     result = []
@@ -1302,7 +1240,7 @@ def get_all_views(drawing_model):
 
 
 def _paper_size_from_template(template_path):
-    """@brief 从模板文件名推断标准图幅；无法判断时返回 None。"""
+    """Infer a standard paper size from the template filename, returning None when unknown."""
     name = Path(str(template_path or "")).stem.upper()
     for paper_size in PAPER_SIZES:
         if re.search(rf"(?:^|[^A-Z0-9]){paper_size}(?:[^A-Z0-9]|$)", name):
@@ -1322,7 +1260,7 @@ TABLE_ANNOTATION_KINDS = {
 
 
 def _table_cell_text(table, row, column):
-    """@brief 按新版优先、旧版回退的顺序读取表格显示文字。"""
+    """Read displayed table text, preferring newer interfaces with older ones as fallback."""
     for member, args in (
         ("DisplayedText2", (row, column, False)),
         ("DisplayedText", (row, column)),
@@ -1336,7 +1274,7 @@ def _table_cell_text(table, row, column):
 
 
 def _table_evidence(table, sheet_name):
-    """@brief 回读表格类型、数据行、单元格及 BOM 配置证据。"""
+    """Read back table type, data rows, cells, and BOM configuration evidence."""
     table_type = _safe_member(table, "Type", default=None)
     try:
         normalized_type = int(table_type)
@@ -1371,7 +1309,7 @@ def _table_evidence(table, sheet_name):
 
 
 def _annotation_text_parts(annotation_owner):
-    """@brief 回读专业标注的可见文字片段，保留原始顺序。"""
+    """Read visible professional-annotation text fragments in their original order."""
     try:
         count = int(_safe_member(annotation_owner, "GetTextCount", default=0) or 0)
     except (TypeError, ValueError):
@@ -1387,7 +1325,7 @@ def _annotation_text_parts(annotation_owner):
 
 
 def _professional_annotation_record(owner, kind, view_record):
-    """@brief 构造带所属视图、文字和边界的专业标注证据。"""
+    """Build professional-annotation evidence with owning view, text, and bounds."""
     return {
         "kind": kind,
         "sheet": view_record["sheet"],
@@ -1399,7 +1337,7 @@ def _professional_annotation_record(owner, kind, view_record):
 
 
 def first_center_mark(view):
-    """@brief 仅对缺失成员回退旧接口，真实调用错误继续向上传递。"""
+    """Fall back to older interfaces only for missing members; propagate actual call errors."""
     for name in ("GetFirstCenterMark2", "GetFirstCenterMark"):
         value = get_com_member(view, name, default=None)
         if value is not None:
@@ -1408,7 +1346,7 @@ def first_center_mark(view):
 
 
 def _view_center_marks(view):
-    """@brief 遍历视图中心标记，并兼容 SW2025 SP1 之前的回读接口。"""
+    """Iterate view center marks, supporting read-back interfaces older than SW2025 SP1."""
     current = first_center_mark(view)
     marks = []
     seen = set()
@@ -1421,12 +1359,12 @@ def _view_center_marks(view):
         current = _safe_member(current, "GetNext")
     if marks:
         return marks
-    # GetCenterMarks 不能返回注解型中心标记，仅作为旧版本兼容回退。
+    # GetCenterMarks cannot return annotation-based center marks; use it only as a legacy fallback.
     return _as_sequence(_safe_member(view, "GetCenterMarks", default=[]))
 
 
 def _collect_view_professional_annotations(view, view_record):
-    """@brief 使用 SW2026 Interop 已反射确认的 IView 回读接口收集专业标注。"""
+    """Collect professional annotations using IView read-back interfaces confirmed through SW2026 Interop reflection."""
     result = {
         "center_marks": [],
         "center_lines": [],
@@ -1480,7 +1418,7 @@ def _collect_view_professional_annotations(view, view_record):
 
 
 def inspect_drawing_structure(drawing_model, *, paper_size_hint=None, title_block_box=None) -> dict:
-    """@brief 读取工程图结构并返回可审计报告，不修改文档。"""
+    """Read drawing structure and return an auditable report without modifying the document."""
     sheets = _as_sequence(_safe_member(drawing_model, "GetSheetNames", default=[]))
     if not sheets:
         current_sheet = _safe_member(drawing_model, "GetCurrentSheet")
@@ -1583,11 +1521,11 @@ def inspect_drawing_structure(drawing_model, *, paper_size_hint=None, title_bloc
             "right": spec["width_m"] - 0.012,
             "top": 0.067,
         }
-    compact_template_name = re.sub(r"[^a-z0-9\u4e00-\u9fff]", "", Path(str(template or "")).stem.casefold())
+    compact_template_name = re.sub(r"[^a-z0-9çğıöşü\u4e00-\u9fff]", "", Path(str(template or "")).stem.casefold())
     template_name = Path(str(template or "")).stem.casefold()
     gbt_candidate = (
         "gbt" in compact_template_name
-        or "国标" in compact_template_name
+        or "\u56fd\u6807" in compact_template_name
         or bool(re.search(r"(?:^|[^a-z0-9])gb(?:t)?(?:[^a-z0-9]|$)", template_name, re.IGNORECASE))
     )
     outline_count = sum(item.get("box") is not None for item in views)
@@ -1626,19 +1564,19 @@ def inspect_drawing_structure(drawing_model, *, paper_size_hint=None, title_bloc
         "retryable": not bool(views),
         "error_code": None if views else "DRAWING_VIEWS_MISSING",
         "checks": [
-            {"id": "drawing-views", "status": "pass" if views else "fail", "message": "工程图包含视图" if views else "未读取到工程图视图"},
-            {"id": "drawing-template", "status": "pass" if template else "warning", "message": "已读取图框模板" if template else "图框模板需要人工确认"},
-            {"id": "drawing-a3-sheet", "status": "pass" if paper_size == "A3" else "warning", "message": "当前图幅识别为 A3" if paper_size == "A3" else "当前图幅不是 A3 或无法识别"},
-            {"id": "drawing-gbt-template", "status": "pass" if gbt_candidate else "warning", "message": "模板名称是 GB/T 候选，内容仍需目视复核" if gbt_candidate else "未发现 GB/T 图框候选证据"},
-            {"id": "drawing-dimensions", "status": "pass" if dimensions else "warning", "message": "已读取真实尺寸实体" if dimensions else "未读取到尺寸实体"},
-            {"id": "drawing-view-outlines", "status": "pass" if views and outline_count == len(views) else "warning", "message": "已读取全部视图边界" if views and outline_count == len(views) else "部分视图缺少边界，无法完整检查碰撞"},
+            {"id": "drawing-views", "status": "pass" if views else "fail", "message": "Çizimde görünüşler mevcut" if views else "Çizim görünüşleri okunamadı"},
+            {"id": "drawing-template", "status": "pass" if template else "warning", "message": "Çizim çerçevesi şablonu okundu" if template else "Çizim çerçevesi şablonu insan tarafından doğrulanmalıdır"},
+            {"id": "drawing-a3-sheet", "status": "pass" if paper_size == "A3" else "warning", "message": "Mevcut pafta boyutu A3 olarak tanındı" if paper_size == "A3" else "Mevcut pafta boyutu A3 değil veya tanınamadı"},
+            {"id": "drawing-gbt-template", "status": "pass" if gbt_candidate else "warning", "message": "Şablon adı GB/T adayı; içerik yine de görsel olarak incelenmelidir" if gbt_candidate else "GB/T çizim çerçevesi adayı bulunamadı"},
+            {"id": "drawing-dimensions", "status": "pass" if dimensions else "warning", "message": "Gerçek ölçü nesneleri okundu" if dimensions else "Ölçü nesneleri okunamadı"},
+            {"id": "drawing-view-outlines", "status": "pass" if views and outline_count == len(views) else "warning", "message": "Tüm görünüş sınırları okundu" if views and outline_count == len(views) else "Bazı görünüş sınırları eksik; çakışmalar tam olarak kontrol edilemiyor"},
             {
                 "id": "drawing-dimension-boxes",
                 "status": "pass" if dimensions and native_dimension_box_count == len(dimensions) else "warning",
                 "message": (
-                    "已读取全部尺寸文字原生边界"
+                    "Tüm ölçü metinlerinin özgün sınırları okundu"
                     if dimensions and native_dimension_box_count == len(dimensions)
-                    else f"原生边界 {native_dimension_box_count}/{len(dimensions)}，保守估算 {estimated_dimension_box_count}/{len(dimensions)}；估算不等于原生证据"
+                    else f"Özgün sınırlar: {native_dimension_box_count}/{len(dimensions)}; korumacı tahmin: {estimated_dimension_box_count}/{len(dimensions)}; tahmin özgün kanıt değildir"
                 ),
             },
         ],
@@ -1647,7 +1585,7 @@ def inspect_drawing_structure(drawing_model, *, paper_size_hint=None, title_bloc
 
 
 def auto_insert_center_marks(drawing_model, requirements) -> dict:
-    """@brief 按视图自动插入中心标记，并以实体数量回读作为成功依据。"""
+    """Automatically insert center marks by view and verify success through read-back entity counts."""
     requested = list(requirements or [])
     if not requested:
         return {
@@ -1700,9 +1638,9 @@ def auto_insert_center_marks(drawing_model, requirements) -> dict:
                     "AutoInsertCenterMarks2",
                     insert_type,
                     0,      # swCenterMarkConnectionLine_None
-                    True,   # 线性槽使用槽中心
-                    True,   # 圆弧槽使用槽中心
-                    True,   # 使用文档默认尺寸与间隙
+                    True,   # Use the slot center for linear slots.
+                    True,   # Use the slot center for arc slots.
+                    True,   # Use document defaults for size and gap.
                     0.0,
                     0.0,
                     False,
@@ -1760,16 +1698,7 @@ def auto_insert_center_marks(drawing_model, requirements) -> dict:
 
 
 def export_sheet_to_pdf(model, output_path, sheet_names=None, sw_app=None):
-    """
-    将工程图导出为 PDF
-
-    参数:
-        model: IModelDoc2（工程图文档）
-        output_path: 输出 PDF 路径
-        sheet_names: 图纸名称列表，None=所有图纸
-        sw_app: 可选的 SldWorks.Application 对象；传入会话对象可避免 SW2024
-            动态 IModelDoc2 未暴露 GetSldWorksObject 的兼容性问题。
-    """
+    """Export a drawing to PDF. model is an IModelDoc2 drawing; output_path is the PDF destination; sheet_names is a list or None for all sheets. Optional sw_app is SldWorks.Application; supplying it avoids SW2024 dynamic IModelDoc2 proxies that do not expose GetSldWorksObject."""
     sw = sw_app
     if sw is None:
         for prog_id in ("SldWorks.Application.32", "SldWorks.Application"):
@@ -1799,20 +1728,20 @@ def export_sheet_to_pdf(model, output_path, sheet_names=None, sw_app=None):
     success = model.Extension.SaveAs(output_path, 0, 1, pdf_data, errors, warnings)
 
     if success:
-        print(f"PDF 导出成功: {output_path}")
+        print(f"PDF dışa aktarıldı: {output_path}")
     else:
-        print(f"PDF 导出失败, 错误码: {errors.value}")
+        print(f"PDF dışa aktarılamadı; hata kodu: {errors.value}")
     return success
 
 
 def setup_current_sheet(drawing_model, template_candidates, *, paper_size="A3", projection="first_angle", require_gbt=True) -> dict:
-    """@brief 按 DrawingSpec 配置当前图纸页并回读基本配置证据。"""
+    """Configure the current sheet from DrawingSpec and read back basic configuration evidence."""
     paper_size = str(paper_size).upper()
     projection = str(projection).lower()
     if paper_size not in PAPER_SIZES:
-        raise ValueError(f"不支持的图幅: {paper_size}")
+        raise ValueError(f"Desteklenmeyen pafta boyutu: {paper_size}")
     if projection not in {"first_angle", "third_angle"}:
-        raise ValueError("projection 必须是 first_angle 或 third_angle")
+        raise ValueError("projection \u5fc5\u987b\u662f first_angle \u6216 third_angle")
     selection = select_drawing_template(template_candidates, paper_size=paper_size, require_gbt=require_gbt)
     if not selection["selected"]:
         return {**selection, "status": "blocked", "stage": "preflight", "configured": False, "retryable": True}
@@ -1858,7 +1787,7 @@ def setup_current_sheet(drawing_model, template_candidates, *, paper_size="A3", 
 
 
 def validate_generic_drawing_generation(spec) -> dict:
-    """@brief 在修改文档前声明通用生成器无法可靠执行的 DrawingSpec 字段。"""
+    """Declare DrawingSpec fields the generic generator cannot reliably execute before modifying the document."""
     issues = []
     views = dict(spec.get("views") or {})
     standard_views = {name for name in ("front", "top", "right") if name in views}
@@ -1866,7 +1795,7 @@ def validate_generic_drawing_generation(spec) -> dict:
         issues.append({
             "code": "DRAWING_STANDARD_VIEW_SET_UNSUPPORTED",
             "path": "views",
-            "message": "通用生成器当前只支持同时生成 front/top/right 三视图。",
+            "message": "Genel üretici şu anda yalnızca front/top/right üç görünüşünü birlikte oluşturabilir.",
         })
     unsupported_views = [name for name in ("bottom", "left", "isometric") if name in views]
     unsupported_views.extend(name for name in ("sections", "details") if views.get(name))
@@ -1875,7 +1804,7 @@ def validate_generic_drawing_generation(spec) -> dict:
             "code": "DRAWING_REQUESTED_VIEWS_UNSUPPORTED",
             "path": "views",
             "views": unsupported_views,
-            "message": "通用生成器尚不能创建请求的辅助、轴测、剖视或局部视图。",
+            "message": "Genel üretici istenen yardımcı, izometrik, kesit veya detay görünüşlerini henüz oluşturamaz.",
         })
     configured_views = [name for name in ("front", "top", "right") if views.get(name)]
     if configured_views:
@@ -1883,19 +1812,19 @@ def validate_generic_drawing_generation(spec) -> dict:
             "code": "DRAWING_VIEW_OPTIONS_UNSUPPORTED",
             "path": "views",
             "views": configured_views,
-            "message": "通用生成器尚不能执行标准视图对象内的名称、方向或位置选项。",
+            "message": "Genel üretici standart görünüş nesnelerindeki ad, yön veya konum seçeneklerini henüz uygulayamaz.",
         })
     if spec.get("requiredDimensions"):
         issues.append({
             "code": "DRAWING_REQUIRED_DIMENSIONS_UNSUPPORTED",
             "path": "requiredDimensions",
-            "message": "通用生成器只能导入模型尺寸，不能可靠创建并绑定指定 ID、视图和语义的尺寸。",
+            "message": "Genel üretici yalnızca model ölçülerini içe aktarabilir; belirli ID, görünüş ve anlam ile ölçü oluşturup bağlayamaz.",
         })
     if spec.get("holeRequirements"):
         issues.append({
             "code": "DRAWING_HOLE_REQUIREMENTS_UNSUPPORTED",
             "path": "holeRequirements",
-            "message": "通用生成器尚不能创建孔标注或孔表；请使用专项脚本并回读证据。",
+            "message": "Genel üretici delik açıklamaları veya delik tablolarını henüz oluşturamaz; özel betikler kullanıp kanıtları geri okuyun.",
         })
     professional_annotations = dict(spec.get("professionalAnnotations") or {})
     unsupported_professional_fields = sorted(
@@ -1907,7 +1836,7 @@ def validate_generic_drawing_generation(spec) -> dict:
             "code": "DRAWING_PROFESSIONAL_ANNOTATIONS_UNSUPPORTED",
             "path": "professionalAnnotations",
             "fields": unsupported_professional_fields,
-            "message": "通用生成器目前只支持已回读验证的自动中心标记；其余专业标注仍须使用专项脚本。",
+            "message": "Genel üretici yalnızca geri okunarak doğrulanmış otomatik merkez işaretlerini destekler; diğer profesyonel açıklamalar için özel betikler gerekir.",
         })
     title_fields = sorted(set((spec.get("titleBlock") or {})) - {"required", "format"})
     if title_fields:
@@ -1915,13 +1844,13 @@ def validate_generic_drawing_generation(spec) -> dict:
             "code": "DRAWING_TITLE_BLOCK_FIELDS_UNSUPPORTED",
             "path": "titleBlock",
             "fields": title_fields,
-            "message": "通用生成器尚不能绑定标题栏业务字段。",
+            "message": "Genel üretici antetin iş alanlarını henüz bağlayamaz.",
         })
     if spec.get("sheetMetal"):
         issues.append({
             "code": "DRAWING_SHEET_METAL_OPTIONS_UNSUPPORTED",
             "path": "sheetMetal",
-            "message": "通用生成器尚不能执行展开图、折弯表或钣金专用选项。",
+            "message": "Genel üretici açınım, büküm tablosu veya saca özgü seçenekleri henüz uygulayamaz.",
         })
     return {
         "status": "blocked" if issues else "pass",
@@ -1933,7 +1862,7 @@ def validate_generic_drawing_generation(spec) -> dict:
 
 
 def generate_drawing_from_spec(drawing_model, spec, source_model_path, template_candidates=None) -> dict:
-    """@brief 按已校验 DrawingSpec 创建标准工程图结构和制造标注入口。"""
+    """Create the standard drawing structure and manufacturing-annotation entrypoint from a validated DrawingSpec."""
     capability = validate_generic_drawing_generation(spec)
     if capability["status"] != "pass":
         return capability
@@ -1945,7 +1874,7 @@ def generate_drawing_from_spec(drawing_model, spec, source_model_path, template_
             "status": "blocked",
             "stage": "planning",
             "error_code": "DRAWING_MODEL_SIZE_MISSING",
-            "message": "DrawingSpec 必须提供 modelSizeMm，避免凭空推断工程图比例和视图布局。",
+            "message": "DrawingSpec, modelSizeMm sağlamalıdır; çizim ölçeği ve görünüş yerleşimi tahmin edilmemelidir.",
             "manual_review_required": True,
         }
     candidates = list(template_candidates or spec.get("templateCandidates") or [])
@@ -1993,7 +1922,7 @@ def generate_drawing_from_spec(drawing_model, spec, source_model_path, template_
     if bom_requested:
         template_path = str(bom_spec.get("templatePath") or "")
         if not template_path or not Path(template_path).expanduser().is_file():
-            return {"status": "blocked", "stage": "bom", "error_code": "DRAWING_BOM_TEMPLATE_MISSING", "message": "BOM 已要求但模板不存在，不能伪造表格交付。", "sheetSetup": sheet_setup, "layout": layout, "views": views, "manual_review_required": True}
+            return {"status": "blocked", "stage": "bom", "error_code": "DRAWING_BOM_TEMPLATE_MISSING", "message": "BOM istendi ancak şablon yok; teslim için sahte tablo oluşturulamaz.", "sheetSetup": sheet_setup, "layout": layout, "views": views, "manual_review_required": True}
         position = bom_spec.get("positionMm") or [250.0, 45.0]
         bom_table = insert_bom_table(drawing_model, template_path, float(position[0]) / 1000.0, float(position[1]) / 1000.0, int(bom_spec.get("bomType", 1)), str(bom_spec.get("configuration", "")))
         bom_result = {"requested": True, "created": bom_table is not None, "status": "pass" if bom_table is not None else "failed", "template_path": template_path, "position_mm": position, "error_code": None if bom_table is not None else "DRAWING_BOM_INSERT_FAILED"}

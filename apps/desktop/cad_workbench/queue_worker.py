@@ -1,4 +1,4 @@
-"""@brief CAD Studio 本地自动化队列 worker 原型。"""
+"""@brief Local automation queue worker for CAD Studio."""
 
 from __future__ import annotations
 
@@ -62,7 +62,7 @@ QUEUE_WRITE_RETRIES = 24
 
 
 def _capability_block_reasons(job: dict[str, Any]) -> list[str]:
-    """@brief 根据能力真源阻止未验证能力的无人值守交付。"""
+    """@brief Block unattended delivery of unverified capabilities using the capability registry."""
     requested = job.get("capabilities") or []
     if not isinstance(requested, list) or not requested:
         return []
@@ -78,20 +78,20 @@ def _capability_block_reasons(job: dict[str, Any]) -> list[str]:
 
         index = capability_index(load_capabilities())
     except Exception:
-        # 能力清单缺失时不改变旧版任务行为，由静态校验报告问题。
+        # If the capability registry is absent, preserve legacy job behavior and report the problem through static validation.
         return []
     policy = job.get("policy", {})
     manual_required = policy.get("approval") == "manual-required"
     reviewer_required = policy.get("requireReviewerPass") is True
     reasons: list[str] = []
     for capability_id in requested:
-        # 安全权限不是 CAD 能力。它们由 require_policy_approval() 单独处理，
-        # 不能因为未写入 capabilities.yaml 就把已授权的 CAD 任务直接标记为 blocked。
+        # Security permissions are separate from CAD capabilities and are checked by require_policy_approval().
+        # Do not block an otherwise authorized CAD job solely because capabilities.yaml does not declare it.
         if str(capability_id) in DANGEROUS_CAPABILITIES:
             continue
         item = index.get(str(capability_id))
         if not item:
-            reasons.append(f"{capability_id} 不在能力清单中")
+            reasons.append(f"{capability_id} Yetenek listesinde yok")
             continue
         level = item.get("level")
         if level == "verified":
@@ -100,20 +100,20 @@ def _capability_block_reasons(job: dict[str, Any]) -> list[str]:
             continue
         if level == "reference_only" and manual_required:
             continue
-        reasons.append(f"{capability_id} 当前等级为 {level}，执行模式不满足能力限制")
+        reasons.append(f"{capability_id} Mevcut seviye:  {level}, Yürütme modu yetenek kısıtlarını karşılamıyor")
     return reasons
 
 
 class JobCancelled(RuntimeError):
-    """@brief 任务被用户取消。"""
+    """@brief The user cancelled the job."""
 
 
 class JobBlocked(RuntimeError):
-    """@brief 环境或能力门禁阻止任务执行。"""
+    """@brief An environment or capability check blocks the job."""
 
 
 def _codex_windowsapps_candidates() -> list[Path]:
-    """@brief 返回 Windows Store 版 Codex 的候选 exe 路径。"""
+    """@brief Return candidate executable paths for Windows Store Codex installations."""
     candidates: list[Path] = []
     windows_apps = Path(os.environ.get("ProgramFiles", "C:/Program Files")) / "WindowsApps"
     try:
@@ -125,7 +125,7 @@ def _codex_windowsapps_candidates() -> list[Path]:
 
 
 def _node_codex_command(npm_root: Path) -> list[str] | None:
-    """@brief 直接通过 Node 启动 npm Codex，避免 cmd.exe 二次解析用户 prompt。"""
+    """@brief Launch npm Codex directly through Node to avoid cmd.exe reparsing the user prompt."""
     script = npm_root / "node_modules" / "@openai" / "codex" / "bin" / "codex.js"
     if not script.is_file():
         return None
@@ -135,7 +135,7 @@ def _node_codex_command(npm_root: Path) -> list[str] | None:
 
 
 def resolve_codex_command() -> list[str]:
-    """@brief 解析可由 Python worker 可靠启动的 Codex CLI 命令。"""
+    """@brief Resolve a Codex CLI command that the Python worker can launch reliably."""
     env_path = os.environ.get("CODEX_BIN")
     if env_path:
         candidate = Path(env_path)
@@ -166,12 +166,12 @@ def resolve_codex_command() -> list[str]:
         return [str(candidate)]
 
     raise FileNotFoundError(
-        "没有找到 Codex CLI。请在设置里同步 CC Switch 或确认已安装 Codex，并把 codex.exe/codex.cmd 加入 PATH。"
+        "Bulunamadı Codex CLI.Ayarlarda eşitleyin:  CC Switch  veya yüklü olduğunu doğrulayın:  Codex,  and  codex.exe/codex.cmd Ekle PATH."
     )
 
 
 def default_tauri_queue_dir(identifier: str = "com.wzyn.cadstudio") -> Path:
-    """@brief 返回 Tauri 默认应用数据队列目录。"""
+    """@brief Return Tauri's default application-data queue directory."""
     if os.name == "nt" and os.environ.get("APPDATA"):
         return Path(os.environ["APPDATA"]) / identifier / "queue"
     if os.environ.get("XDG_DATA_HOME"):
@@ -180,27 +180,27 @@ def default_tauri_queue_dir(identifier: str = "com.wzyn.cadstudio") -> Path:
 
 
 def read_job(path: Path) -> dict[str, Any]:
-    """@brief 读取单个队列任务 JSON。"""
+    """@brief Read one queued job JSON file."""
     payload = json.loads(Path(path).read_text(encoding="utf-8"))
     if not isinstance(payload, dict):
-        raise ValueError(f"任务不是 JSON 对象: {path}")
+        raise ValueError(f"Görev şu durumda değil:  JSON Nesne: {path}")
     return payload
 
 
 def write_job(path: Path, job: dict[str, Any]) -> None:
-    """@brief 原子回写单个队列任务 JSON。"""
+    """@brief Atomically write back one queued job JSON file."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     atomic_write_json(path, job)
 
 
 def _queue_write_delay(attempt: int) -> float:
-    """@brief 返回 Windows 队列文件被短暂占用时的退避时间。"""
+    """@brief Return a backoff interval while Windows temporarily holds the queue file."""
     return min(0.025 + attempt * 0.025, 0.25)
 
 
 def atomic_replace_with_retry(temporary: Path, target: Path) -> None:
-    """@brief 用重试机制替换队列文件，规避 Windows 瞬时文件锁。"""
+    """@brief Replace queue files with retries for temporary Windows file locks."""
     last_error: OSError | None = None
     for attempt in range(QUEUE_WRITE_RETRIES):
         try:
@@ -214,13 +214,13 @@ def atomic_replace_with_retry(temporary: Path, target: Path) -> None:
     except OSError:
         pass
     raise OSError(
-        f"队列文件写入失败，Windows 暂时拒绝访问 {target}。"
-        "请关闭重复运行的 CAD Studio/Worker，或稍后重试。"
+        f"Kuyruk dosyası yazılamadı; Windows Erişim geçici olarak reddedildi {target}."
+        "Yinelenen çalışan örnekleri kapatın:  CAD Studio/Worker,  veya daha sonra deneyin."
     ) from last_error
 
 
 def atomic_write_json(path: Path, payload: dict[str, Any]) -> None:
-    """@brief 使用唯一临时文件写入 JSON，再原子替换目标文件。"""
+    """@brief Write JSON to a unique temporary file, then atomically replace the target."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_name(f"{path.name}.{os.getpid()}.{uuid.uuid4().hex}.tmp")
@@ -233,13 +233,13 @@ def atomic_write_json(path: Path, payload: dict[str, Any]) -> None:
 
 
 def cancel_marker_path(path: Path) -> Path:
-    """@brief 返回跨进程取消标记路径，避免任务 JSON 并发回写吞掉取消请求。"""
+    """@brief Return the cross-process cancellation marker path so concurrent job JSON writes cannot lose cancellation requests."""
     path = Path(path)
     return path.with_suffix(path.suffix + ".cancel")
 
 
 def is_cancel_requested(path: Path, job: dict[str, Any] | None = None) -> bool:
-    """@brief 同时检查独立标记和任务字段。"""
+    """@brief Check both standalone markers and job fields."""
     if cancel_marker_path(path).exists():
         return True
     current = job if job is not None else read_job(path)
@@ -247,38 +247,38 @@ def is_cancel_requested(path: Path, job: dict[str, Any] | None = None) -> bool:
 
 
 def worker_id() -> str:
-    """@brief 返回当前 worker 进程的短标识。"""
+    """@brief Return a short process identifier for the current worker."""
     return f"{WORKER_NAME}-{os.getpid()}-{uuid.uuid4().hex[:8]}"
 
 
 def lock_path_for(path: Path) -> Path:
-    """@brief 返回任务文件对应的领取锁路径。"""
+    """@brief Return the claim-lock path for a job file."""
     return Path(str(path) + ".lock")
 
 
 def quarantine_dir(queue_dir: Path) -> Path:
-    """@brief 返回坏任务隔离目录。"""
+    """@brief Return the invalid-job quarantine directory."""
     directory = Path(queue_dir) / "quarantine"
     directory.mkdir(parents=True, exist_ok=True)
     return directory
 
 
 def events_dir(queue_dir: Path) -> Path:
-    """@brief 返回任务事件流目录。"""
+    """@brief Return the job-event stream directory."""
     directory = Path(queue_dir) / "events"
     directory.mkdir(parents=True, exist_ok=True)
     return directory
 
 
 def logs_dir(queue_dir: Path) -> Path:
-    """@brief 返回运行日志目录。"""
+    """@brief Return the execution-log directory."""
     directory = Path(queue_dir) / "logs"
     directory.mkdir(parents=True, exist_ok=True)
     return directory
 
 
 def event_path_for(queue_dir: Path, job_id: Any) -> Path:
-    """@brief 返回任务 JSONL 事件文件路径。"""
+    """@brief Return the job JSONL event path."""
     safe_id = "".join(ch for ch in str(job_id or "") if ch.isascii() and (ch.isalnum() or ch in "-_"))
     if not safe_id:
         safe_id = "unknown"
@@ -286,14 +286,14 @@ def event_path_for(queue_dir: Path, job_id: Any) -> Path:
 
 
 def log_paths_for(queue_dir: Path, job_id: Any) -> tuple[Path, Path]:
-    """@brief 返回任务 stdout/stderr 日志路径。"""
+    """@brief Return the job stdout/stderr log path."""
     safe_id = "".join(ch for ch in str(job_id or "") if ch.isascii() and (ch.isalnum() or ch in "-_")) or "unknown"
     directory = logs_dir(queue_dir)
     return directory / f"{safe_id[:96]}.stdout.log", directory / f"{safe_id[:96]}.stderr.log"
 
 
 def append_event(queue_dir: Path, job: dict[str, Any], event_type: str, message: str, data: dict[str, Any] | None = None) -> None:
-    """@brief 追加一条结构化队列事件。"""
+    """@brief Append a structured queue event."""
     event = {
         "type": event_type,
         "jobId": job.get("id"),
@@ -312,7 +312,7 @@ def append_event(queue_dir: Path, job: dict[str, Any], event_type: str, message:
 
 
 def parse_iso(value: Any) -> datetime | None:
-    """@brief 解析 ISO 时间，失败返回 None。"""
+    """@brief Parse an ISO timestamp, returning None on failure."""
     if not isinstance(value, str) or not value:
         return None
     try:
@@ -322,12 +322,12 @@ def parse_iso(value: Any) -> datetime | None:
 
 
 def lease_until(seconds: int = DEFAULT_LEASE_SECONDS) -> str:
-    """@brief 返回 lease 过期时间。"""
+    """@brief Return the lease expiration time."""
     return (datetime.now(CN_TZ) + timedelta(seconds=seconds)).isoformat(timespec="seconds")
 
 
 def is_expired(value: Any) -> bool:
-    """@brief 判断 lease 是否过期。"""
+    """@brief Determine whether a lease has expired."""
     parsed = parse_iso(value)
     if parsed is None:
         return True
@@ -335,7 +335,7 @@ def is_expired(value: Any) -> bool:
 
 
 def quarantine_bad_job(path: Path, error: Exception) -> Path:
-    """@brief 隔离无法解析的任务文件，避免 watch 循环中断。"""
+    """@brief Quarantine unparseable job files without interrupting the watch loop."""
     path = Path(path)
     target = quarantine_dir(path.parent) / f"{path.stem}_{datetime.now(CN_TZ).strftime('%Y%m%d_%H%M%S')}.json"
     shutil.move(str(path), str(target))
@@ -345,7 +345,7 @@ def quarantine_bad_job(path: Path, error: Exception) -> Path:
 
 
 def acquire_lock(path: Path, runner_id: str, lease_seconds: int = DEFAULT_LEASE_SECONDS) -> Path | None:
-    """@brief 获取由操作系统维护生命周期的文件锁。"""
+    """@brief Acquire a file lock whose lifecycle is managed by the operating system."""
     lock_path = lock_path_for(path)
     payload = json.dumps(
         {
@@ -383,7 +383,7 @@ def acquire_lock(path: Path, runner_id: str, lease_seconds: int = DEFAULT_LEASE_
 
 
 def release_lock(lock_path: Path | None) -> None:
-    """@brief 释放文件锁；锁文件保留，进程退出时操作系统也会自动释放锁。"""
+    """@brief Release the file lock while retaining the lock file; the operating system also releases it when the process exits."""
     if lock_path is None:
         return
     path = Path(lock_path)
@@ -402,7 +402,7 @@ def release_lock(lock_path: Path | None) -> None:
 
 
 def mark_job_claimed(job: dict[str, Any], runner_id: str, lease_seconds: int) -> None:
-    """@brief 写入任务领取信息。"""
+    """@brief Write job claim information."""
     job["runnerId"] = runner_id
     job["workerPid"] = os.getpid()
     job["heartbeatAt"] = now_iso()
@@ -411,10 +411,10 @@ def mark_job_claimed(job: dict[str, Any], runner_id: str, lease_seconds: int) ->
 
 
 def refresh_job_heartbeat(path: Path, runner_id: str, lease_seconds: int, message: str = "worker heartbeat") -> dict[str, Any]:
-    """@brief 刷新运行中任务 heartbeat 与 lease。"""
+    """@brief Refresh a running job's heartbeat and lease."""
     job = read_job(path)
     if is_cancel_requested(path, job):
-        raise JobCancelled("任务已请求取消")
+        raise JobCancelled("Görev iptali istendi")
     job["runnerId"] = runner_id
     job["workerPid"] = os.getpid()
     job["heartbeatAt"] = now_iso()
@@ -426,19 +426,19 @@ def refresh_job_heartbeat(path: Path, runner_id: str, lease_seconds: int, messag
 
 
 def request_cancel(path: Path) -> dict[str, Any]:
-    """@brief 将任务标记为请求取消。"""
+    """@brief Mark the job as cancellation requested."""
     cancel_marker_path(path).write_text("cancel\n", encoding="ascii")
     job = read_job(path)
     job["cancelRequested"] = True
     job["updatedAt"] = now_iso()
-    job["lastMessage"] = "已请求取消，等待 worker 停止当前步骤。"
+    job["lastMessage"] = "İptal istendi; bekleniyor:  worker Mevcut adımı durdurun."
     write_job(path, job)
-    append_event(path.parent, job, "run.cancel_requested", "已请求取消")
+    append_event(path.parent, job, "run.cancel_requested", "İptal istendi")
     return job
 
 
 def approve_job(path: Path, approved_by: str = "local-user") -> dict[str, Any]:
-    """@brief 人工批准待审批任务重新进入队列。"""
+    """@brief Approve pending jobs and return them to the queue."""
     job = read_job(path)
     if job.get("status") != "approval_required":
         return job
@@ -448,19 +448,19 @@ def approve_job(path: Path, approved_by: str = "local-user") -> dict[str, Any]:
     job["approvedPolicyReasons"] = reasons
     job["status"] = "queued"
     job["updatedAt"] = now_iso()
-    job["lastMessage"] = "人工审批已通过，任务重新进入队列。"
+    job["lastMessage"] = "İnsan onayı verildi; görev yeniden kuyruğa alındı."
     write_job(path, job)
-    append_event(path.parent, job, "policy.approved", "人工审批已通过", {"approvedBy": approved_by})
+    append_event(path.parent, job, "policy.approved", "İnsan onayı verildi", {"approvedBy": approved_by})
     return job
 
 
 def mark_approval_required(path: Path, job: dict[str, Any], reasons: list[str]) -> dict[str, Any]:
-    """@brief 将任务置为待审批状态。"""
+    """@brief Set the job to pending approval."""
     job["status"] = "approval_required"
     job["progress"] = 0
     job["approvalReasons"] = reasons
     job["updatedAt"] = now_iso()
-    job["lastMessage"] = "任务需要人工审批: " + "；".join(reasons)
+    job["lastMessage"] = "Görev insan onayı gerektiriyor: " + "; ".join(reasons)
     append_worker_event(job, "approval_required", job["lastMessage"])
     write_job(path, job)
     append_event(path.parent, job, "policy.approval_required", job["lastMessage"], {"reasons": reasons})
@@ -468,7 +468,7 @@ def mark_approval_required(path: Path, job: dict[str, Any], reasons: list[str]) 
 
 
 def recover_stale_jobs(queue_dir: Path) -> int:
-    """@brief 将 lease 过期的 running 任务恢复为 queued。"""
+    """@brief Return running jobs with expired leases to queued."""
     recovered = 0
     recovery_runner_id = f"{worker_id()}-recovery"
     for path in sorted(Path(queue_dir).glob("*.json")):
@@ -490,11 +490,11 @@ def recover_stale_jobs(queue_dir: Path) -> int:
                 continue
             cancel_requested = is_cancel_requested(path, job)
             if cancel_requested:
-                set_job_state(job, "cancelled", int(job.get("progress") or 0), "worker lease 已过期，取消请求已生效。")
+                set_job_state(job, "cancelled", int(job.get("progress") or 0), "worker lease  süresi doldu; iptal uygulandı.")
                 job["cancelRequested"] = True
                 event_type = "run.cancelled"
             else:
-                set_job_state(job, "queued", 0, "worker lease 已过期，任务已恢复排队。")
+                set_job_state(job, "queued", 0, "worker lease  süresi doldu; görev yeniden sıraya alındı.")
                 job.pop("cancelRequested", None)
                 cancel_marker_path(path).unlink(missing_ok=True)
                 event_type = "run.recovered_stale"
@@ -511,7 +511,7 @@ def recover_stale_jobs(queue_dir: Path) -> int:
 
 
 def append_worker_event(job: dict[str, Any], status: str, message: str) -> None:
-    """@brief 在任务中追加 worker 状态流水，便于 UI 和测试追踪。"""
+    """@brief Append a worker status entry for UI display and test traceability."""
     events = job.setdefault("workerLog", [])
     if isinstance(events, list):
         events.append(
@@ -525,7 +525,7 @@ def append_worker_event(job: dict[str, Any], status: str, message: str) -> None:
 
 
 def set_job_state(job: dict[str, Any], status: str, progress: int, message: str) -> None:
-    """@brief 更新任务状态、进度和最后执行信息。"""
+    """@brief Update job status, progress and latest execution details."""
     job["status"] = status
     job["progress"] = max(0, min(100, int(progress)))
     job["updatedAt"] = now_iso()
@@ -546,55 +546,55 @@ def set_job_state(job: dict[str, Any], status: str, progress: int, message: str)
 
 
 def _domain_evidence_status(result: dict[str, Any]) -> tuple[str | None, str | None]:
-    """@brief 根据工程图/BOM/DFM 领域证据决定更严格的终态。"""
+    """@brief Derive the stricter terminal state from drawing, BOM, and DFM evidence."""
     evidence_items = [result.get("drawingEvidence"), result.get("bomEvidence"), result.get("dfmEvidence")]
     statuses = {str(item.get("status")) for item in evidence_items if isinstance(item, dict) and item.get("status")}
     if "blocked" in statuses:
-        return "blocked", "工程图、BOM 或 DFM 环境/能力门禁阻止交付"
+        return "blocked", "Mühendislik çizimi, BOM  veya  DFM Ortam/Yetenek kontrolü teslimi engelledi"
     if "failed" in statuses or "fail" in statuses:
-        return "failed", "工程图、BOM 或 DFM 复核失败，任务不可交付"
+        return "failed", "Mühendislik çizimi, BOM  veya  DFM İnceleme başarısız; görev teslim edilemez"
     if any(isinstance(item, dict) and item.get("manual_review_required") for item in evidence_items):
-        return "review_required", "工程图、BOM 或 DFM 已生成，但仍需人工复核"
+        return "review_required", "Mühendislik çizimi, BOM  veya  DFM  üretildi; insan incelemesi hâlâ gerekli"
     return None, None
 
 
 def mock_create_shell(job: dict[str, Any]) -> dict[str, Any]:
-    """@brief mock 生成外壳任务，后续替换为 SolidWorks COM handler。"""
+    """@brief Mock shell generation; replace with a real SolidWorks COM handler."""
     return {
         "mode": "mock",
-        "message": "已完成外壳、真实开孔和 3D 打印基础检查的 mock 流程。",
+        "message": "Muhafaza, gerçek delikler ve  3D  temel baskı kontrolü:  mock  workflow.",
         "outputs": [],
         "projectPath": job.get("projectPath"),
     }
 
 
 def mock_import_model(job: dict[str, Any]) -> dict[str, Any]:
-    """@brief mock 导入模型任务，后续替换为模型解析 handler。"""
+    """@brief Mock model import; replace with a real model-parsing handler."""
     return {
         "mode": "mock",
-        "message": "已记录模型路径并创建项目上下文 mock 结果。",
+        "message": "Model yolu kaydedildi ve proje bağlamı oluşturuldu mock  results.",
         "outputs": [],
         "projectPath": job.get("projectPath"),
     }
 
 
 def mock_delivery_package(job: dict[str, Any]) -> dict[str, Any]:
-    """@brief mock 交付包任务，后续替换为真实导出和打包 handler。"""
+    """@brief Mock delivery packaging; replace with a real export and packaging handler."""
     return {
         "mode": "mock",
-        "message": "已完成 STEP、STL、PDF、DWG 交付清单 mock 汇总。",
+        "message": "Tamamlandı STEP, STL, PDF, DWG Teslim listesi mock  summary.",
         "outputs": [],
         "projectPath": job.get("projectPath"),
     }
 
 
 def build_codex_prompt(job: dict[str, Any]) -> str:
-    """@brief 把图形化配置任务转换为 Codex 可执行提示词。"""
+    """@brief Convert graphical job configuration into an executable Codex prompt."""
     return compile_codex_prompt(job, profile=DEFAULT_PROFILE)
 
 
 def _artifact_roots(job: dict[str, Any], cwd: Path) -> list[Path]:
-    """@brief 返回任务允许声明交付物的工作区、输出目录和输入文件目录。"""
+    """@brief Return the workspace, output directory and input directories allowed for declared job artifacts."""
     roots = [cwd.resolve()]
     ui_config = job.get("uiConfig") if isinstance(job.get("uiConfig"), dict) else {}
     output_dir = ui_config.get("outputDir")
@@ -610,12 +610,12 @@ def _artifact_roots(job: dict[str, Any], cwd: Path) -> list[Path]:
 
 
 def _path_in_roots(path: Path, roots: list[Path]) -> bool:
-    """@brief 判断路径是否位于任一允许根目录内。"""
+    """@brief Determine whether a path belongs to any allowed root."""
     return any(root == path or root in path.parents for root in roots)
 
 
 def _resolve_job_path(value: Any, base_dir: Path) -> Path | None:
-    """@brief 将任务输入中的路径解析为绝对路径。"""
+    """@brief Resolve input paths to absolute paths."""
     if not value:
         return None
     candidate = Path(str(value)).expanduser()
@@ -623,7 +623,7 @@ def _resolve_job_path(value: Any, base_dir: Path) -> Path | None:
 
 
 def _dfm_input_path(job: dict[str, Any], base_dir: Path) -> Path | None:
-    """@brief 从 Job 2.0 输入、UI 配置或项目路径中定位 NeutralCadDocument。"""
+    """@brief Locate NeutralCadDocument in Job 2.0 inputs, UI configuration, or the project path."""
     ui_config = job.get("uiConfig") if isinstance(job.get("uiConfig"), dict) else {}
     for key in ("neutralDocumentPath", "cadstudioPath", "inputPath"):
         candidate = _resolve_job_path(ui_config.get(key), base_dir)
@@ -646,7 +646,7 @@ def _dfm_input_path(job: dict[str, Any], base_dir: Path) -> Path | None:
 
 
 def _dfm_output_path(job: dict[str, Any], source: Path, base_dir: Path) -> Path:
-    """@brief 返回 DFM 报告默认输出路径。"""
+    """@brief Return the default DFM report output path."""
     ui_config = job.get("uiConfig") if isinstance(job.get("uiConfig"), dict) else {}
     raw_output = ui_config.get("dfmReportPath") or job.get("dfmReportPath")
     if raw_output:
@@ -662,7 +662,7 @@ def _dfm_output_path(job: dict[str, Any], source: Path, base_dir: Path) -> Path:
 
 
 def _dfm_synthetic_document(job: dict[str, Any], base_dir: Path) -> Path | None:
-    """@brief 从 UI 尺寸配置生成可追溯的 DFM 草案文档。"""
+    """@brief Generate a traceable DFM draft document from UI dimensions."""
     ui_config = job.get("uiConfig") if isinstance(job.get("uiConfig"), dict) else {}
     geometry = ui_config.get("geometry") if isinstance(ui_config.get("geometry"), dict) else {}
     manufacturing = ui_config.get("manufacturing") if isinstance(ui_config.get("manufacturing"), dict) else {}
@@ -684,13 +684,13 @@ def _dfm_synthetic_document(job: dict[str, Any], base_dir: Path) -> Path | None:
     target = output_dir / f"{safe_run_id}_ui_config.cadstudio.json"
     payload = {
         "documentId": safe_run_id,
-        "title": job.get("title") or "CAD Studio UI DFM 草案",
+        "title": job.get("title") or "CAD Studio UI DFM Taslak",
         "units": manufacturing.get("unit") or "mm",
         "features": [
             {
                 "id": "ui-envelope",
                 "type": "box",
-                "name": "UI 配置包络",
+                "name": "UI Dış ölçüleri ayarla",
                 "parameters": {"length": length, "width": width, "height": height},
                 "evidenceRefs": ["uiConfig.geometry"],
             }
@@ -709,7 +709,7 @@ def _dfm_synthetic_document(job: dict[str, Any], base_dir: Path) -> Path | None:
 
 
 def run_dfm_review_job(job: dict[str, Any]) -> dict[str, Any]:
-    """@brief 本地执行 NeutralCadDocument DFM 复核，不依赖 SolidWorks/AutoCAD。"""
+    """@brief Review NeutralCadDocument DFM locally, independently of SolidWorks and AutoCAD."""
     base_dir = Path(str(job.get("cwd") or Path.cwd())).expanduser().resolve()
     source = _dfm_input_path(job, base_dir)
     if source is None:
@@ -727,11 +727,11 @@ def run_dfm_review_job(job: dict[str, Any]) -> dict[str, Any]:
             "manual_review_required": True,
             "retryable": False,
             "error_code": "dfm_input_missing",
-            "message": "未找到 NeutralCadDocument .cadstudio.json 输入。",
+            "message": "Bulunamadı NeutralCadDocument .cadstudio.json  input.",
         }
         return {
             "mode": "local-dfm",
-            "message": "DFM 复核被阻断：缺少 NeutralCadDocument 输入。",
+            "message": "DFM İnceleme engellendi; eksik:  NeutralCadDocument  input.",
             "outputs": [],
             "artifacts": [],
             "dfmEvidence": evidence,
@@ -748,7 +748,7 @@ def run_dfm_review_job(job: dict[str, Any]) -> dict[str, Any]:
     evidence = write_dfm_report(source, _dfm_output_path(job, source, base_dir), process=process)
     return {
         "mode": "local-dfm",
-        "message": "DFM 复核报告已生成，机器规则仅用于风险提示，仍需人工确认。",
+        "message": "DFM İnceleme raporu üretildi. Makine kuralları yalnızca riskleri belirtir; insan onayı hâlâ gereklidir.",
         "outputs": evidence.get("artifacts", []),
         "artifacts": evidence.get("artifacts", []),
         "checks": evidence.get("checks", []),
@@ -759,7 +759,7 @@ def run_dfm_review_job(job: dict[str, Any]) -> dict[str, Any]:
 
 
 def _snapshot_cad_artifacts(roots: list[Path], limit: int = 10000) -> dict[str, dict[str, Any]]:
-    """@brief 记录执行前 CAD 文件元数据，用于证明交付物在本轮新增或发生变化。"""
+    """@brief Record pre-execution CAD metadata to establish whether artifacts were created or changed in this run."""
     snapshot: dict[str, dict[str, Any]] = {}
     visited: set[Path] = set()
     for root in roots:
@@ -785,41 +785,41 @@ def _snapshot_cad_artifacts(roots: list[Path], limit: int = 10000) -> dict[str, 
 
 
 def _validate_codex_result(value: Any) -> dict[str, Any]:
-    """@brief 严格校验 Codex 最终 JSON，避免只检查字段存在就进入交付门禁。"""
+    """@brief Strictly validate final Codex JSON; field presence alone is insufficient for the delivery gate."""
     if not isinstance(value, dict):
-        raise RuntimeError("Codex 结构化结果必须是 JSON 对象")
+        raise RuntimeError("Codex Structured result must be  JSON Nesne")
     required_fields = {"summary", "changedFiles", "verification", "risks", "nextSteps"}
     missing_fields = sorted(required_fields.difference(value))
     if missing_fields:
-        raise RuntimeError(f"Codex 结构化结果缺少字段: {', '.join(missing_fields)}")
+        raise RuntimeError(f"Codex Structured result missing field: {', '.join(missing_fields)}")
     if not isinstance(value["summary"], str):
-        raise RuntimeError("Codex 结构化结果 summary 必须是字符串")
+        raise RuntimeError("Codex yapılandırılmış sonucunda summary bir metin olmalıdır")
     for field in ("changedFiles", "risks", "nextSteps"):
         if not isinstance(value[field], list) or not all(isinstance(item, str) for item in value[field]):
-            raise RuntimeError(f"Codex 结构化结果 {field} 必须是字符串数组")
+            raise RuntimeError(f"Codex yapılandırılmış sonucunda {field} bir metin dizisi olmalıdır")
     if not isinstance(value["verification"], list):
-        raise RuntimeError("Codex 结构化结果 verification 必须是数组")
+        raise RuntimeError("Codex yapılandırılmış sonucunda verification bir dizi olmalıdır")
     for index, item in enumerate(value["verification"]):
         if not isinstance(item, dict):
-            raise RuntimeError(f"verification[{index}] 必须是对象")
+            raise RuntimeError(f"verification[{index}]  must be an object")
         if set(item) != {"command", "status", "note"}:
-            raise RuntimeError(f"verification[{index}] 字段不符合 Schema")
+            raise RuntimeError(f"verification[{index}] Field does not match  Schema")
         if not isinstance(item["command"], str) or not isinstance(item["note"], str):
-            raise RuntimeError(f"verification[{index}] command/note 必须是字符串")
+            raise RuntimeError(f"verification[{index}] command/note  must be a string")
         if item["status"] not in {"passed", "failed", "skipped"}:
-            raise RuntimeError(f"verification[{index}] status 非法: {item['status']}")
+            raise RuntimeError(f"verification[{index}] status Invalid: {item['status']}")
     return value
 
 
 def _provider_id_for_job(job: dict[str, Any]) -> str:
-    """@brief 从统一任务协议读取 Provider，旧 Codex 任务自动兼容。"""
+    """@brief Read the provider from the unified job protocol, preserving compatibility with legacy Codex jobs."""
     ui_config = job.get("uiConfig") if isinstance(job.get("uiConfig"), dict) else {}
     agent_runtime = ui_config.get("agentRuntime") if isinstance(ui_config.get("agentRuntime"), dict) else {}
     return str(agent_runtime.get("provider") or "codex").strip().lower()
 
 
 def record_provider_verification(queue_dir: Path, provider: AgentProvider) -> Path:
-    """@brief 记录真实结构化任务成功证据，供桌面端健康状态读取。"""
+    """@brief Record structured evidence of an actual successful task for desktop health status."""
     verification_path = Path(queue_dir) / PROVIDER_VERIFICATION_FILE
     try:
         current = json.loads(verification_path.read_text(encoding="utf-8")) if verification_path.is_file() else {}
@@ -837,7 +837,7 @@ def record_provider_verification(queue_dir: Path, provider: AgentProvider) -> Pa
 
 
 def previous_engineering_plan(job: dict[str, Any]) -> dict[str, Any] | None:
-    """@brief 从同一队列的上一轮对话任务恢复 DAG，并按本轮要求局部重规划。"""
+    """@brief Restore the preceding conversation job's DAG from the same queue and replan for the current request."""
     ui_config = job.get("uiConfig") if isinstance(job.get("uiConfig"), dict) else {}
     source_job_id = str(ui_config.get("sourceJobId") or "").strip()
     retry_policy = job.get("retryPolicy") if isinstance(job.get("retryPolicy"), dict) else {}
@@ -854,7 +854,7 @@ def previous_engineering_plan(job: dict[str, Any]) -> dict[str, Any] | None:
                 affected = [retry_from_stage] if retry_from_stage in known_phases else None
                 return replan_for_local_change(
                     plan,
-                    f"从 {retry_from_stage or '失败阶段'} 重新生成并保留旧版本",
+                    f"{retry_from_stage or 'Başarısız aşama'} aşamasından yeniden üret ve önceki sürümü koru",
                     affected_phase_ids=affected,
                 ).to_dict()
             except (KeyError, TypeError, ValueError):
@@ -885,7 +885,7 @@ def run_agent_job(
     timeout_seconds: int = DEFAULT_CODEX_TIMEOUT_SECONDS,
     allow_full_access: bool = False,
 ) -> dict[str, Any]:
-    """@brief 通过统一 Provider Adapter 调用本机 Agent CLI。"""
+    """@brief Invoke a local Agent CLI through the unified provider adapter."""
     cwd = validate_codex_job(job)
     provider_id = _provider_id_for_job(job)
     if runner is None:
@@ -899,7 +899,7 @@ def run_agent_job(
             "opencode": "opencode-jsonl-v1",
         }
         if provider_id not in names:
-            raise ValueError(f"不支持的 Agent Provider: {provider_id}")
+            raise ValueError(f"Desteklenmeyen  Agent Provider: {provider_id}")
         provider = AgentProvider(provider_id, names[provider_id], protocols[provider_id], provider_id in {"codex", "claude"}, True, (provider_id,))
     prompt_job = dict(job)
     prompt_job["_knowledgeContext"] = build_job_knowledge_context(job)
@@ -976,12 +976,12 @@ def run_agent_job(
         artifacts.append({"kind": "engineering_plan", "path": str(engineering_plan_path)})
     risks = structured.get("risks") if isinstance(structured.get("risks"), list) else []
     if rejected_artifacts:
-        risks = [*risks, "已拒绝工作区、输出目录或输入文件目录之外的交付路径: " + "；".join(rejected_artifacts)]
+        risks = [*risks, "Çalışma alanı, çıktı veya girdi klasörleri dışındaki teslim yolu reddedildi: " + "; ".join(rejected_artifacts)]
 
     return {
         "mode": "codex" if legacy_codex else "agent",
         "provider": provider.to_dict(),
-        "message": str(structured.get("summary") or f"{provider.name} 已完成执行，结果已回写到本地输出文件。"),
+        "message": str(structured.get("summary") or f"{provider.name} Yürütme tamamlandı; sonuçlar yerel çıktı dosyalarına yazıldı."),
         "command": command[:2] + ["..."],
         "cwd": str(cwd),
         "sandbox": sandbox,
@@ -1006,12 +1006,12 @@ def run_codex_job(
     timeout_seconds: int = DEFAULT_CODEX_TIMEOUT_SECONDS,
     allow_full_access: bool = False,
 ) -> dict[str, Any]:
-    """@brief 兼容旧调用名称，实际走统一 Agent Provider Runtime。"""
+    """@brief Legacy invocation alias routed through the unified Agent provider runtime."""
     return run_agent_job(job, runner=runner, timeout_seconds=timeout_seconds, allow_full_access=allow_full_access)
 
 
 def _run_command(command: Sequence[str], cwd: Path, timeout_seconds: int) -> subprocess.CompletedProcess[str]:
-    """@brief 运行外部命令，便于测试中替换。"""
+    """@brief Run an external command with an injectable implementation for tests."""
     return subprocess.run(
         list(command),
         cwd=str(cwd),
@@ -1030,7 +1030,7 @@ def _run_command_with_runtime(
     timeout_seconds: int,
     job: dict[str, Any],
 ) -> subprocess.CompletedProcess[str]:
-    """@brief 运行 Agent 进程并维护 heartbeat、lease 与取消语义。"""
+    """@brief Run an Agent process while maintaining heartbeat, lease, and cancellation semantics."""
     runtime = job.get("_runtime") if isinstance(job.get("_runtime"), dict) else {}
     job_path = Path(str(runtime.get("jobPath")))
     runner_id = str(runtime.get("runnerId") or job.get("runnerId") or worker_id())
@@ -1042,7 +1042,7 @@ def _run_command_with_runtime(
     event_prefix = "agent" if job.get("executor") == "agent" else "codex"
     process_label = "Codex" if event_prefix == "codex" else "Agent"
 
-    append_event(job_path.parent, job, f"{event_prefix}.started", f"{process_label} 进程已启动", {"cwd": str(cwd), "stdout": str(stdout_path), "stderr": str(stderr_path)})
+    append_event(job_path.parent, job, f"{event_prefix}.started", f"{process_label} İşlem başlatıldı", {"cwd": str(cwd), "stdout": str(stdout_path), "stderr": str(stderr_path)})
     with stdout_path.open("w", encoding="utf-8") as stdout_handle, stderr_path.open("w", encoding="utf-8") as stderr_handle:
         process = subprocess.Popen(
             list(command),
@@ -1056,14 +1056,14 @@ def _run_command_with_runtime(
             now = time.monotonic()
             if now - started_at > timeout_seconds:
                 terminate_process(process)
-                append_event(job_path.parent, job, f"{event_prefix}.timeout", f"{process_label} 执行超时，已请求终止")
-                raise TimeoutError(f"{process_label} 执行超时: {timeout_seconds}s")
+                append_event(job_path.parent, job, f"{event_prefix}.timeout", f"{process_label} Yürütme zaman aşımına uğradı; sonlandırma istendi")
+                raise TimeoutError(f"{process_label} Yürütme zaman aşımı: {timeout_seconds}s")
             if now >= next_heartbeat:
                 try:
-                    refresh_job_heartbeat(job_path, runner_id, lease_seconds, f"{process_label} 正在执行，worker 已续租。")
+                    refresh_job_heartbeat(job_path, runner_id, lease_seconds, f"{process_label} Çalışıyor; worker  lease renewed.")
                 except JobCancelled:
                     terminate_process(process)
-                    append_event(job_path.parent, job, f"{event_prefix}.cancelled", f"收到取消请求，已终止 {process_label} 进程")
+                    append_event(job_path.parent, job, f"{event_prefix}.cancelled", f"İptal isteği alındı; sonlandırıldı:  {process_label} İşlem")
                     raise
                 next_heartbeat = now + heartbeat_interval
             time.sleep(0.25)
@@ -1075,14 +1075,14 @@ def _run_command_with_runtime(
         job_path.parent,
         job,
         f"{event_prefix}.completed",
-        f"{process_label} 进程已退出",
+        f"{process_label} İşlem sona erdi",
         {"returnCode": completed.returncode},
     )
     return completed
 
 
 def terminate_process(process: subprocess.Popen[str]) -> None:
-    """@brief 尽力终止子进程并回收。"""
+    """@brief Best-effort termination and reaping of subprocesses."""
     if process.poll() is not None:
         return
     if os.name == "nt":
@@ -1110,7 +1110,7 @@ DEFAULT_HANDLERS: Mapping[str, JobHandler] = {"dfm_review": run_dfm_review_job}
 
 
 def _primary_capability(job: dict[str, Any]) -> str | None:
-    """@brief 取任务声明的首个能力 ID（供 Execution Core 做上下文）。"""
+    """@brief Take the job's first declared capability ID as Execution Core context."""
     capabilities = job.get("capabilities")
     if isinstance(capabilities, list) and capabilities:
         return str(capabilities[0])
@@ -1118,11 +1118,11 @@ def _primary_capability(job: dict[str, Any]) -> str | None:
 
 
 def _execute_handler_with_core(handler: JobHandler, kind: str, job: dict[str, Any], path: Path) -> dict[str, Any]:
-    """@brief 用 Execution Core 包裹 handler 调用（兼容优先，异常原样上抛）。"""
+    """@brief Wrap a handler call through Execution Core, preserving compatibility and propagating exceptions unchanged."""
     try:
         from core.execution import execute_with_core
     except Exception:
-        # Execution Core 不可用时回退到原有 handler 直调，不改变生产行为。
+        # If Execution Core is unavailable, call the existing handler directly to preserve production behavior.
         return handler(job)
     assessment = execute_with_core(
         handler=handler,
@@ -1138,7 +1138,7 @@ def _execute_handler_with_core(handler: JobHandler, kind: str, job: dict[str, An
     if assessment.exception is not None:
         raise assessment.exception
     if not assessment.execution_result.success:
-        message = assessment.execution_result.message or assessment.execution_result.error_code or "Handler 执行失败"
+        message = assessment.execution_result.message or assessment.execution_result.error_code or "Handler Yürütme başarısız"
         if isinstance(assessment.raw_result, dict) and assessment.raw_result.get("status") == "blocked":
             raise JobBlocked(message)
         raise RuntimeError(message)
@@ -1146,7 +1146,7 @@ def _execute_handler_with_core(handler: JobHandler, kind: str, job: dict[str, An
 
 
 def _record_verification_assessment(path: Path, job: dict[str, Any], review: dict[str, Any]) -> None:
-    """@brief 用 Verification/Recovery Adapter 标准化既有 Reviewer Gate 结果（sidecar，不改终态）。"""
+    """@brief Normalize existing Reviewer Gate results through Verification/Recovery adapters as a sidecar without changing terminal state."""
     try:
         from core.recovery import decide
         from core.verification import verify
@@ -1181,7 +1181,7 @@ def process_job(
     runner_id: str | None = None,
     lease_seconds: int = DEFAULT_LEASE_SECONDS,
 ) -> dict[str, Any] | None:
-    """@brief 执行一个 queued 任务，终态任务会被跳过。"""
+    """@brief Execute queued jobs and skip terminal jobs."""
     path = Path(path)
     job = read_job(path)
     if job.get("status") != "queued":
@@ -1192,12 +1192,12 @@ def process_job(
         job_id = job.get("id")
         kind = job.get("kind")
         if not isinstance(job_id, str) or not job_id:
-            raise ValueError("任务缺少 id")
+            raise ValueError("Görevde eksik:  id")
         if kind not in KNOWN_JOB_KINDS:
-            raise ValueError(f"未知任务类型: {kind}")
+            raise ValueError(f"Bilinmeyen görev türü: {kind}")
         blocked_reasons = _capability_block_reasons(job)
         if blocked_reasons:
-            message = "任务被能力门禁阻止: " + "；".join(blocked_reasons)
+            message = "Görev yetenek kontrolünde engellendi: " + "; ".join(blocked_reasons)
             job["blockedReasons"] = blocked_reasons
             job["stage"] = "blocked"
             set_job_state(job, "blocked", int(job.get("progress") or 0), message)
@@ -1211,25 +1211,25 @@ def process_job(
             executor_kind = "codex_task" if job.get("executor") == "codex" else "agent_task"
             if executor_kind not in active_handlers:
                 flag = "--enable-codex" if executor_kind == "codex_task" else "--enable-agent"
-                raise ValueError(f"Agent 执行器未启用，请给 worker 添加 {flag}")
+                raise ValueError(f"Agent Yürütücü etkin değil; belirtin:  worker Ekle {flag}")
             kind = executor_kind
 
         if kind not in active_handlers:
-            raise ValueError(f"任务类型未配置 handler: {kind}")
+            raise ValueError(f"Görev türü yapılandırılmamış handler: {kind}")
 
         mark_job_claimed(job, runner_id or worker_id(), lease_seconds)
-        set_job_state(job, "running", 12, "worker 已接单，正在准备本地 CAD 执行环境。")
+        set_job_state(job, "running", 12, "worker Görev alındı; yerel ortam hazırlanıyor:  CAD Execution environment.")
         write_job(path, job)
-        append_event(path.parent, job, "run.claimed", "任务已被 worker 领取")
-        append_event(path.parent, job, "step.started", "任务执行开始")
+        append_event(path.parent, job, "run.claimed", "Görev şu işlem tarafından  worker Claim")
+        append_event(path.parent, job, "step.started", "Görev yürütmesi başladı")
 
         job["_runtime"] = {"jobPath": str(path), "runnerId": job.get("runnerId"), "leaseSeconds": lease_seconds}
         result = _execute_handler_with_core(active_handlers[kind], kind, job, path)
         if is_cancel_requested(path):
-            raise JobCancelled("任务已请求取消")
+            raise JobCancelled("Görev iptali istendi")
         job.pop("_runtime", None)
         job["result"] = result
-        # Job 2.0 领域证据保持在顶层，便于 UI、CLI 和后续重试无需解析执行器私有 result。
+        # Keep Job 2.0 domain evidence at the top level so UI, CLI, and retries need not parse private executor results.
         if isinstance(result, dict):
             for evidence_key in ("drawingEvidence", "bomEvidence", "dfmEvidence", "reviewFindings", "artifactRelations"):
                 if evidence_key in result:
@@ -1237,27 +1237,27 @@ def process_job(
         ledger = write_artifact_ledger(path.parent, job, result)
         job["artifactLedgerPath"] = ledger["ledgerPath"]
         job["artifacts"] = ledger["artifacts"]
-        append_event(path.parent, job, "artifact.ledger_written", "交付物账本已写入", {"ledgerPath": ledger["ledgerPath"]})
+        append_event(path.parent, job, "artifact.ledger_written", "Çıktı kayıt defteri yazıldı", {"ledgerPath": ledger["ledgerPath"]})
         review = write_reviewer_gate(path.parent, ledger)
         if is_cancel_requested(path):
-            raise JobCancelled("任务已请求取消")
+            raise JobCancelled("Görev iptali istendi")
         job["reviewGate"] = review
         job["reviewGatePath"] = review["reviewPath"]
-        append_event(path.parent, job, "review.gate_completed", "Reviewer Gate 已完成", {"status": review["status"], "reviewPath": review["reviewPath"]})
+        append_event(path.parent, job, "review.gate_completed", "Reviewer Gate Tamamlandı", {"status": review["status"], "reviewPath": review["reviewPath"]})
         _record_verification_assessment(path, job, review)
         if review["status"] == "fail":
-            message = "交付文件检查未通过，任务不可交付。请查看复核记录并修正。"
+            message = "Teslim dosyaları kontrolden geçemedi. Görev teslim edilemez; inceleme kayıtlarını açıp düzeltin."
             job["error"] = message
             set_job_state(job, "failed", 100, message)
             append_event(path.parent, job, "run.failed", message)
         else:
-            message = str(result.get("message", "任务完成"))
+            message = str(result.get("message", "Görev tamamlandı"))
             if review["status"] == "warning":
-                message = f"{message} 文件级检查存在警告，仍需 CAD 原生或人工复核。"
+                message = f"{message} Dosya kontrollerinde uyarı var; hâlâ gerekli:  CAD  özgün uygulama veya insan incelemesi."
             domain_status, domain_message = _domain_evidence_status(result)
             status = domain_status or ("review_required" if review["status"] == "warning" else "passed")
             if domain_message:
-                message = f"{message} {domain_message}。"
+                message = f"{message} {domain_message}."
             if status == "blocked":
                 job["blockedReasons"] = [domain_message or message]
                 job["stage"] = "blocked"
@@ -1277,7 +1277,7 @@ def process_job(
         job["stage"] = "blocked"
         set_job_state(job, "blocked", int(job.get("progress") or 0), str(error))
         append_event(path.parent, job, "run.blocked", str(error))
-    except Exception as error:  # noqa: BLE001 - worker 必须把单任务错误写回队列，不能让队列静默中断。
+    except Exception as error:  # noqa: BLE001 - worker Write individual job errors back to the queue so that the queue never stops silently.
         job.pop("_runtime", None)
         job["error"] = str(error)
         set_job_state(job, "failed", 100, str(error))
@@ -1285,7 +1285,7 @@ def process_job(
 
     assessment = job.get("executionAssessment")
     if isinstance(assessment, dict):
-        # Queue 负责调度；Core 终态必须在既有 Review 与领域证据结束后记录。
+        # The queue handles scheduling; record a terminal Core state only after review and domain-evidence checks.
         verification = job.get("verificationAssessment") or {}
         completed = job.get("status") == "passed" and verification.get("status") == "PASS" and not verification.get("manual_review_required")
         assessment["status"] = "completed" if completed else "failed" if job.get("status") == "failed" else "blocked"
@@ -1300,7 +1300,7 @@ def build_handlers(
     codex_full_access: bool = False,
     enable_mock: bool = False,
 ) -> Mapping[str, JobHandler]:
-    """@brief 根据 CLI 参数构建任务分发器。"""
+    """@brief Build the job dispatcher from CLI arguments."""
     handlers: dict[str, JobHandler] = dict(DEFAULT_HANDLERS)
     if enable_mock:
         handlers.update(MOCK_HANDLERS)
@@ -1317,7 +1317,7 @@ def process_queue(
     handlers: Mapping[str, JobHandler] | None = None,
     lease_seconds: int = DEFAULT_LEASE_SECONDS,
 ) -> list[dict[str, Any]]:
-    """@brief 扫描队列目录并执行 queued 任务。"""
+    """@brief Scan the queue directory and execute queued jobs."""
     queue_dir = Path(queue_dir)
     queue_dir.mkdir(parents=True, exist_ok=True)
     recovered = recover_stale_jobs(queue_dir)
@@ -1345,7 +1345,7 @@ def process_queue(
             if result is not None:
                 processed.append(result)
                 if result.get("status") == "failed":
-                    last_error = str(result.get("error") or result.get("lastMessage") or "任务失败")
+                    last_error = str(result.get("error") or result.get("lastMessage") or "Görev başarısız")
         finally:
             release_lock(lock_path)
     write_worker_health(queue_dir, runner_id, processed_count=len(processed), recovered_count=recovered, last_error=last_error)
@@ -1358,7 +1358,7 @@ def watch_queue(
     handlers: Mapping[str, JobHandler] | None = None,
     lease_seconds: int = DEFAULT_LEASE_SECONDS,
 ) -> None:
-    """@brief 持续监听队列目录，适合后续做成后台进程。"""
+    """@brief Continuously watch the queue directory; suitable for a background process."""
     runner_id = worker_id()
     while True:
         processed = process_queue(queue_dir, handlers=handlers, lease_seconds=lease_seconds)
@@ -1367,17 +1367,17 @@ def watch_queue(
 
 
 def main() -> int:
-    """@brief 命令行入口。"""
-    parser = argparse.ArgumentParser(description="CAD Studio 本地自动化队列 worker")
-    parser.add_argument("--queue-dir", type=Path, default=default_tauri_queue_dir(), help="队列 JSON 目录")
-    parser.add_argument("--watch", action="store_true", help="持续监听队列")
-    parser.add_argument("--limit", type=int, default=None, help="单次最多处理任务数")
-    parser.add_argument("--interval", type=float, default=1.0, help="监听轮询间隔秒数")
-    parser.add_argument("--lease-seconds", type=int, default=DEFAULT_LEASE_SECONDS, help="任务领取 lease 秒数")
-    parser.add_argument("--enable-codex", action="store_true", help="允许 worker 调用 codex exec 执行任务")
-    parser.add_argument("--enable-agent", action="store_true", help="允许 worker 调用已选择的本机 Agent Provider")
-    parser.add_argument("--codex-full-access", action="store_true", help="允许 Codex 使用 danger-full-access 沙箱")
-    parser.add_argument("--enable-mock", action="store_true", help="仅开发测试：启用不生成真实 CAD 文件的 mock handler")
+    """@brief Command-line entrypoint."""
+    parser = argparse.ArgumentParser(description="CAD Studio Yerel otomasyon kuyruğu worker")
+    parser.add_argument("--queue-dir", type=Path, default=default_tauri_queue_dir(), help="Kuyruk JSON Klasör")
+    parser.add_argument("--watch", action="store_true", help="Kuyruğu sürekli dinle")
+    parser.add_argument("--limit", type=int, default=None, help="Bir seferde işlenecek en fazla görev")
+    parser.add_argument("--interval", type=float, default=1.0, help="Dinleme yoklama aralığı (saniye)")
+    parser.add_argument("--lease-seconds", type=int, default=DEFAULT_LEASE_SECONDS, help="Görev alımı lease Saniye")
+    parser.add_argument("--enable-codex", action="store_true", help="İzin ver worker Çağır codex exec Görevi yürüt")
+    parser.add_argument("--enable-agent", action="store_true", help="İzin ver worker Seçilen yerel uygulamayı çağırın:  Agent Provider")
+    parser.add_argument("--codex-full-access", action="store_true", help="İzin ver Codex Kullan danger-full-access Sandbox")
+    parser.add_argument("--enable-mock", action="store_true", help="Yalnızca geliştirme/test: gerçek çıktı üretmeyen modu etkinleştir:  CAD  file  mock handler")
     args = parser.parse_args()
     handlers = build_handlers(
         enable_codex=args.enable_codex,

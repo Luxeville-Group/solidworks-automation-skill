@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """@file acad_draw.py
-@brief 通过 JSON brief 驱动 AutoCAD 绘图。
+@brief Drive AutoCAD drawing through a JSON brief.
 """
 
 from __future__ import annotations
@@ -14,16 +14,16 @@ from acad_session import AutoCADSession
 
 
 def load_brief(path: str | Path) -> Dict[str, Any]:
-    """@brief 读取绘图 brief。"""
+    """@brief Read a drawing brief."""
     with open(path, "r", encoding="utf-8") as handle:
         data = json.load(handle)
     if not isinstance(data, dict):
-        raise ValueError("绘图 brief 顶层必须是 JSON 对象。")
+        raise ValueError("The drawing brief must be a JSON object at the top level.")
     return data
 
 
 def draw_entity(session: AutoCADSession, entity: Dict[str, Any]) -> None:
-    """@brief 按单个实体描述绘图。"""
+    """@brief Draw a single entity from its description."""
     etype = str(entity.get("type", "")).lower()
     layer = entity.get("layer")
     color = entity.get("color")
@@ -64,11 +64,11 @@ def draw_entity(session: AutoCADSession, entity: Dict[str, Any]) -> None:
             color=color,
         )
     else:
-        raise ValueError(f"暂不支持实体类型: {etype!r}")
+        raise ValueError(f"Unsupported entity type: {etype!r}")
 
 
 def _is_live_enabled(brief: Dict[str, Any], fast_mode: bool) -> bool:
-    """@brief 判断是否启用可视化逐步绘图。"""
+    """@brief Determine whether step-by-step visual drawing is enabled."""
     if fast_mode:
         return False
     return bool(brief.get("live_preview", True))
@@ -82,7 +82,7 @@ def run(
     fast_mode: bool,
     step_delay_s: float,
 ) -> Dict[str, Any]:
-    """@brief 执行绘图 brief。"""
+    """@brief Execute a drawing brief."""
     session = AutoCADSession(create_if_missing=True, visible=True).connect()
     live_enabled = _is_live_enabled(brief, fast_mode)
     live_zoom_every = max(1, int(brief.get("live_zoom_every", 6)))
@@ -130,14 +130,14 @@ def run(
 
 
 def main() -> int:
-    """@brief 命令行入口。"""
-    parser = argparse.ArgumentParser(description="按 JSON brief 在 AutoCAD 中绘图")
-    parser.add_argument("--input", required=True, help="绘图 JSON brief")
-    parser.add_argument("--output", help="输出 DWG/DXF 路径")
-    parser.add_argument("--source", help="要修改的既有 DWG/DXF")
-    parser.add_argument("--new", action="store_true", help="新建文档")
-    parser.add_argument("--fast", action="store_true", help="关闭逐步绘图，改为快速批量生成")
-    parser.add_argument("--step-delay", type=float, default=0.12, help="逐步绘图时每一步停顿秒数")
+    """@brief CLI entry point."""
+    parser = argparse.ArgumentParser(description="Draw in AutoCAD from a JSON brief")
+    parser.add_argument("--input", required=True, help="Drawing JSON brief")
+    parser.add_argument("--output", help="Output DWG/DXF path")
+    parser.add_argument("--source", help="Existing DWG/DXF to modify")
+    parser.add_argument("--new", action="store_true", help="Create a new document")
+    parser.add_argument("--fast", action="store_true", help="Disable step-by-step drawing and use fast batch generation")
+    parser.add_argument("--step-delay", type=float, default=0.12, help="Pause in seconds after each drawing step")
     args = parser.parse_args()
 
     brief = load_brief(args.input)

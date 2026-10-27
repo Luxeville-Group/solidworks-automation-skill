@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """@file acad_preflight.py
-@brief AutoCAD 自动化入口自检脚本。
+@brief AutoCAD automation entry-point preflight.
 
-此脚本只检查 Python COM 依赖和 AutoCAD COM 可用性，不修改图纸。
+This script checks only Python COM dependencies and AutoCAD COM availability; it does not modify drawings.
 """
 
 from __future__ import annotations
@@ -20,18 +20,18 @@ from cad_installation import discover_installation  # noqa: E402
 
 
 def _result(status: str, **kwargs: Any) -> Dict[str, Any]:
-    """@brief 构造统一 JSON 输出。"""
+    """@brief Construct a consistent JSON result."""
     data: Dict[str, Any] = {"status": status}
     data.update(kwargs)
     return data
 
 
 def check_pywin32() -> Dict[str, Any]:
-    """@brief 检查 pywin32 是否可导入。"""
+    """@brief Check whether pywin32 can be imported."""
     try:
         import pythoncom  # noqa: F401
         import win32com.client  # noqa: F401
-    except Exception as exc:  # pragma: no cover - 依赖环境相关
+    except Exception as exc:  # pragma: no cover - environment-dependent
         return _result(
             "missing",
             package="pywin32",
@@ -42,10 +42,10 @@ def check_pywin32() -> Dict[str, Any]:
 
 
 def check_autocad(launch: bool) -> Dict[str, Any]:
-    """@brief 检查是否能连接或启动 AutoCAD COM。
+    """@brief Check whether AutoCAD COM can be connected or started.
 
-    @param launch 为 True 时允许启动 AutoCAD。
-    @return AutoCAD 连接状态。
+    @param launch Allow starting AutoCAD when True.
+    @return AutoCAD connection status.
     """
     installation = discover_installation("autocad")
     try:
@@ -68,7 +68,7 @@ def check_autocad(launch: bool) -> Dict[str, Any]:
                 executable=installation["executable"],
                 installation_source=installation["source"],
                 error=repr(active_exc),
-                hint="AutoCAD 已安装但未运行；如需自动启动，请加 --launch。" if installation["installed"] else "未发现 AutoCAD 安装，请确认快捷方式或安装目录。",
+                hint="AutoCAD is installed but not running; add --launch to start it automatically." if installation["installed"] else "AutoCAD installation not found; check shortcuts or the installation directory.",
             )
         try:
             app = win32com.client.Dispatch("AutoCAD.Application")
@@ -81,7 +81,7 @@ def check_autocad(launch: bool) -> Dict[str, Any]:
                 executable=installation["executable"],
                 installation_source=installation["source"],
                 error=repr(launch_exc),
-                hint="请确认已安装 Windows 桌面版 AutoCAD，并手动启动一次完成 COM 注册。",
+                hint="Confirm Windows desktop AutoCAD is installed, and start it manually once to complete COM registration.",
             )
 
     try:
@@ -109,9 +109,9 @@ def check_autocad(launch: bool) -> Dict[str, Any]:
 
 
 def main() -> int:
-    """@brief 命令行入口。"""
-    parser = argparse.ArgumentParser(description="AutoCAD 自动化自检")
-    parser.add_argument("--launch", action="store_true", help="允许脚本启动 AutoCAD")
+    """@brief CLI entry point."""
+    parser = argparse.ArgumentParser(description="AutoCAD automation preflight")
+    parser.add_argument("--launch", action="store_true", help="Allow the script to start AutoCAD")
     args = parser.parse_args()
 
     report = {

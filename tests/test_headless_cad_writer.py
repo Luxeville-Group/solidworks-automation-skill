@@ -1,9 +1,10 @@
-"""无 CAD 软件开放格式写入回归。"""
+"""CAD-free open-format writer regressions."""
 import json
 import sys
 from pathlib import Path
 
 import ezdxf
+import pytest
 
 from apps.desktop.cad_workbench.cad_core_contracts import NeutralCadDocument, NeutralFeature, write_json_contract
 from scripts import headless_cad_writer
@@ -18,7 +19,7 @@ from acad_headless import inspect_dxf  # noqa: E402
 def test_headless_writer_exports_stl_obj_dxf_and_preview_manifest(tmp_path: Path):
     document = NeutralCadDocument(
         documentId="headless_plate",
-        title="无头安装板",
+        title="Headless mounting plate",
         features=[
             NeutralFeature(id="base", type="box", parameters={"length": 120, "width": 70, "height": 8}),
         ],
@@ -53,10 +54,10 @@ def test_headless_writer_exports_stl_obj_dxf_and_preview_manifest(tmp_path: Path
 
 
 def test_headless_dxf_contains_manufacturing_layers_dimensions_frame_and_preview_scene(tmp_path: Path):
-    """@brief 验证无头二维写入满足可制造图纸的结构证据底线。"""
+    """@brief Headless 2D output must meet drawing structural-evidence minimums."""
     document = NeutralCadDocument(
         documentId="gbt_plate",
-        title="安装板",
+        title="Montaj plakası",
         features=[
             NeutralFeature(id="base", type="box", parameters={"length": 120, "width": 70, "height": 8}),
             NeutralFeature(id="hole-a", type="hole", operation="subtract", parameters={"x": -35, "y": 20, "diameter": 10}),
@@ -71,7 +72,7 @@ def test_headless_dxf_contains_manufacturing_layers_dimensions_frame_and_preview
                 "material": "Q235B",
                 "scale": "1:1",
                 "designer": "CAD Studio",
-                "reviewer": "待人工复核",
+                "reviewer": "İnsan incelemesi bekleniyor",
             }
         },
     )
@@ -135,7 +136,7 @@ def test_headless_writer_does_not_fake_mesh_when_occt_is_unavailable(tmp_path: P
     assert {"cadstudio", "dxf", "png", "preview_manifest"} <= kinds
     assert "stl" not in kinds
     assert "obj" not in kinds
-    assert any("部分几何" in item for item in result["limitations"])
+    assert any("kısmi geometri" in item for item in result["limitations"])
 
 
 def test_headless_writer_blocks_unknown_formats_without_fake_files(tmp_path: Path):
@@ -159,3 +160,46 @@ def test_headless_writer_rejects_invalid_neutral_document(tmp_path: Path):
     assert result["stage"] == "preflight"
     assert result["error_code"] == "invalid_neutral_document"
     assert result["missingFormats"] == ["dxf"]
+
+
+def test_fallback_pdf_preserves_turkish_title_and_geometry(tmp_path: Path):
+    pdf_backend = pytest.importorskip("pymupdf")
+    title = "ÇĞİÖŞÜ çğıöşü - Ölçü çizimi"
+    document = {
+        "documentId": "turkish_title",
+        "title": title,
+        "features": [{"id": "base", "type": "box", "parameters": {"length": 120, "width": 70, "height": 8}}],
+    }
+    translated = tmp_path / "turkish.pdf"
+    baseline = tmp_path / "english.pdf"
+
+    assert headless_cad_writer.write_pdf(translated, document) is None
+    headless_cad_writer.write_pdf(baseline, {**document, "title": "Drawing"})
+
+    with pdf_backend.open(translated) as localized, pdf_backend.open(baseline) as original:
+        assert title in localized[0].get_text()
+        assert localized[0].rect == original[0].rect
+        assert localized[0].get_drawings() == original[0].get_drawings()
+        assert any(font[2] == "Type0" and font[4] == "CADStudioUnicode" for font in localized[0].get_fonts())
+
+
+def test_fallback_pdf_without_unicode_backend_reports_transliteration(tmp_path: Path, monkeypatch):
+    pdf_backend = pytest.importorskip("pymupdf")
+    monkeypatch.setattr(headless_cad_writer, "_pdf_unicode_backend", lambda: None)
+    document = NeutralCadDocument(
+        documentId="turkish_fallback",
+        title="ÇĞİÖŞÜ çğıöşü - Ölçü çizimi",
+        features=[NeutralFeature(id="base", type="box", parameters={"length": 120, "width": 70, "height": 8})],
+    )
+    source = write_json_contract(tmp_path / "source.cadstudio.json", document)
+
+    def unavailable_renderer(*_args):
+        raise ImportError("Controlled optional-renderer absence")
+
+    monkeypatch.setattr(headless_cad_writer, "write_rendered_dxf_format", unavailable_renderer)
+    result = export_headless(source, tmp_path / "out", ["pdf"])
+    artifact = next(item for item in result["artifacts"] if item["kind"] == "pdf")
+
+    assert any("ASCII" in item for item in result["limitations"])
+    with pdf_backend.open(artifact["path"]) as pdf:
+        assert "CGIOSU cgiosu - Olcu cizimi" in pdf[0].get_text()

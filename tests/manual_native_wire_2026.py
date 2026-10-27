@@ -1,4 +1,4 @@
-"""@brief 通过真实 MCP 注册工具验收 SW2026，只操作本轮创建的独立实例及文件。"""
+"""@brief Accept SW2026 through registered MCP tools, using only this run's isolated instance and files."""
 from __future__ import annotations
 import hashlib
 import json
@@ -27,7 +27,7 @@ import server
 report = {"status": "failed", "cases": [], "cleanup": {}}
 prior = solidworks_processes()
 if prior is None or prior:
-    raise SystemExit("已有用户 SolidWorks 实例，停止隔离写入测试")
+    raise SystemExit("A user SolidWorks instance exists; stopping the isolated write test")
 sw = None
 pid = None
 owned = False
@@ -35,30 +35,30 @@ titles = set()
 pythoncom.CoInitialize()
 
 def remember(model):
-    """@brief 记录本轮文档标题，包含保存前后的变化。"""
+    """@brief Record current-run document titles, including changes before/after saving."""
     titles.add(str(get(model, "GetTitle")))
     return model
 
 def active(model):
-    """@brief 只激活本轮创建的文档，并核对路径。"""
+    """@brief Activate only documents created by this run and verify their paths."""
     from win32com.client import VARIANT
     error = VARIANT(pythoncom.VT_BYREF | pythoncom.VT_I4, 0)
     sw.ActivateDoc3(str(get(model, "GetTitle")), False, 0, error)
     assert str(get(get(sw, "ActiveDoc"), "GetPathName")) == str(get(model, "GetPathName"))
 
 def save(model, path):
-    """@brief 保存本轮文档并确认实际文件存在。"""
+    """@brief Save the current-run document and confirm the file exists."""
     assert Path(path).is_relative_to(OUTPUT)
     assert save_document(model, str(path)) and Path(path).is_file()
     remember(model)
 
 def reopen(model, path):
-    """@brief 关闭自己的文档并重新载入，验证落盘后的真实模型。"""
+    """@brief Close owned documents and reload them to verify the saved model."""
     sw.CloseDoc(str(get(model, "GetTitle")))
     return remember(open_document(sw, str(path), silent=True, raise_on_error=True))
 
 def call(name, params, expected="ok"):
-    """@brief 走宿主持锁入口，保留原生子进程和结果归一化的真实执行。"""
+    """@brief Use the host's locked entry point, retaining real native-subprocess execution and result normalization."""
     print("CALL " + name, flush=True)
     result = json.loads(server.mcp._tool_manager._tools[name].fn(params))
     report["cases"].append({"tool": name, "result": result})
@@ -78,21 +78,21 @@ def build(model, spec, dry=False):
     return call("solidworks_build_round_sweeps", native.BuildInput(expected_document_path=str(get(model, "GetPathName")), spec_path=str(spec), dry_run=dry), expected="ready" if dry else "ok")
 
 def volume(result):
-    """@brief 根据实体读回值计算总体积。"""
+    """@brief Calculate total volume from body readback."""
     return sum(body["volume_mm3"] for body in result["bodies"])
 
 def prefs():
-    """@brief 获取本轮会暂时改变的全局导入选项。"""
-    # @brief 数值由本机 2026 PIA 枚举实际读取，记录并验证三个导入选项均恢复。
+    """@brief Read global import options that this run will temporarily change."""
+    # @brief Values come from actual local 2026 PIA enumerations; record and verify restoration of all three import options.
     return {"interconnect": sw.GetUserPreferenceToggle(691), "multibody": sw.GetUserPreferenceToggle(220), "mapping": sw.GetUserPreferenceIntegerValue(579)}
 
 def reject_native(request, reason):
-    """@brief 真实 C# 子进程必须拒绝错误 PID 或错误目标，不能只测 Python 预检。"""
+    """@brief Require the real C# subprocess to reject incorrect PIDs/targets, beyond Python preflight alone."""
     from scripts.cad_installation import discover_installation
     install = Path(discover_installation("solidworks")["executable"]).parent
     interop = next(p for p in [install / "api/redist", install] if (p / "SolidWorks.Interop.sldworks.dll").is_file())
     result = subprocess.run(["powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", str(ROOT / "scripts/sw_native_wire.ps1"), "-InteropRoot", str(interop)], input=json.dumps(request), capture_output=True, encoding="utf-8", timeout=30, creationflags=subprocess.CREATE_NO_WINDOW)
-    # @brief Windows PowerShell 错误格式器可能在英文单词中换行，比较时忽略排版空白。
+    # @brief Windows PowerShell error formatting may wrap English words; ignore layout whitespace in comparisons.
     assert result.returncode != 0 and "".join(reason.split()) in "".join(result.stderr.split()), result.stderr
     report["cases"].append({"guard": reason, "status": "pass"})
 
@@ -100,10 +100,10 @@ try:
     sw, _, meta = connect_solidworks(version=2026, wait_seconds=60, visible=False, return_metadata=True)
     pid = int(get(sw, "GetProcessID"))
     owned = bool(meta["started_by_cad_studio"]) and pid not in prior
-    assert owned, "无法证明实例属于本轮测试"
+    assert owned, "Cannot prove this test owns the instance"
     report["environment"] = {**get_sw_version(sw), "process_id": pid}
     print(json.dumps(report["environment"]), flush=True)
-    # @brief 等待新实例向 ROT 完成注册；不将未就绪的启动窗口算作工具回归。
+    # @brief Wait for the new instance to register in ROT; incomplete startup is not a tool regression.
     sw.Visible = True
     import win32com.client
     deadline = time.monotonic() + 30
@@ -119,7 +119,7 @@ try:
         table = pythoncom.GetRunningObjectTable()
         ctx = pythoncom.CreateBindCtx(0)
         print("ROT=" + repr([m.GetDisplayName(ctx, None) for m in table.EnumRunning()]), flush=True)
-        raise RuntimeError("自己的 SolidWorks 实例未完成 ROT 注册")
+        raise RuntimeError("The owned SolidWorks instance did not complete ROT registration")
     table = pythoncom.GetRunningObjectTable()
     ctx = pythoncom.CreateBindCtx(0)
     print("SOLIDWORKS ROT=" + repr([n for m in table.EnumRunning() if "solidworks" in (n := m.GetDisplayName(ctx, None)).lower()]), flush=True)
@@ -144,7 +144,7 @@ try:
     assert abs(bodies["Straight"]["volume_mm3"] - math.pi * .5 ** 2 * 10) < .002
     assert abs(bodies["Block"]["volume_mm3"] - 500) < .002
     assert max(abs(a-b) for a,b in zip(bodies["Block"]["bounds_mm"], [20,20,2,30,30,7])) < .002
-    assert hashlib.sha256(original.read_bytes()).hexdigest() == disk_before, "构建未经授权自动保存"
+    assert hashlib.sha256(original.read_bytes()).hexdigest() == disk_before, "Build saved automatically without authorization"
     reject_native({"process_id": 2147483647, "source": str(original), "action": "inspect"}, "Requested process unavailable")
     reject_native({"process_id": pid, "source": str(OUTPUT / "wrong-target.sldprt"), "action": "inspect"}, "Active document target mismatch")
     assert len(get(model, "GetBodies2", -1, False) or []) == 3
@@ -164,7 +164,7 @@ try:
     active(guard)
     before_import_options = prefs()
     imported = call("solidworks_import_step_part", native.ImportInput(expected_document_path=str(guard_path), step_path=str(step), output_path=str(imported_path)))
-    assert prefs() == before_import_options, "导入没有恢复全局选项"
+    assert prefs() == before_import_options, "Import did not restore global options"
     imported_model = remember(get(sw, "ActiveDoc"))
     assert imported["saved"] is True and imported["save_requested"] is True
     assert Path(str(get(imported_model, "GetPathName"))) == imported_path

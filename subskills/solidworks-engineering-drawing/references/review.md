@@ -1,21 +1,21 @@
-# 工程图审视参考
+# Drawing Review Reference
 
-工程图审视分为三层：
+Drawing review has three layers:
 
-1. 结构证据：图幅、图框、投影法、视图、比例、尺寸、表格和输出文件。
-2. 制造证据：尺寸链、孔槽规格/数量/定位、标题栏、BOM 和钣金展开证据。
-3. 视觉证据：BMP/PNG 目视结果和 PDF 矢量文字边界风险。
+1. Structural evidence: sheet, border, projection, views, scale, dimensions, tables and outputs.
+2. Manufacturing evidence: dimension chains, hole/slot specifications/counts/positions, title block, BOM and sheet-metal flat pattern.
+3. Visual evidence: inspected BMP/PNG and PDF vector-text collision risks.
 
-任何一层证据缺失都不能直接升级为无人值守交付。确认碰撞使用 `fail`，估算或 PDF 文字
-风险使用 `warning`，缺少关键规格或钣金展开证据使用 `blocked` / `review_required`。
+Missing evidence in any layer prevents unattended delivery. Confirmed collisions are fail; estimated/PDF text
+risks are warning; missing key specifications or flat-pattern evidence are blocked / review_required.
 
-结构化核验规则：
+Structured verification:
 
-- 尺寸 ID 必须精确匹配，且逐项验证视图、种类、数值/文字、尺寸公差和基准；`D1` 不得命中 `D10`。
-- 孔要求必须按规格、数量和每个位置一一匹配。螺纹规格只接受专用螺纹/孔标注证据，不能由同名数字或光孔直径推断。
-- BOM 只接受 `swTableAnnotation_BillOfMaterials`，并要求存在非空数据行；请求配置时必须精确一致。
-- 标题栏模板候选不等于字段内容已验证；无法回读时保持 `review_required`。
-- DrawingSpec 请求的标准、轴测、剖视和局部视图都必须在结构证据中逐项出现。
-- 专业标注必须来自 `IView` 的中心标记、中心线、基准、GTOL、表面粗糙度或焊接符号实体，孔标注必须来自 `IDisplayDimension.IsHoleCallout`；不能用相同文字的普通注释替代。
-- 注解型中心标记优先通过 `IView.GetFirstCenterMark2` 与 `ICenterMark.GetNext` 遍历；`GetCenterMarks` 只作为旧版本回退，不能单独覆盖全部中心标记类型。
-- `professionalAnnotations` 按视图、类型、数量和文字逐项匹配。基准标签精确匹配，`A` 不得命中 `AB`。
+- Match dimension IDs exactly, then verify view, type, value/text, tolerance and datum. D1 must not match D10.
+- Match each hole's specification, quantity and location. Thread requirements need dedicated thread/hole-callout evidence, not matching numbers or a plain-hole diameter.
+- Accept only swTableAnnotation_BillOfMaterials with nonempty data rows; requested configuration must match exactly.
+- A candidate title-block template does not verify field contents; unreadable fields remain review_required.
+- Every requested standard/isometric/section/detail view must appear in the structural evidence.
+- Professional annotations must be actual IView center marks, centerlines, datums, GTOL, surface-finish or weld entities. Hole callouts require IDisplayDimension.IsHoleCallout; ordinary notes with matching text are insufficient.
+- Traverse annotation center marks through IView.GetFirstCenterMark2 and ICenterMark.GetNext. GetCenterMarks is a legacy fallback and does not alone cover every type.
+- Match professionalAnnotations by view, type, count and text. Datum labels are exact: A must not match AB.

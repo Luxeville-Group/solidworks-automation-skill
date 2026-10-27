@@ -1,8 +1,8 @@
 """@file acad_headless.py
-@brief 使用 ezdxf 只读检查 DXF，并可选生成无头 PNG 预览。
+@brief Read-only DXF inspection with ezdxf and optional headless PNG preview.
 
-该后端不读取或写入 DWG，不执行 AutoLISP，也不会修改源 DXF。最终 DWG/PDF
-交付仍必须经过 AutoCAD COM 和原生打开复核。
+This backend neither reads nor writes DWG, executes AutoLISP, nor modifies source DXF. Final DWG/PDF
+delivery still requires AutoCAD COM and native open-and-review.
 """
 from __future__ import annotations
 
@@ -19,19 +19,28 @@ DIMENSION_TYPES = {
     "LARGE_RADIAL_DIMENSION",
 }
 TEXT_TYPES = {"TEXT", "MTEXT", "ATTRIB", "ATTDEF"}
-TITLE_KEYWORDS = ("图号", "名称", "材料", "比例", "单位", "设计", "审核", "CAD STUDIO")
+TITLE_KEYWORDS = {
+    "drawing_number": ("DRAWING NO", "RESİM NO", "\u56fe\u53f7"),
+    "name": ("NAME", "PARÇA ADI", "\u540d\u79f0"),
+    "material": ("MATERIAL", "MALZEME", "\u6750\u6599"),
+    "scale": ("SCALE", "ÖLÇEK", "\u6bd4\u4f8b"),
+    "units": ("UNITS", "BİRİM", "\u5355\u4f4d"),
+    "design": ("DESIGN", "TASARIM", "\u8bbe\u8ba1"),
+    "review": ("REVIEW", "KONTROL", "\u5ba1\u6838"),
+    "cad_studio": ("CAD STUDIO",),
+}  # Count each field once; escaped aliases preserve recognition of imported legacy drawings.
 LAYER_GROUPS = {
-    "outline": {"OUTLINE", "OBJECT", "VISIBLE", "粗实线", "轮廓"},
-    "center": {"CENTER", "CENTRE", "CENTERLINE", "中心线"},
-    "hidden": {"HIDDEN", "HIDE", "虚线"},
-    "dimension": {"DIM", "DIMS", "DIMENSION", "尺寸"},
-    "text": {"TEXT", "NOTE", "ANNOTATION", "文字"},
-    "frame": {"FRAME", "BORDER", "TITLEBLOCK", "TITLE_BLOCK", "图框", "标题栏"},
+    "outline": {"OUTLINE", "OBJECT", "VISIBLE", "KONTUR", "GÖRÜNÜR", "\u7c97\u5b9e\u7ebf", "\u8f6e\u5ed3"},
+    "center": {"CENTER", "CENTRE", "CENTERLINE", "MERKEZ", "EKSEN", "\u4e2d\u5fc3\u7ebf"},
+    "hidden": {"HIDDEN", "HIDE", "GİZLİ", "GIZLI", "\u865a\u7ebf"},
+    "dimension": {"DIM", "DIMS", "DIMENSION", "ÖLÇÜ", "OLCU", "\u5c3a\u5bf8"},
+    "text": {"TEXT", "NOTE", "ANNOTATION", "METİN", "METIN", "YAZI", "\u6587\u5b57"},
+    "frame": {"FRAME", "BORDER", "TITLEBLOCK", "TITLE_BLOCK", "ÇERÇEVE", "CERCEVE", "ANTET", "\u56fe\u6846", "\u6807\u9898\u680f"},
 }
 
 
 def _layer_details(document) -> list[dict[str, Any]]:
-    """@brief 收集图层显示、打印、颜色和线型证据。"""
+    """@brief Collect layer display, plotting, color, and linetype evidence."""
     details = []
     for layer in document.layers:
         details.append({
@@ -47,7 +56,7 @@ def _layer_details(document) -> list[dict[str, Any]]:
 
 
 def _entity_text(entity) -> str:
-    """@brief 读取 TEXT/MTEXT/属性文字，失败时返回空字符串。"""
+    """@brief Read TEXT/MTEXT/attribute text; return an empty string on failure."""
     try:
         if entity.dxftype() == "MTEXT":
             return str(entity.plain_text())
@@ -57,7 +66,7 @@ def _entity_text(entity) -> str:
 
 
 def _dimension_evidence(entity) -> dict[str, Any]:
-    """@brief 提取真实 DXF 尺寸实体的可审计字段。"""
+    """@brief Extract auditable fields from real DXF dimension entities."""
     measurement = None
     try:
         measurement = float(entity.get_measurement())
@@ -73,7 +82,7 @@ def _dimension_evidence(entity) -> dict[str, Any]:
 
 
 def _hole_evidence(entity) -> dict[str, Any]:
-    """@brief 提取圆孔中心、直径和图层证据。"""
+    """@brief Extract circular-hole centers, diameters, and layer evidence."""
     center = entity.dxf.center
     radius = float(entity.dxf.radius)
     return {
@@ -85,7 +94,7 @@ def _hole_evidence(entity) -> dict[str, Any]:
 
 
 def _frame_candidates(modelspace) -> list[dict[str, Any]]:
-    """@brief 查找尺寸接近常见图幅比例的闭合轻量多段线。"""
+    """@brief Find closed lightweight polylines with common drawing-sheet aspect ratios."""
     candidates = []
     paper_ratios = (420 / 297, 297 / 210)
     for entity in modelspace.query("LWPOLYLINE"):
@@ -113,7 +122,7 @@ def _frame_candidates(modelspace) -> list[dict[str, Any]]:
 
 
 def _layer_group_checks(layer_names: list[str]) -> dict[str, bool]:
-    """@brief 按中英文常用别名检查机械图纸关键图层。"""
+    """@brief Check key mechanical drawing layers using English, Turkish, and legacy aliases."""
     normalized = {name.strip().upper() for name in layer_names}
     return {
         group: any(alias.upper() in normalized for alias in aliases)
@@ -129,18 +138,18 @@ def _engineering_evaluation(
     title_keywords: list[str],
     hole_count: int,
 ) -> dict[str, Any]:
-    """@brief 根据结构化证据给出机械图纸复核状态和问题码。"""
+    """@brief Derive drawing review status and issue codes from structured evidence."""
     issues = []
     if not layer_checks["outline"]:
-        issues.append({"code": "drawing-layer-outline", "message": "缺少轮廓/粗实线图层"})
+        issues.append({"code": "drawing-layer-outline", "message": "Outline/thick continuous-line layer missing"})
     if not layer_checks["dimension"] or dimension_count == 0:
-        issues.append({"code": "drawing-true-dimensions", "message": "缺少 DIM 图层或真实 DIMENSION 实体"})
+        issues.append({"code": "drawing-true-dimensions", "message": "DIM layer or real DIMENSION entities missing"})
     if not layer_checks["frame"] or frame_count == 0:
-        issues.append({"code": "drawing-frame", "message": "缺少图框图层或常见图幅闭合边框"})
+        issues.append({"code": "drawing-frame", "message": "Frame layer or standard-sheet closed border missing"})
     if len(title_keywords) < 3:
-        issues.append({"code": "drawing-title-block", "message": "标题栏字段证据不足"})
+        issues.append({"code": "drawing-title-block", "message": "Insufficient title-block field evidence"})
     if hole_count and not layer_checks["center"]:
-        issues.append({"code": "drawing-hole-centers", "message": "检测到圆孔但缺少中心线图层"})
+        issues.append({"code": "drawing-hole-centers", "message": "Circular holes detected without a centerline layer"})
     return {
         "status": "pass" if not issues else "warn",
         "issues": issues,
@@ -149,16 +158,16 @@ def _engineering_evaluation(
 
 
 def inspect_dxf(source: str | Path) -> dict[str, Any]:
-    """@brief 只读检查 DXF 的图层、尺寸、图框、孔位和包围盒。"""
+    """@brief Inspect DXF layers, dimensions, frames, hole positions, and bounds without modifying it."""
     try:
         import ezdxf
         from ezdxf import bbox
     except ImportError as exc:
-        raise RuntimeError("缺少可选依赖 ezdxf，请执行: python -m pip install ezdxf") from exc
+        raise RuntimeError("Optional dependency ezdxf missing; run: python -m pip install ezdxf") from exc
 
     path = Path(source).expanduser().resolve()
     if path.suffix.lower() != ".dxf":
-        raise ValueError("无头后端只接受 DXF；DWG 必须使用 AutoCAD COM 只读打开")
+        raise ValueError("The headless backend accepts DXF only; open DWG read-only through AutoCAD COM")
     if not path.is_file():
         raise FileNotFoundError(path)
     document = ezdxf.readfile(path)
@@ -182,8 +191,12 @@ def inspect_dxf(source: str | Path) -> dict[str, Any]:
     ]
     keyword_matches = sorted({
         keyword
-        for keyword in TITLE_KEYWORDS
-        if any(keyword.casefold() in text.casefold() for text in text_values)
+        for keyword, aliases in TITLE_KEYWORDS.items()
+        if any(
+            alias.casefold().replace("\u0307", "").replace("ı", "i")
+            in text.casefold().replace("\u0307", "").replace("ı", "i")
+            for alias in aliases for text in text_values
+        )
     })
     layer_details = _layer_details(document)
     layer_checks = _layer_group_checks([item["name"] for item in layer_details])
@@ -225,24 +238,24 @@ def inspect_dxf(source: str | Path) -> dict[str, Any]:
             title_keywords=keyword_matches,
             hole_count=len(holes),
         ),
-        "limitations": ["只读 DXF 检查", "不替代 AutoCAD 原生 DWG/PDF 复核"],
+        "limitations": ["Read-only DXF inspection", "Does not replace native AutoCAD DWG/PDF review"],
     }
 
 
 def render_dxf(source: str | Path, output: str | Path) -> dict[str, Any]:
-    """@brief 使用 ezdxf/matplotlib 渲染只读 PNG 预览。"""
+    """@brief Render a read-only PNG preview with ezdxf/matplotlib."""
     try:
         import ezdxf
         from ezdxf.addons.drawing import Frontend, RenderContext
         from ezdxf.addons.drawing.matplotlib import MatplotlibBackend
         import matplotlib.pyplot as plt
     except ImportError as exc:
-        raise RuntimeError("生成 PNG 预览需要 ezdxf 和 matplotlib") from exc
+        raise RuntimeError("PNG preview requires ezdxf and matplotlib") from exc
 
     source_path = Path(source).expanduser().resolve()
     output_path = Path(output).expanduser().resolve()
     if source_path.suffix.lower() != ".dxf" or output_path.suffix.lower() != ".png":
-        raise ValueError("预览输入必须是 DXF，输出必须是 PNG")
+        raise ValueError("Preview input must be DXF and output must be PNG")
     output_path.parent.mkdir(parents=True, exist_ok=True)
     document = ezdxf.readfile(source_path)
     figure = plt.figure(figsize=(12, 8), dpi=140)
@@ -279,11 +292,11 @@ def render_dxf(source: str | Path, output: str | Path) -> dict[str, Any]:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """@brief CLI 入口。"""
-    parser = argparse.ArgumentParser(description="使用 ezdxf 只读检查/预览 DXF")
+    """@brief CLI entry point."""
+    parser = argparse.ArgumentParser(description="Read-only DXF inspection/preview with ezdxf")
     parser.add_argument("source", type=Path)
-    parser.add_argument("--preview", type=Path, help="可选 PNG 预览输出")
-    parser.add_argument("--json", type=Path, help="可选 JSON 报告输出")
+    parser.add_argument("--preview", type=Path, help="Optional PNG preview output")
+    parser.add_argument("--json", type=Path, help="Optional JSON report output")
     args = parser.parse_args(argv)
     report = inspect_dxf(args.source)
     if args.preview:

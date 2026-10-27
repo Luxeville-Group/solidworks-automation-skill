@@ -1,4 +1,4 @@
-"""@brief 实际 Node/Python 探测参数和解释器来源，不修改用户 MCP 配置。"""
+"""@brief Probe actual Node/Python arguments and interpreter provenance without changing user MCP configuration."""
 from pathlib import Path
 import subprocess
 import sys

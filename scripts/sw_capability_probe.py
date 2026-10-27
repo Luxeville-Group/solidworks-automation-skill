@@ -1,4 +1,4 @@
-"""@brief 探测本机 SolidWorks 类型库与高级机械能力，不修改任何 CAD 文档。"""
+"""@brief Probe installed SOLIDWORKS type libraries and advanced mechanical capabilities without changing CAD documents."""
 
 from __future__ import annotations
 
@@ -65,7 +65,7 @@ CAPABILITY_ALIASES = {
 
 
 def _find_typelib(patterns: list[str]) -> Path | None:
-    """@brief 从实际安装目录和兼容路径中返回第一个类型库。"""
+    """@brief Return the first type library found in actual installation and compatibility paths."""
     target_name = Path(patterns[0]).name if patterns else ""
     if target_name:
         for installation in discover_installations("solidworks"):
@@ -84,7 +84,7 @@ def _find_typelib(patterns: list[str]) -> Path | None:
 
 
 def _type_names(pythoncom, path: Path) -> list[str]:
-    """@brief 从类型库读取接口/枚举名称。"""
+    """@brief Read interface/enum names from a type library."""
     library = pythoncom.LoadTypeLib(str(path))
     return sorted(
         {
@@ -96,7 +96,7 @@ def _type_names(pythoncom, path: Path) -> list[str]:
 
 
 def probe_capabilities(check_solidworks: bool = True) -> dict:
-    """@brief 生成不夸大实现状态的机器可读能力报告。"""
+    """@brief Build a machine-readable capability report without overstating implementation status."""
     missing = missing_com_dependencies()
     manifest = load_capabilities()
     manifest_index = capability_index(manifest)
@@ -111,9 +111,9 @@ def probe_capabilities(check_solidworks: bool = True) -> dict:
         "type_libraries": {},
         "capabilities": {},
         "notes": [
-            "type_library_present 只证明本机安装包含接口定义，不证明许可证、当前文档或自动化实现已验证。",
-            "implementation_status=reference_only/not_implemented 的能力禁止自动宣称完成。",
-            "language_backend_matrix 只定义适用边界；具体运行时仍须由 backend_router.py 按版本、依赖和接口语义选择。",
+            "type_library_present yalnızca kurulumdaki arayüz tanımlarını kanıtlar; lisansı, etkin belgeyi veya otomasyon uygulamasının doğrulandığını kanıtlamaz.",
+            "implementation_status=reference_only/not_implemented yetenekleri otomatik olarak tamamlandı sayılamaz.",
+            "language_backend_matrix yalnızca kullanım sınırlarını tanımlar; çalışma zamanı seçimini backend_router.py sürüm, bağımlılık ve arayüz semantiğine göre yapmalıdır.",
         ],
     }
     if missing or not check_solidworks:
@@ -146,10 +146,10 @@ def probe_capabilities(check_solidworks: bool = True) -> dict:
 
 
 def main() -> int:
-    """@brief 命令行入口。"""
-    parser = argparse.ArgumentParser(description="探测 SolidWorks 高级机械能力和本机类型库。")
-    parser.add_argument("--output", type=Path, help="可选 JSON 输出路径。")
-    parser.add_argument("--no-solidworks-check", action="store_true", help="仅校验能力清单，不访问本机 SolidWorks/类型库。")
+    """@brief Command-line entry point."""
+    parser = argparse.ArgumentParser(description="SOLIDWORKS gelişmiş mekanik yeteneklerini ve yerel type library dosyalarını denetle.")
+    parser.add_argument("--output", type=Path, help="İsteğe bağlı JSON çıktı yolu.")
+    parser.add_argument("--no-solidworks-check", action="store_true", help="Yalnızca capability listesini doğrula; yerel SOLIDWORKS/type library erişimi yapma.")
     args = parser.parse_args()
     report = probe_capabilities(check_solidworks=not args.no_solidworks_check)
     payload = json.dumps(report, ensure_ascii=False, indent=2)

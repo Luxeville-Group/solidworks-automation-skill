@@ -1,10 +1,5 @@
 #!/usr/bin/env python
-"""
-将 VibeCAD 设计计划转换为 SolidWorks 执行摘要。
-
-本脚本暂不直接调用 COM；它用于在正式建模前做工程门禁，明确每个计划步骤
-对应哪个 SolidWorks 自动化封装，以及哪些步骤需要人工确认或降级策略。
-"""
+'Convert a VibeCAD plan into a SolidWorks execution outline. Does not call COM directly; applies engineering gates and identifies API wrappers and steps needing human confirmation or fallback before modeling.'
 from __future__ import annotations
 
 import argparse
@@ -29,12 +24,12 @@ API_MAP = {
 
 
 def load_plan(path: Path) -> dict:
-    """读取设计计划 JSON。"""
+    'Read design-plan JSON.'
     return json.loads(path.read_text(encoding="utf-8"))
 
 
 def build_outline(plan: dict) -> dict:
-    """生成执行摘要。"""
+    'Generate the execution outline.'
     steps = []
     for index, operation in enumerate(plan["operation_sequence"], start=1):
         steps.append(
@@ -74,36 +69,36 @@ def build_outline(plan: dict) -> dict:
 
 
 def write_markdown(outline: dict) -> str:
-    """生成 Markdown 摘要。"""
+    'Generate a Markdown outline.'
     lines = [
-        "# SolidWorks 执行摘要",
+        '# SolidWorks yürütme özeti / Execution outline',
         "",
-        f"- 零件族: `{outline['source_part_family']}`",
-        f"- 执行模式: `{outline['execution_mode']}`",
-        f"- 单位策略: {outline['unit_policy']}",
+        f"- Parça ailesi / Part family: `{outline['source_part_family']}`",
+        f"- Yürütme modu / Execution mode: `{outline['execution_mode']}`",
+        f"- Birim politikası / Unit policy: {outline['unit_policy']}",
         "",
-        "## 步骤",
+        '## Adımlar / Steps',
         "",
     ]
     for step in outline["steps"]:
         lines.append(
             f"{step['index']}. `{step['operation']}` -> `{step['preferred_api']}` [{step['status']}]"
         )
-    lines.extend(["", "## 特征门禁", ""])
+    lines.extend(["", '## Unsur kontrolleri / Feature gates', ""])
     for item in outline["feature_gate"]:
-        fallback = f"；降级：{item['fallback']}" if item["fallback"] else ""
+        fallback = f"; geri dönüş / fallback: {item['fallback']}" if item["fallback"] else ""
         lines.append(f"- `{item['feature']}` ({item['type']}), required={item['required']}{fallback}")
-    lines.extend(["", "## 停止条件", ""])
+    lines.extend(["", '## Durdurma koşulları / Stop conditions', ""])
     for condition in outline["stop_conditions"]:
         lines.append(f"- {condition}")
     return "\n".join(lines) + "\n"
 
 
 def main() -> int:
-    """命令行入口。"""
-    parser = argparse.ArgumentParser(description="生成 SolidWorks 执行摘要")
-    parser.add_argument("--plan", type=Path, required=True, help="设计计划 JSON")
-    parser.add_argument("--out", type=Path, required=True, help="输出 Markdown 路径")
+    'Command-line entry point.'
+    parser = argparse.ArgumentParser(description='SolidWorks yürütme özeti oluştur / Generate a SolidWorks execution outline')
+    parser.add_argument("--plan", type=Path, required=True, help='Tasarım planı JSON / Design-plan JSON')
+    parser.add_argument("--out", type=Path, required=True, help='Çıktı Markdown yolu / Output Markdown path')
     args = parser.parse_args()
 
     outline = build_outline(load_plan(args.plan))

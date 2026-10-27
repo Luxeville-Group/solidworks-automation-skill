@@ -1,4 +1,4 @@
-"""SolidWorks 参数与属性封装的无 COM 回归测试。"""
+'COM-free SolidWorks parameter/property wrapper regressions.'
 from __future__ import annotations
 
 from scripts import sw_document_data as document_data
@@ -11,8 +11,8 @@ class FakeVariant:
 
 class FakeDimension:
     def __init__(self):
-        self.values = {"默认": 0.01, "加工": 0.02}
-        self.current = "默认"
+        self.values = {'Varsayılan': 0.01, 'İşleme': 0.02}
+        self.current = 'Varsayılan'
 
     @property
     def SystemValue(self):
@@ -67,25 +67,25 @@ class FakeModel:
         return self.dimension if name == "D1@Boss-Extrude1" else None
 
     def GetConfigurationNames(self):
-        return ["默认", "加工"]
+        return ['Varsayılan', 'İşleme']
 
     def EditRebuild3(self):
         return True
 
 
 class FakePropertyRebuildModel(FakeModel):
-    """@brief 模拟 SW2024 将 EditRebuild3 暴露为布尔伪属性的行为。"""
+    'Simulate SW2024 exposing EditRebuild3 as a Boolean pseudo-property.'
 
     EditRebuild3 = True
 
 
 class FakeConfigurationModel(FakeModel):
-    """@brief 模拟 AddConfiguration3、ShowConfiguration2 与活动配置回读。"""
+    'Simulate AddConfiguration3, ShowConfiguration2 and active-configuration readback.'
 
     def __init__(self):
         super().__init__()
-        self.names = ["默认"]
-        self.active = type("Config", (), {"Name": "默认"})()
+        self.names = ['Varsayılan']
+        self.active = type("Config", (), {"Name": 'Varsayılan'})()
         self.ConfigurationManager = type("Manager", (), {})()
         self.ConfigurationManager.ActiveConfiguration = self.active
 
@@ -106,7 +106,7 @@ class FakeConfigurationModel(FakeModel):
             return False
         self.active = type("Config", (), {"Name": name})()
         self.ConfigurationManager.ActiveConfiguration = self.active
-        self.dimension.current = name if name in self.dimension.values else "默认"
+        self.dimension.current = name if name in self.dimension.values else 'Varsayılan'
         return True
 
 
@@ -125,12 +125,12 @@ def test_updates_specific_configuration_with_mm_conversion():
         "D1@Boss-Extrude1",
         35.0,
         configuration_mode="specific",
-        configuration_names=["加工"],
+        configuration_names=['İşleme'],
     )
     assert result["success"] is True
-    assert result["before_mm"] == {"加工": 20.0}
-    assert result["after_mm"] == {"加工": 35.0}
-    assert model.dimension.values["默认"] == 0.01
+    assert result["before_mm"] == {'İşleme': 20.0}
+    assert result["after_mm"] == {'İşleme': 35.0}
+    assert model.dimension.values['Varsayılan'] == 0.01
 
 
 def test_accepts_edit_rebuild_as_boolean_property():
@@ -150,14 +150,14 @@ def test_rejects_missing_dimension_and_invalid_value():
     try:
         document_data.update_dimension_mm(model, "missing", 10)
     except LookupError as error:
-        assert "找不到尺寸" in str(error)
+        assert 'Ölçü bulunamadı' in str(error)
     else:
         raise AssertionError("missing dimension should fail")
 
     try:
         document_data.update_dimension_mm(model, "D1@Boss-Extrude1", 0)
     except ValueError as error:
-        assert "大于 0" in str(error)
+        assert 'sıfırdan büyük' in str(error)
     else:
         raise AssertionError("non-positive dimension should fail")
 
@@ -167,7 +167,7 @@ def test_sets_and_reads_back_configuration_properties():
     result = document_data.set_custom_properties(
         model,
         {"PartNumber": "PN-001", "Material": "45#"},
-        configuration_name="加工",
+        configuration_name='İşleme',
     )
     assert result["success"] is True
     assert [item["verified"] for item in result["properties"]] == [True, True]
@@ -179,69 +179,69 @@ def test_inspects_configurations_and_active_configuration():
     model.ConfigurationManager = type(
         "Manager",
         (),
-        {"ActiveConfiguration": type("Config", (), {"Name": "加工"})()},
+        {"ActiveConfiguration": type("Config", (), {"Name": 'İşleme'})()},
     )()
 
     result = document_data.inspect_configurations(model)
 
     assert result["status"] == "pilot"
-    assert result["configurations"] == ["默认", "加工"]
-    assert result["active_configuration"] == "加工"
+    assert result["configurations"] == ['Varsayılan', 'İşleme']
+    assert result["active_configuration"] == 'İşleme'
 
 
 def test_creates_activates_and_reads_back_configuration():
-    """@brief 新配置必须同时出现在清单并成为活动配置。"""
+    'New configurations must appear in the list and become active.'
     model = FakeConfigurationModel()
 
     result = document_data.create_configuration(
         model,
-        "加工",
-        comment="CNC 工况",
+        'İşleme',
+        comment='CNC çalışma durumu',
         alternate_name="MACHINED",
     )
 
     assert result["success"] is True
     assert result["created"] is True
-    assert result["configurations_after"] == ["默认", "加工"]
+    assert result["configurations_after"] == ['Varsayılan', 'İşleme']
     assert result["activation"]["readback_verified"] is True
-    assert result["activation"]["after"] == "加工"
+    assert result["activation"]["after"] == 'İşleme'
 
 
 def test_configuration_create_is_idempotent_or_strict_on_request():
-    """@brief 默认复用已有配置，严格模式拒绝同名覆盖。"""
+    'Reuse existing configurations by default; strict mode rejects same-name replacement.'
     model = FakeConfigurationModel()
-    model.AddConfiguration3("加工", "", "", 0)
+    model.AddConfiguration3('İşleme', "", "", 0)
 
-    reused = document_data.create_configuration(model, "加工")
+    reused = document_data.create_configuration(model, 'İşleme')
 
     assert reused["success"] is True
     assert reused["created"] is False
     assert reused["reused"] is True
     try:
-        document_data.create_configuration(model, "加工", if_exists="error")
+        document_data.create_configuration(model, 'İşleme', if_exists="error")
     except FileExistsError as error:
-        assert "配置已存在" in str(error)
+        assert 'Konfigürasyon zaten var' in str(error)
     else:
         raise AssertionError("strict duplicate configuration should fail")
 
 
 def test_activate_configuration_rejects_unknown_name_before_com_call():
-    """@brief 未知配置必须在调用 ShowConfiguration2 前失败。"""
+    'Unknown configurations fail before calling ShowConfiguration2.'
     model = FakeConfigurationModel()
 
     try:
-        document_data.activate_configuration(model, "不存在")
+        document_data.activate_configuration(model, 'missing')
     except LookupError as error:
-        assert "找不到配置" in str(error)
+        assert 'Konfigürasyon bulunamadı' in str(error)
     else:
         raise AssertionError("unknown configuration should fail")
 
 
 def test_activate_configuration_accepts_already_active_readback_without_redundant_call():
-    """@brief SW2026 创建后已激活时不应被重复 ShowConfiguration2 的 False 误判。"""
+    'SW2026 auto-activation after creation must not be misread as failure from a repeated ShowConfiguration2=False.'
     model = FakeConfigurationModel()
-    model.AddConfiguration3("薄型", "", "", 0)
-    model.ShowConfiguration2("薄型")
+    model.AddConfiguration3('İnce', "", "", 0)
+    model.ShowConfiguration2('İnce')
     calls = 0
 
     def unexpected_show(_name):
@@ -250,7 +250,7 @@ def test_activate_configuration_accepts_already_active_readback_without_redundan
         return False
 
     model.ShowConfiguration2 = unexpected_show
-    result = document_data.activate_configuration(model, "薄型")
+    result = document_data.activate_configuration(model, 'İnce')
 
     assert result["success"] is True
     assert result["api_called"] is False
@@ -259,7 +259,7 @@ def test_activate_configuration_accepts_already_active_readback_without_redundan
 
 
 def test_configuration_names_are_resolved_case_insensitively() -> None:
-    """@brief 英文配置名大小写差异不应创建重复配置。"""
+    'English configuration-name casing must not create duplicates.'
     model = FakeConfigurationModel()
     model.AddConfiguration3("Machined", "", "", 0)
 

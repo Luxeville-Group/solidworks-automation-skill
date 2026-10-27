@@ -1,8 +1,7 @@
 """
-SolidWorks 装配体操作工具。
+SOLIDWORKS assembly utilities.
 
-本模块优先封装装配体中最容易踩坑的 COM 流程：组件解析、装配体上下文实体映射、
-真实 Mate 创建、运动型装配验证。SolidWorks API 使用米作为长度单位。
+Wrap error-prone COM workflows: component resolution, assembly-context entity mapping, actual Mate creation, and motion assembly validation. SOLIDWORKS API lengths are in meters.
 """
 import math
 import os
@@ -30,33 +29,36 @@ SW_COMPONENT_FULLY_RESOLVED = 2
 SW_COMPONENT_RESOLVED = 3
 SW_SOLID_BODY = 0
 PLANE_NAME_ALIASES = {
-    "Front Plane": ["Front Plane", "前视基准面"],
-    "Top Plane": ["Top Plane", "上视基准面"],
-    "Right Plane": ["Right Plane", "右视基准面"],
-    "前视基准面": ["前视基准面", "Front Plane"],
-    "上视基准面": ["上视基准面", "Top Plane"],
-    "右视基准面": ["右视基准面", "Right Plane"],
+    "Ön Düzlem": ["Ön Düzlem", "Front Plane"],
+    "Üst Düzlem": ["Üst Düzlem", "Top Plane"],
+    "Sağ Düzlem": ["Sağ Düzlem", "Right Plane"],
+    "Front Plane": ["Front Plane", "Ön Düzlem", "\u524d\u89c6\u57fa\u51c6\u9762"],
+    "Top Plane": ["Top Plane", "Üst Düzlem", "\u4e0a\u89c6\u57fa\u51c6\u9762"],
+    "Right Plane": ["Right Plane", "Sağ Düzlem", "\u53f3\u89c6\u57fa\u51c6\u9762"],
+    "\u524d\u89c6\u57fa\u51c6\u9762": ["\u524d\u89c6\u57fa\u51c6\u9762", "Front Plane"],
+    "\u4e0a\u89c6\u57fa\u51c6\u9762": ["\u4e0a\u89c6\u57fa\u51c6\u9762", "Top Plane"],
+    "\u53f3\u89c6\u57fa\u51c6\u9762": ["\u53f3\u89c6\u57fa\u51c6\u9762", "Right Plane"],
 }
 
 
 def _empty_callout():
-    """创建兼容 SelectByID2 的空 Callout 参数。"""
+    """Create an empty Callout argument compatible with SelectByID2."""
     return VARIANT(pythoncom.VT_DISPATCH, None)
 
 
 def _select_by_id(extension, entity_name, entity_type, append=False, mark=0):
     """
-    统一封装 SelectByID2，避免 None 在部分 SolidWorks 版本中触发类型不匹配。
+    Wrap SelectByID2 to avoid None causing type mismatches in some SOLIDWORKS versions.
 
-    参数:
-        extension: ModelDocExtension 对象
-        entity_name: 实体名称
-        entity_type: 实体类型字符串
-        append: 是否追加选择
-        mark: 选择标记
+    Args:
+        extension: ModelDocExtension object.
+        entity_name: Entity name.
+        entity_type: Entity type string.
+        append: Append to the selection when True.
+        mark: Selection mark.
 
-    返回:
-        bool
+    Returns:
+        bool.
     """
     return extension.SelectByID2(
         entity_name, entity_type, 0, 0, 0, append, mark, _empty_callout(), 0
@@ -64,17 +66,17 @@ def _select_by_id(extension, entity_name, entity_type, append=False, mark=0):
 
 
 def _as_alias_list(aliases):
-    """将字符串或序列统一成非空名称列表。"""
+    """Normalize a string or sequence to a nonempty list of names."""
     if isinstance(aliases, str):
         return [aliases]
     names = [str(item) for item in aliases if str(item)]
     if not names:
-        raise ValueError("aliases 不能为空")
+        raise ValueError("aliases boş olamaz")
     return names
 
 
 def _active_solidworks_app():
-    """获取当前运行中的 SolidWorks 应用对象。"""
+    """Get the currently running SOLIDWORKS application object."""
     try:
         return _win32com.GetActiveObject("SldWorks.Application")
     except Exception:
@@ -82,7 +84,7 @@ def _active_solidworks_app():
 
 
 def _activate_model_document(sw, model):
-    """激活给定文档，兼容 ActivateDoc3 的 by-ref error 参数。"""
+    """Activate a document with support for the ActivateDoc3 by-ref error argument."""
     if sw is None or model is None:
         return False
     title = safe_get_com_member(model, "GetTitle")
@@ -100,13 +102,13 @@ def _activate_model_document(sw, model):
 
 
 def _add_component5(asm_model, component_path, config_name, x, y, z):
-    """调用 AddComponent5 的 SW2024 兼容签名。"""
+    """Call the SW2024-compatible AddComponent5 signature."""
     add_component5 = getattr(asm_model, "AddComponent5", None)
     if not add_component5:
         return None
     return add_component5(
         component_path,
-        0,              # swAddComponentConfigOptions_e: 使用指定/默认配置
+        0,              # swAddComponentConfigOptions_e: use the specified/default configuration.
         "",
         False,
         config_name or "",
@@ -117,7 +119,7 @@ def _add_component5(asm_model, component_path, config_name, x, y, z):
 
 
 def _add_component4(asm_model, component_path, config_name, x, y, z):
-    """调用 AddComponent4。"""
+    """Call AddComponent4."""
     return asm_model.AddComponent4(
         component_path,
         config_name or "",
@@ -129,28 +131,28 @@ def _add_component4(asm_model, component_path, config_name, x, y, z):
 
 def add_component(asm_model, part_path, x=0, y=0, z=0, config_name="", sw=None):
     """
-    向装配体添加零部件
+    Add a component to an assembly.
 
-    参数:
-        asm_model: IAssemblyDoc (装配体文档)
-        part_path: 零件/子装配体文件路径
-        x, y, z: 放置位置（米）
-        config_name: 配置名称，空字符串使用默认配置
-        sw: 可选 SolidWorks 应用对象；用于 AddComponent 失败后自动打开零件并切回装配体。
+    Args:
+        asm_model: IAssemblyDoc assembly document.
+        part_path: Part/subassembly file path.
+        x, y, z: Placement coordinates in meters.
+        config_name: Configuration name; empty uses the default.
+        sw: Optional SOLIDWORKS application for opening the part and switching back to the assembly if AddComponent fails.
 
-    返回:
-        IComponent2 对象
+    Returns:
+        IComponent2 object.
     """
     component_path = os.path.abspath(os.path.expandvars(os.path.expanduser(str(part_path))))
     if not os.path.exists(component_path):
-        raise FileNotFoundError(f"组件文件不存在: {component_path}")
+        raise FileNotFoundError(f"Bileşen dosyası yok: {component_path}")
 
     component = None
     errors = []
 
     try:
-        # SW2024 中文版 + pywin32 下 AddComponent4 可能返回 None；
-        # AddComponent5 的 8 参数签名更稳定。
+        # AddComponent4 may return None with Chinese-localized SW2024 and pywin32;
+        # the eight-argument AddComponent5 signature is more stable.
         component = _add_component5(asm_model, component_path, config_name, x, y, z)
     except Exception as exc:
         errors.append(f"AddComponent5: {exc}")
@@ -167,7 +169,7 @@ def add_component(asm_model, part_path, x=0, y=0, z=0, config_name="", sw=None):
             try:
                 opened = open_document(sw, component_path, read_only=False, silent=True)
                 if opened is None:
-                    errors.append("OpenDoc6: 返回 None")
+                    errors.append("OpenDoc6: None döndü")
                 elif _activate_model_document(sw, asm_model):
                     component = _add_component5(
                         asm_model,
@@ -178,31 +180,31 @@ def add_component(asm_model, part_path, x=0, y=0, z=0, config_name="", sw=None):
                         z,
                     )
                     if component is None:
-                        errors.append("open_then_AddComponent5: 返回 None")
+                        errors.append("open_then_AddComponent5: None döndü")
                 else:
-                    errors.append("ActivateDoc: 无法重新激活装配体")
+                    errors.append("ActivateDoc: montaj yeniden etkinleştirilemedi")
             except Exception as exc:
                 errors.append(f"open_then_AddComponent5: {exc}")
         else:
-            errors.append("GetActiveObject(SldWorks.Application): 返回 None")
+            errors.append("GetActiveObject(SldWorks.Application): None döndü")
 
     if component:
-        print(f"已添加组件: {component_path}")
+        print(f"Bileşen eklendi: {component_path}")
     else:
-        detail = "；".join(errors) if errors else "AddComponent5/AddComponent4 均返回 None"
-        print(f"添加组件失败: {component_path} ({detail})")
+        detail = "; ".join(errors) if errors else "AddComponent5 ve AddComponent4 None döndürdü"
+        print(f"Bileşen eklenemedi: {component_path} ({detail})")
     return component
 
 
 def resolve_component(component, state=SW_COMPONENT_FULLY_RESOLVED):
     """
-    @brief 将组件解析为 Resolved/FullyResolved 状态。
-    @param component IComponent2 对象。
-    @param state swComponentSuppressionState_e，默认 2=swComponentFullyResolved。
-    @return SetSuppression2 的返回值；若主状态失败会尝试 3=swComponentResolved。
+    @brief Resolve a component to Resolved/FullyResolved state.
+    @param component IComponent2 object.
+    @param state swComponentSuppressionState_e; default 2=swComponentFullyResolved.
+    @return SetSuppression2 result; try 3=swComponentResolved if the primary state fails.
     """
     if component is None:
-        raise ValueError("component 不能为空")
+        raise ValueError("component boş olamaz")
     try:
         return component.SetSuppression2(state)
     except Exception:
@@ -213,32 +215,32 @@ def resolve_component(component, state=SW_COMPONENT_FULLY_RESOLVED):
 
 def get_component_model(component, resolve=True, raise_on_error=True):
     """
-    @brief 获取组件引用的零件/子装配文档。
-    @param component IComponent2 对象。
-    @param resolve 是否先解析组件；轻化或压缩组件常导致 GetModelDoc2 返回 None。
-    @param raise_on_error 失败时是否抛异常。
-    @return IModelDoc2；失败且 raise_on_error=False 时返回 None。
+    @brief Get the part/subassembly document referenced by a component.
+    @param component IComponent2 object.
+    @param resolve Resolve first; lightweight or suppressed components may cause GetModelDoc2 to return None.
+    @param raise_on_error Whether to raise on failure.
+    @return IModelDoc2, or None on failure when raise_on_error=False.
     """
     if component is None:
         if raise_on_error:
-            raise ValueError("component 不能为空")
+            raise ValueError("component boş olamaz")
         return None
     if resolve:
         resolve_component(component)
     model = safe_get_com_member(component, "GetModelDoc2")
     if model is None and raise_on_error:
         name = safe_get_com_member(component, "Name2")
-        raise RuntimeError(f"组件未解析或未加载，无法读取零件文档: {name}")
+        raise RuntimeError(f"Bileşen resolved veya yüklü değil; parça belgesi okunamıyor: {name}")
     return model
 
 
 def get_component_feature(component, aliases, resolve=True):
     """
-    @brief 按一组候选名称查找组件内部特征。
-    @param component IComponent2 对象。
-    @param aliases 特征候选名，例如 ["前视基准面", "Front Plane"]。
-    @param resolve 是否先解析组件。
-    @return IFeature 对象。
+    @brief Find an internal component feature by candidate names.
+    @param component IComponent2 object.
+    @param aliases Candidate feature names, such as ["Front Plane", "Front"].
+    @param resolve Whether to resolve the component first.
+    @return IFeature object.
     """
     model = get_component_model(component, resolve=resolve)
     names = []
@@ -251,30 +253,30 @@ def get_component_feature(component, aliases, resolve=True):
         if feature:
             return feature
     comp_name = safe_get_com_member(component, "Name2")
-    raise RuntimeError(f"组件 {comp_name} 缺少特征: {names}")
+    raise RuntimeError(f"Bileşen {comp_name} eksik özellik: {names}")
 
 
 def get_assembly_entity(component, feature_or_face):
     """
-    @brief 将零件文档内对象映射到当前组件实例的装配体上下文。
-    @param component IComponent2 对象。
-    @param feature_or_face 零件内的 IFeature、IFace2、ISketchSegment 等对象。
-    @return 装配体上下文对象，可用于 Select2 后创建 Mate。
+    @brief Map a part-document object to the assembly context of this component instance.
+    @param component IComponent2 object.
+    @param feature_or_face Part-level IFeature, IFace2, ISketchSegment, or similar object.
+    @return Assembly-context object usable with Select2 to create a Mate.
     """
     entity = component.GetCorresponding(feature_or_face)
     if entity is None:
         comp_name = safe_get_com_member(component, "Name2")
-        raise RuntimeError(f"无法映射装配体上下文实体: {comp_name}")
+        raise RuntimeError(f"Montaj bağlamı varlığı eşlenemedi: {comp_name}")
     return entity
 
 
 def get_component_feature_entity(component, aliases, resolve=True):
     """
-    @brief 查找组件内部特征并映射为装配体上下文实体。
-    @param component IComponent2 对象。
-    @param aliases 特征候选名。
-    @param resolve 是否先解析组件。
-    @return 装配体上下文实体。
+    @brief Find an internal component feature and map it to assembly context.
+    @param component IComponent2 object.
+    @param aliases Candidate feature names.
+    @param resolve Whether to resolve first.
+    @return Assembly-context entity.
     """
     feature = get_component_feature(component, aliases, resolve=resolve)
     return get_assembly_entity(component, feature)
@@ -282,12 +284,12 @@ def get_component_feature_entity(component, aliases, resolve=True):
 
 def find_largest_cylinder_face(component, min_radius=0.0, max_radius=None, resolve=True):
     """
-    @brief 查找组件中指定半径范围内面积最大的圆柱面。
-    @param component IComponent2 对象。
-    @param min_radius 最小半径，单位米。
-    @param max_radius 最大半径，单位米；None 表示不限制。
-    @param resolve 是否先解析组件。
-    @return 装配体上下文中的 IFace2 圆柱面。
+    @brief Find the largest-area cylindrical face within a radius range.
+    @param component IComponent2 object.
+    @param min_radius Minimum radius in meters.
+    @param max_radius Maximum radius in meters; None means unlimited.
+    @param resolve Whether to resolve first.
+    @return Cylindrical IFace2 in assembly context.
     """
     part = get_component_model(component, resolve=resolve)
     max_radius = float("inf") if max_radius is None else float(max_radius)
@@ -317,29 +319,29 @@ def find_largest_cylinder_face(component, min_radius=0.0, max_radius=None, resol
     if best_face is None:
         comp_name = safe_get_com_member(component, "Name2")
         raise RuntimeError(
-            f"未找到圆柱面: {comp_name}, radius=[{min_radius}, {max_radius}]"
+            f"Silindirik yüz bulunamadı: {comp_name}, radius=[{min_radius}, {max_radius}]"
         )
     return get_assembly_entity(component, best_face)
 
 
 def select_entities_for_mate(model, entity1, entity2, mark=1):
     """
-    @brief 选择两个装配体上下文实体并校验选择集数量。
-    @param model IModelDoc2/IAssemblyDoc 对象。
-    @param entity1 第一个 Mate 实体。
-    @param entity2 第二个 Mate 实体。
-    @param mark SolidWorks 选择标记，普通 Mate 通常为 1。
-    @return True。
+    @brief Select two assembly-context entities and check the selection count.
+    @param model IModelDoc2/IAssemblyDoc object.
+    @param entity1 First Mate entity.
+    @param entity2 Second Mate entity.
+    @param mark SOLIDWORKS selection mark, normally 1 for a standard Mate.
+    @return True.
     """
     model.ClearSelection2(True)
     if not entity1.Select2(False, mark):
-        raise RuntimeError("选择第一个 Mate 实体失败")
+        raise RuntimeError("İlk Mate varlığı seçilemedi")
     if not entity2.Select2(True, mark):
-        raise RuntimeError("选择第二个 Mate 实体失败")
+        raise RuntimeError("İkinci Mate varlığı seçilemedi")
     selected_count = model.SelectionManager.GetSelectedObjectCount2(-1)
     if selected_count != 2:
         model.ClearSelection2(True)
-        raise RuntimeError(f"Mate 选择数量错误: selected={selected_count}, expected=2")
+        raise RuntimeError(f"Mate seçim sayısı yanlış: selected={selected_count}, expected=2")
     return True
 
 
@@ -363,14 +365,14 @@ def add_mate5_checked(
     clear_selection=True,
 ):
     """
-    @brief 用 SolidWorks 2015+ 的 15 参数 AddMate5 创建 Mate，并检查错误码。
-    @param asm_model IAssemblyDoc/IModelDoc2 装配体对象。
-    @param mate_type swMateType_e 枚举值。
-    @param gear_num 齿轮比分子，仅 Gear Mate 使用。
-    @param gear_den 齿轮比分母，仅 Gear Mate 使用。
-    @param lock_rotation 同心 Mate 是否锁定旋转；运动模型默认应为 False。
-    @param name 可选 Mate 名称。
-    @return Mate2 对象。
+    @brief Create a Mate using the 15-argument AddMate5 in SOLIDWORKS 2015+ and check its error code.
+    @param asm_model IAssemblyDoc/IModelDoc2 assembly object.
+    @param mate_type swMateType_e value.
+    @param gear_num Gear ratio numerator, used only by Gear Mate.
+    @param gear_den Gear ratio denominator, used only by Gear Mate.
+    @param lock_rotation Lock concentric rotation; default to False for motion models.
+    @param name Optional Mate name.
+    @return Mate2 object.
     """
     distance_upper = distance if distance_upper is None else distance_upper
     distance_lower = distance if distance_lower is None else distance_lower
@@ -394,13 +396,13 @@ def add_mate5_checked(
         int(width_mate_option),
         error_status,
     )
-    # swAddMateError_e 中 1=swAddMateError_NoError；0=Unknown 在部分版本也会伴随非空 Mate。
+    # swAddMateError_e: 1=swAddMateError_NoError; some versions also return a nonempty Mate with 0=Unknown.
     if mate is None or int(error_status.value) not in (
         SW_ADD_MATE_ERROR_UNKNOWN,
         SW_ADD_MATE_ERROR_NO_ERROR,
     ):
         raise RuntimeError(
-            f"AddMate5 失败: type={mate_type}, error_status={error_status.value}"
+            f"AddMate5 başarısız: type={mate_type}, error_status={error_status.value}"
         )
     if name:
         try:
@@ -422,15 +424,15 @@ def add_concentric_mate_by_cylinders(
     lock_rotation=False,
 ):
     """
-    @brief 通过两个圆柱面创建同心 Mate，默认保留旋转自由度。
-    @param asm_model IAssemblyDoc/IModelDoc2 装配体对象。
-    @param component_a 第一个组件。
-    @param component_b 第二个组件。
-    @param radius_a 第一个组件圆柱半径范围 (min, max)，单位米；None 表示任意。
-    @param radius_b 第二个组件圆柱半径范围 (min, max)，单位米；None 表示任意。
-    @param name 可选 Mate 名称。
-    @param lock_rotation 是否锁定同心旋转；运动装配应保持 False。
-    @return Mate2 对象。
+    @brief Create a concentric Mate from two cylindrical faces, retaining rotational freedom by default.
+    @param asm_model IAssemblyDoc/IModelDoc2 assembly object.
+    @param component_a First component.
+    @param component_b Second component.
+    @param radius_a First cylinder radius range (min, max), meters; None permits any.
+    @param radius_b Second cylinder radius range (min, max), meters; None permits any.
+    @param name Optional Mate name.
+    @param lock_rotation Lock concentric rotation; keep False for motion assemblies.
+    @return Mate2 object.
     """
     radius_a = radius_a or (0.0, None)
     radius_b = radius_b or (0.0, None)
@@ -456,19 +458,19 @@ def add_gear_mate_by_cylinders(
     name=None,
 ):
     """
-    @brief 通过两个齿轮轴/孔圆柱面创建真实 Gear Mate。
-    @param asm_model IAssemblyDoc/IModelDoc2 装配体对象。
-    @param component_a 第一个齿轮组件。
-    @param component_b 第二个齿轮组件。
-    @param teeth_a 第一个齿轮齿数或等效节圆比。
-    @param teeth_b 第二个齿轮齿数或等效节圆比。
-    @param radius_a 第一个齿轮轴/孔圆柱半径范围，单位米。
-    @param radius_b 第二个齿轮轴/孔圆柱半径范围，单位米。
-    @param name 可选 Mate 名称。
-    @return Mate2 对象。
+    @brief Create an actual Gear Mate from two gear shaft/bore cylindrical faces.
+    @param asm_model IAssemblyDoc/IModelDoc2 assembly object.
+    @param component_a First gear component.
+    @param component_b Second gear component.
+    @param teeth_a First gear tooth count or equivalent pitch-circle ratio.
+    @param teeth_b Second gear tooth count or equivalent pitch-circle ratio.
+    @param radius_a First shaft/bore radius range in meters.
+    @param radius_b Second shaft/bore radius range in meters.
+    @param name Optional Mate name.
+    @return Mate2 object.
     """
     if float(teeth_a) == 0 or float(teeth_b) == 0:
-        raise ValueError("Gear Mate 的齿数/传动比不能为 0")
+        raise ValueError("Gear Mate diş sayısı veya aktarım oranı sıfır olamaz")
     radius_a = radius_a or (0.0, None)
     radius_b = radius_b or (0.0, None)
     face_a = find_largest_cylinder_face(component_a, radius_a[0], radius_a[1])
@@ -492,10 +494,9 @@ def add_revolute_joint_by_cylinders(
     name=None,
 ):
     """
-    @brief 创建可转动铰接轴的核心同心 Mate。
+    @brief Create the core concentric Mate for a rotating hinge shaft.
 
-    官方 Hinge Mate 等效于同心配合加轴向定位配合；自动化时先用本函数保留
-    一条旋转自由度，再用平面重合/距离 Mate 约束轴向窜动。
+    An official Hinge Mate is equivalent to concentric alignment plus axial positioning. Preserve one rotational degree of freedom here, then constrain axial motion with a coincident-plane or distance Mate.
     """
     return add_concentric_mate_by_cylinders(
         asm_model,
@@ -510,12 +511,12 @@ def add_revolute_joint_by_cylinders(
 
 def build_transform_data_x(tx, ty, tz, angle_rad=0.0):
     """
-    @brief 生成绕局部 X 轴旋转并平移的 SolidWorks MathTransform 数组。
-    @param tx X 平移，单位米。
-    @param ty Y 平移，单位米。
-    @param tz Z 平移，单位米。
-    @param angle_rad 绕 X 轴旋转角，单位弧度。
-    @return 16 元组，可赋给 MathTransform.ArrayData。
+    @brief Build a SOLIDWORKS MathTransform array for local X-axis rotation and translation.
+    @param tx X translation in meters.
+    @param ty Y translation in meters.
+    @param tz Z translation in meters.
+    @param angle_rad X-axis rotation in radians.
+    @return A 16-tuple assignable to MathTransform.ArrayData.
     """
     c = math.cos(angle_rad)
     s = math.sin(angle_rad)
@@ -531,17 +532,17 @@ def build_transform_data_x(tx, ty, tz, angle_rad=0.0):
 
 def apply_component_transform_x(component, tx, ty, tz, angle_rad=0.0):
     """
-    @brief 基于组件现有 Transform2 修改位姿并触发装配求解。
-    @param component IComponent2 对象。
-    @param tx X 平移，单位米。
-    @param ty Y 平移，单位米。
-    @param tz Z 平移，单位米。
-    @param angle_rad 绕 X 轴旋转角，单位弧度。
-    @return True 表示 SetTransformAndSolve2 或 Transform2 赋值成功。
+    @brief Update pose from the existing Transform2 and trigger assembly solving.
+    @param component IComponent2 object.
+    @param tx X translation in meters.
+    @param ty Y translation in meters.
+    @param tz Z translation in meters.
+    @param angle_rad X-axis rotation in radians.
+    @return True if SetTransformAndSolve2 or Transform2 assignment succeeds.
     """
     transform = component.Transform2
     if transform is None:
-        raise RuntimeError("组件没有可用 Transform2")
+        raise RuntimeError("Bileşende kullanılabilir Transform2 yok")
     transform.ArrayData = build_transform_data_x(tx, ty, tz, angle_rad)
     try:
         if component.SetTransformAndSolve2(transform):
@@ -557,10 +558,10 @@ def apply_component_transform_x(component, tx, ty, tz, angle_rad=0.0):
 
 def iter_feature_tree(model, include_subfeatures=True):
     """
-    @brief 遍历模型特征树，兼容 FirstFeature/GetNextFeature 伪可调用属性。
-    @param model IModelDoc2 对象。
-    @param include_subfeatures 是否包含子特征。
-    @return 生成器，产出 (feature, depth)。
+    @brief Walk the feature tree, supporting FirstFeature/GetNextFeature pseudo-callable properties.
+    @param model IModelDoc2 object.
+    @param include_subfeatures Include subfeatures when True.
+    @return Generator yielding (feature, depth).
     """
     def walk_subfeatures(parent, depth):
         sub = safe_get_com_member(parent, "GetFirstSubFeature")
@@ -580,9 +581,9 @@ def iter_feature_tree(model, include_subfeatures=True):
 
 def collect_mate_feature_summary(model):
     """
-    @brief 收集 MateGroup 及其子 Mate 特征摘要。
-    @param model IModelDoc2 装配体对象。
-    @return 包含 name、type、depth 的列表，用于验证真实机械配合是否写入特征树。
+    @brief Collect summaries of MateGroup and its child Mate features.
+    @param model IModelDoc2 assembly object.
+    @return List of name, type, and depth values verifying actual mechanical Mates in the feature tree.
     """
     result = []
     for feature, depth in iter_feature_tree(model, include_subfeatures=True):
@@ -592,7 +593,7 @@ def collect_mate_feature_summary(model):
             type_name == "MateGroup"
             or str(type_name).startswith("Mate")
             or "mate" in str(name).lower()
-            or "配合" in str(name)
+            or "\u914d\u5408" in str(name)
         ):
             result.append({
                 "name": name,
@@ -604,11 +605,11 @@ def collect_mate_feature_summary(model):
 
 def add_mate_coincident(asm_model, entity1_name, entity1_type, entity2_name, entity2_type):
     """
-    添加重合配合
+    Add a coincident Mate.
 
-    参数:
-        entity1_name/entity2_name: 实体名称（面、边、点等）
-        entity1_type/entity2_type: 实体类型字符串（"FACE", "PLANE", "EDGE", "VERTEX" 等）
+    Args:
+        entity1_name/entity2_name: Entity names (face, edge, vertex, etc.).
+        entity1_type/entity2_type: Type strings such as "FACE", "PLANE", "EDGE", or "VERTEX".
     """
     asm_model.ClearSelection2(True)
     _select_by_id(asm_model.Extension, entity1_name, entity1_type, mark=1)
@@ -617,7 +618,7 @@ def add_mate_coincident(asm_model, entity1_name, entity1_type, entity2_name, ent
 
 
 def add_mate_concentric(asm_model, face1_name, face2_name):
-    """添加同心配合"""
+    """Add a concentric Mate."""
     asm_model.ClearSelection2(True)
     _select_by_id(asm_model.Extension, face1_name, "FACE", mark=1)
     _select_by_id(asm_model.Extension, face2_name, "FACE", append=True, mark=1)
@@ -626,10 +627,10 @@ def add_mate_concentric(asm_model, face1_name, face2_name):
 
 def add_mate_distance(asm_model, entity1_name, entity1_type, entity2_name, entity2_type, distance):
     """
-    添加距离配合
+    Add a distance Mate.
 
-    参数:
-        distance: 配合距离（米）
+    Args:
+        distance: Mate distance in meters.
     """
     asm_model.ClearSelection2(True)
     _select_by_id(asm_model.Extension, entity1_name, entity1_type, mark=1)
@@ -638,7 +639,7 @@ def add_mate_distance(asm_model, entity1_name, entity1_type, entity2_name, entit
 
 
 def add_mate_parallel(asm_model, face1_name, face2_name):
-    """添加平行配合"""
+    """Add a parallel Mate."""
     asm_model.ClearSelection2(True)
     _select_by_id(asm_model.Extension, face1_name, "FACE", mark=1)
     _select_by_id(asm_model.Extension, face2_name, "FACE", append=True, mark=1)
@@ -647,13 +648,13 @@ def add_mate_parallel(asm_model, face1_name, face2_name):
 
 def get_components(asm_model, top_level_only=True):
     """
-    获取装配体中的所有组件
+    Get all assembly components.
 
-    参数:
-        top_level_only: True=仅顶层组件, False=包含子装配体中的组件
+    Args:
+        top_level_only: True for top-level components only; False includes subassemblies.
 
-    返回:
-        组件信息列表
+    Returns:
+        List of component information.
     """
     components = safe_get_com_member(asm_model, "GetComponents", top_level_only)
     result = []
@@ -670,15 +671,15 @@ def get_components(asm_model, top_level_only=True):
 
 def find_component_by_name(asm_model, keyword, top_level_only=True, case_sensitive=False):
     """
-    @brief 按组件名关键字查找 IComponent2 对象。
-    @param asm_model 装配体 IModelDoc2/IAssemblyDoc。
-    @param keyword 组件名关键字，例如 "impeller" 或 "叶轮"。
-    @param top_level_only True=仅顶层组件。
-    @param case_sensitive 是否区分大小写。
-    @return 第一个匹配的 IComponent2 对象。
+    @brief Find IComponent2 by a component-name keyword.
+    @param asm_model Assembly IModelDoc2/IAssemblyDoc.
+    @param keyword Name keyword, such as "impeller" or "rotor".
+    @param top_level_only True for top-level components only.
+    @param case_sensitive Whether matching is case sensitive.
+    @return First matching IComponent2.
     """
     if not keyword:
-        raise ValueError("keyword 不能为空")
+        raise ValueError("keyword boş olamaz")
     components = safe_get_com_member(asm_model, "GetComponents", top_level_only) or []
     needle = str(keyword) if case_sensitive else str(keyword).lower()
     for component in components:
@@ -686,41 +687,41 @@ def find_component_by_name(asm_model, keyword, top_level_only=True, case_sensiti
         haystack = name if case_sensitive else name.lower()
         if needle in haystack:
             return component
-    raise RuntimeError(f"未找到组件: {keyword}")
+    raise RuntimeError(f"Bileşen bulunamadı: {keyword}")
 
 
 def suppress_component(asm_model, component_name):
-    """压缩（隐藏）组件"""
+    """Suppress a component."""
     _select_by_id(asm_model.Extension, component_name, "COMPONENT")
     asm_model.EditSuppress()
 
 
 def unsuppress_component(asm_model, component_name):
-    """解压缩（显示）组件"""
+    """Unsuppress a component."""
     _select_by_id(asm_model.Extension, component_name, "COMPONENT")
     asm_model.EditUnsuppress()
 
 
 def replace_component(asm_model, old_component_name, new_part_path):
     """
-    替换装配体中的组件
+    Replace an assembly component.
 
-    参数:
-        old_component_name: 旧组件名称
-        new_part_path: 新零件文件路径
+    Args:
+        old_component_name: Existing component name.
+        new_part_path: New part file path.
     """
     _select_by_id(asm_model.Extension, old_component_name, "COMPONENT")
     return asm_model.ReplaceComponents2(new_part_path, "", False, 0, True)
 
 
 def get_interference_detection(asm_model):
-    """运行干涉检查并返回可审计报告。"""
+    """Run interference detection and return an auditable report."""
     try:
         from .sw_measure import inspect_interference
     except ImportError:
         from sw_measure import inspect_interference
     result = inspect_interference(asm_model)
-    # 保留旧入口的 SI 体积字段；计算和失败处理共享同一实现。
+    # Preserve the legacy SI volume field; share calculation and failure handling.
     for item in result["items"]:
         value = item.get("volume_mm3")
         item["volume"] = value / 1e9 if value is not None else None

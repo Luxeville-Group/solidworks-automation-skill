@@ -1,64 +1,64 @@
-# SolidWorks API 查证流程
+# SolidWorks API Verification Workflow
 
-当任务需要使用 `scripts/` 尚未封装的 SolidWorks API 时，先查证再实现。不要凭记忆补长参数、枚举值或返回值。
+When a task needs a SolidWorks API not yet wrapped in `scripts/`, verify it before implementing it. Do not reconstruct long argument lists, enum values or return semantics from memory.
 
-## 优先资料源
+## Preferred sources
 
-1. 官方网页：`https://help.solidworks.com`
-   - 搜索关键词建议：
+1. Official web documentation: `https://help.solidworks.com`
+   - Suggested search terms:
      - `site:help.solidworks.com SolidWorks API Help <InterfaceName> <MethodName>`
      - `site:help.solidworks.com <MethodName> Method (SOLIDWORKS API Help)`
      - `site:help.solidworks.com swSaveAsOptions_e`
-2. 本地 SDK / API Help：
-   - 常见入口：SolidWorks 安装目录下的 `api`、`api\help`、`api\redist`
-   - 常见类型库：`SolidWorks.Interop.sldworks.dll`、`SolidWorks.Interop.swconst.dll`
-3. 本仓库封装与经验：
-   - 优先搜索 `scripts/*.py`
-   - 再查 `references/*.md`
-   - 最后才写新的最小验证脚本
+2. Local SDK / API Help:
+   - Common locations under the SolidWorks installation: `api`, `api\help`, `api\redist`
+   - Common interop libraries: `SolidWorks.Interop.sldworks.dll`, `SolidWorks.Interop.swconst.dll`
+3. This repository's wrappers and experience:
+   - Search `scripts/*.py` first.
+   - Then consult `references/*.md`.
+   - Write a new minimal verification script only afterward.
 
-## 必查 API 类型
+## API categories requiring verification
 
-- `IModelDocExtension.SaveAs*`、`OpenDoc*`、`CloseDoc`、导出相关 API
-- `SelectByID2`、选择标记、选择类型字符串与选择追加逻辑
-- `FeatureManager.FeatureExtrusion*`、`FeatureCut*`、扫描、放样、圆角、倒角等长参数方法
-- `IAssemblyDoc.AddComponent*`、`AddMate*`、组件变换、轻化/压缩状态
-- 运动装配体必查：`IAssemblyDoc.AddMate5`、`IComponent2.GetModelDoc2`、`IComponent2.GetCorresponding`、`IComponent2.SetSuppression2`、`ISurface.IsCylinder`、`ISurface.CylinderParams`、`IComponent2.SetTransformAndSolve2`
-- Motion Study 必查：`IModelDocExtension.GetMotionStudyManager`、`IMotionStudyManager.CreateMotionStudy`、`IMotionStudy.CreateDefinition`、`IMotionStudy.CreateFeature`、`ISimulationMotorFeatureData.ConstantSpeedMotor`、`ISimulationMotorFeatureData.LoadReferences`
-- 外观/材质：`MaterialPropertyValues`、`IMaterialVisualPropertiesData`、组件级外观、显示状态
-- 工程图：视图创建、BOM、尺寸标注、打印/导出 PDF
-- 需要 `VARIANT`、by-ref、枚举或 bitmask 的接口
+- `IModelDocExtension.SaveAs*`, `OpenDoc*`, `CloseDoc` and export APIs
+- `SelectByID2`, selection marks, selection-type strings and append-selection behavior
+- Long-argument methods such as `FeatureManager.FeatureExtrusion*`, `FeatureCut*`, sweeps, lofts, fillets and chamfers
+- `IAssemblyDoc.AddComponent*`, `AddMate*`, component transforms and lightweight/suppressed states
+- Moving assemblies: verify `IAssemblyDoc.AddMate5`, `IComponent2.GetModelDoc2`, `IComponent2.GetCorresponding`, `IComponent2.SetSuppression2`, `ISurface.IsCylinder`, `ISurface.CylinderParams` and `IComponent2.SetTransformAndSolve2`.
+- Motion Study: verify `IModelDocExtension.GetMotionStudyManager`, `IMotionStudyManager.CreateMotionStudy`, `IMotionStudy.CreateDefinition`, `IMotionStudy.CreateFeature`, `ISimulationMotorFeatureData.ConstantSpeedMotor` and `ISimulationMotorFeatureData.LoadReferences`.
+- Appearance/material: `MaterialPropertyValues`, `IMaterialVisualPropertiesData`, component-level appearance and display states
+- Drawings: view creation, BOM, dimensions, printing/export to PDF
+- Interfaces requiring `VARIANT`, by-reference arguments, enums or bitmasks
 
-## 查证记录模板
+## Verification record template
 
-在任务脚本或提交说明中保留最小记录，方便后续沉淀：
+Keep a minimal record in the task script or commit description for future reuse:
 
 ```text
 API:
-资料源:
-版本:
-签名:
-关键参数:
-枚举/常量:
-返回值:
-失败症状:
-验证脚本:
-是否沉淀到 scripts/references:
+Source:
+Version:
+Signature:
+Key parameters:
+Enums/constants:
+Return value:
+Failure symptoms:
+Verification script:
+Added to scripts/references:
 ```
 
-## 运动装配 API 查证速记
+## Motion-assembly API notes
 
-- `AddMate5`：确认 15 参数签名，最后一个 `ErrorStatus` 是 by-ref 整型；Gear Mate 使用 `GearRatioNumerator` / `GearRatioDenominator`；同心 Mate 运动时 `LockRotation=False`。
-- `GetModelDoc2`：官方说明中组件可能因压缩、轻化或未加载而无法返回模型；自动化前先解析组件。
-- `GetCorresponding`：把零件文档中的对象映射到装配体上下文；同一零件有多个实例时，必须由目标组件实例调用。
-- `IsCylinder` / `CylinderParams`：识别轴、孔和齿轮圆柱面；`CylinderParams[6]` 是半径，单位米。
-- `SetTransformAndSolve2`：适合驱动组件位置并让装配求解器更新；稳定性差时优先复用组件现有 `Transform2` 并修改 `ArrayData`。
-- `swmotionstudy.tlb`：Motion Study 强类型接口在独立类型库中；pywin32 下需要 `pythoncom.LoadTypeLib(...)` + `win32com.client.gencache.EnsureModule(...)`。
-- `swFmAEMRotationalMotor`：本机 SW 2024 `swFeatureNameID_e` 验证值为 `78`，用于 `CreateDefinition(78)` 创建旋转马达 FeatureData。
-- `ISimulationMotorFeatureData.ConstantSpeedMotor(60.0)`：参数单位为 RPM，不是 rad/s。
-- `swAddMateError_e`：`swAddMateError_NoError=1`；不要把 `AddMate5` 的 by-ref `ErrorStatus=1` 当失败。
+- `AddMate5`: confirm the 15-argument signature; final `ErrorStatus` is a by-reference integer. Gear Mate uses `GearRatioNumerator` / `GearRatioDenominator`; moving concentric mates require `LockRotation=False`.
+- `GetModelDoc2`: official documentation states that suppressed, lightweight or unloaded components may not return a model. Resolve components before automation.
+- `GetCorresponding`: maps an object in a part document to assembly context. When a part has multiple instances, call it on the intended component instance.
+- `IsCylinder` / `CylinderParams`: identify cylindrical faces of shafts, holes and gears. `CylinderParams[6]` is the radius in meters.
+- `SetTransformAndSolve2`: drives component position and updates the assembly solver. If unstable, reuse the component's existing `Transform2` and modify `ArrayData`.
+- `swmotionstudy.tlb`: strongly typed Motion Study interfaces are in a separate type library; pywin32 requires `pythoncom.LoadTypeLib(...)` + `win32com.client.gencache.EnsureModule(...)`.
+- `swFmAEMRotationalMotor`: verified locally as `78` in SW 2024's `swFeatureNameID_e`; use `CreateDefinition(78)` for rotational-motor FeatureData.
+- `ISimulationMotorFeatureData.ConstantSpeedMotor(60.0)`: the argument is RPM, not rad/s.
+- `swAddMateError_e`: `swAddMateError_NoError=1`; do not treat `AddMate5`'s by-reference `ErrorStatus=1` as failure.
 
-本机枚举交叉验证命令：
+Command for local enum cross-checking:
 
 ```powershell
 Add-Type -Path 'E:\Solidworks\SOLIDWORKS\SolidWorks.Interop.swconst.dll'
@@ -69,17 +69,17 @@ Add-Type -Path 'E:\Solidworks\SOLIDWORKS\SolidWorks.Interop.swconst.dll'
 [enum]::GetValues([SolidWorks.Interop.swconst.swComponentSuppressionState_e])
 ```
 
-## 最小验证脚本要求
+## Minimal verification-script requirements
 
-1. 单独连接 SolidWorks，打印 `sw.RevisionNumber()` 和当前文档类型。
-2. 只验证一个新 API，不把它直接混入大任务。
-3. 对每个 COM 调用检查 `None` / `False` / 错误码 / 警告码。
-4. 生成可打开的 `.SLDPRT` / `.SLDASM` / `.SLDDRW` 或导出文件。
-5. 运行 `sw_review.py` 或人工截图复核模型/工程图/装配体是否真的正确。
+1. Connect separately to SolidWorks and print `sw.RevisionNumber()` and the current document type.
+2. Verify one new API at a time instead of mixing it directly into a large task.
+3. Check every COM call for `None`, `False`, error codes and warning codes.
+4. Produce an openable `.SLDPRT`, `.SLDASM`, `.SLDDRW` or exported file.
+5. Run `sw_review.py` or visually inspect screenshots to verify the actual model, drawing or assembly.
 
-## 沉淀规则
+## Retaining verified knowledge
 
-- 同一 API 第二次用到，优先封装进 `scripts/`。
-- 出现兼容问题、错误码、中文版名称差异、选择标记坑位时，补充到对应 `references/*.md`。
-- 封装函数应隐藏 COM 长参数细节，暴露稳定、可读、带单位约定的 Python API。
-- 文档示例必须是已运行过的写法，不放未经验证的猜测代码。
+- When an API is needed a second time, prefer wrapping it in `scripts/`.
+- Record compatibility problems, error codes, localized-name differences and selection-mark pitfalls in the relevant `references/*.md`.
+- Wrappers should hide COM's long argument lists behind stable, readable Python APIs with explicit unit conventions.
+- Documentation examples must use code that has actually run; do not publish unverified guesses.

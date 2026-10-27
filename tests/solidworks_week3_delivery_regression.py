@@ -1,7 +1,7 @@
-"""第 3 周 SolidWorks 参数、属性与交付能力真机回归。
+"""Week 3 real-machine SolidWorks parameter, property, and delivery regression.
 
-该脚本需要 Windows、受支持的 SolidWorks 和 pywin32/comtypes。它不会被普通
-pytest 自动收集，必须人工或由 Windows 自托管 CI 显式执行。
+Requires Windows, a supported SolidWorks version, and pywin32/comtypes. It is excluded from normal
+pytest collection and must be explicitly executed manually or by Windows self-hosted CI.
 """
 from __future__ import annotations
 
@@ -30,27 +30,27 @@ from sw_session import SolidWorksSession  # noqa: E402
 
 
 def _default_output_dir() -> Path:
-    """@brief 返回本周真机回归的默认输出根目录。"""
+    """@brief Return this week's default real-machine regression output root."""
     return Path(tempfile.gettempdir()) / "solidworks_week3_delivery_regression"
 
 
 def _require_file(path: Path, label: str) -> dict:
-    """@brief 校验产物存在且非空，并返回文件证据。"""
+    """@brief Require a nonempty artifact and return file evidence."""
     if not path.is_file():
-        raise RuntimeError(f"{label}未生成: {path}")
+        raise RuntimeError(f"{label} not generated: {path}")
     size = path.stat().st_size
     if size <= 0:
-        raise RuntimeError(f"{label}为空文件: {path}")
+        raise RuntimeError(f"{label} is empty: {path}")
     return {"path": str(path), "size_bytes": size}
 
 
 def _assert_dimension_result(result: dict, expected_mm: float) -> None:
-    """@brief 校验尺寸更新状态、重建结果和毫米值回读。"""
+    """@brief Validate dimension-update state, rebuild results, and millimeter readback."""
     if not result.get("success"):
-        raise RuntimeError(f"尺寸更新失败: {result}")
+        raise RuntimeError(f"Dimension update failed: {result}")
     actual = float(result["after_mm"]["current"])
     if not math.isclose(actual, expected_mm, rel_tol=0.0, abs_tol=1e-6):
-        raise RuntimeError(f"尺寸回读不一致: actual={actual}, expected={expected_mm}")
+        raise RuntimeError(f"Dimension readback mismatch: actual={actual}, expected={expected_mm}")
 
 
 def _create_part(
@@ -63,7 +63,7 @@ def _create_part(
     final_depth_mm: float,
     properties: dict[str, str],
 ) -> dict:
-    """@brief 创建零件，修改真实拉伸尺寸并写入、回读自定义属性。"""
+    """@brief Create a part, change a real extrusion dimension, and write/read custom properties."""
     model = session.new_part()
     title = str(get_com_member(model, "GetTitle"))
     try:
@@ -71,7 +71,7 @@ def _create_part(
             sketch_rectangle(model, 0, 0, mm(width_mm), mm(height_mm))
         feature = extrude_boss(model, sketch_name, mm(initial_depth_mm))
         if feature is None:
-            raise RuntimeError(f"零件拉伸失败: {path.name}")
+            raise RuntimeError(f"Part extrusion failed: {path.name}")
         feature_name = str(get_com_member(feature, "Name"))
         dimension_name = f"D1@{feature_name}"
         dimension_result = update_dimension_mm(model, dimension_name, final_depth_mm)
@@ -79,11 +79,11 @@ def _create_part(
 
         property_result = set_custom_properties(model, properties)
         if not property_result.get("success"):
-            raise RuntimeError(f"自定义属性写入或回读失败: {property_result}")
+            raise RuntimeError(f"Custom-property write or readback failed: {property_result}")
 
         if not session.save(model, str(path)):
-            raise RuntimeError(f"零件保存失败: {path}")
-        file_evidence = _require_file(path, "零件")
+            raise RuntimeError(f"Part save failed: {path}")
+        file_evidence = _require_file(path, 'parça')
         return {
             "file": file_evidence,
             "feature": feature_name,
@@ -95,53 +95,53 @@ def _create_part(
 
 
 def _validate_batch_export(report: dict, expected_count: int) -> list[dict]:
-    """@brief 验证所有批量导出文件均为本轮新生成的非空产物。"""
+    """@brief Verify all batch exports are nonempty artifacts newly created in this run."""
     if not report.get("success"):
-        raise RuntimeError(f"批量导出失败: {report}")
+        raise RuntimeError(f"Batch export failed: {report}")
     outputs = [
         output
         for document in report.get("documents", [])
         for output in document.get("outputs", [])
     ]
     if len(outputs) != expected_count:
-        raise RuntimeError(f"批量导出数量错误: actual={len(outputs)}, expected={expected_count}")
+        raise RuntimeError(f"Batch export count mismatch: actual={len(outputs)}, expected={expected_count}")
     for output in outputs:
         if not output.get("produced_this_run") or int(output.get("size_bytes", 0)) <= 0:
-            raise RuntimeError(f"批量导出缺少本轮产物证据: {output}")
+            raise RuntimeError(f"Batch export lacks current-run artifact evidence: {output}")
     return outputs
 
 
 def _validate_pack_and_go(report: dict, expected_sources: set[str]) -> str:
-    """@brief 校验原生 Pack and Go 或明确标记的依赖暂存回退。"""
+    """@brief Validate native Pack and Go or an explicitly labeled dependency-staging fallback."""
     audit = report.get("audit_matrix") or {}
     if not audit.get("rows") or not audit.get("checks"):
-        raise RuntimeError(f"Pack and Go 缺少审计矩阵: {report}")
+        raise RuntimeError(f"Pack and Go audit matrix missing: {report}")
     summary = audit.get("summary") or {}
     if int(summary.get("required_count") or 0) < len(expected_sources):
-        raise RuntimeError(f"Pack and Go 必需文件审计数量不足: {summary}")
+        raise RuntimeError(f"Pack and Go required-file audit count insufficient: {summary}")
     if audit.get("status") == "blocked" and not audit.get("blocking_error_codes"):
-        raise RuntimeError(f"Pack and Go 审计阻塞但缺少错误码: {audit}")
+        raise RuntimeError(f"Pack and Go audit blocked without an error code: {audit}")
     if report.get("status") == "blocked" and report.get("error_code") == "SW_PACK_AND_GO_DEPENDENCY_ENUMERATION_INCOMPLETE":
         if any(code != 0 for code in report.get("status_codes", [])):
-            raise RuntimeError(f"Pack and Go 阻塞但返回非零状态码: {report}")
+            raise RuntimeError(f"Pack and Go blocked but returned nonzero status codes: {report}")
         if not report.get("outputs") or not report.get("missing_dependencies"):
-            raise RuntimeError(f"Pack and Go 阻塞证据不完整: {report}")
+            raise RuntimeError(f"Pack and Go blocking evidence incomplete: {report}")
         return "blocked"
     if not report.get("success"):
-        raise RuntimeError(f"Pack and Go 失败: {report}")
+        raise RuntimeError(f"Pack and Go failed: {report}")
     if any(code != 0 for code in report.get("status_codes", [])):
-        raise RuntimeError(f"Pack and Go 返回非零状态码: {report['status_codes']}")
+        raise RuntimeError(f"Pack and Go returned nonzero status codes: {report['status_codes']}")
     packaged_names = {Path(item["path"]).name.casefold() for item in report.get("outputs", [])}
     missing = sorted(name for name in expected_sources if name.casefold() not in packaged_names)
     if missing:
-        raise RuntimeError(f"Pack and Go 缺少引用文件: {missing}")
+        raise RuntimeError(f"Pack and Go referenced files missing: {missing}")
     if audit.get("error_code") in {"SW_PACK_AUDIT_SOURCE_OUTPUT_MISSING", "SW_PACK_AUDIT_REQUIRED_FILE_MISSING"}:
-        raise RuntimeError(f"Pack and Go 审计发现必需文件漏包: {audit}")
+        raise RuntimeError(f"Pack and Go audit found required files missing from package: {audit}")
     return "pilot" if report.get("status") == "pilot" else "pass"
 
 
 def _close_created_documents(session: SolidWorksSession, titles: list[str]) -> None:
-    """@brief 尽力关闭本脚本创建的文档，不触碰用户原有文档。"""
+    """@brief Best-effort closing of script-created documents, leaving preexisting user documents untouched."""
     for title in reversed(titles):
         if not title:
             continue
@@ -159,7 +159,7 @@ def run_regression(
     wait_seconds: int = 20,
     run_id: str | None = None,
 ) -> dict:
-    """@brief 执行第 3 周全部 SolidWorks 真实交付回归。"""
+    """@brief Run all Week 3 real SolidWorks delivery regressions."""
     run_id = run_id or datetime.now().strftime("%Y%m%d_%H%M%S")
     output_dir = output_root / run_id
     output_dir.mkdir(parents=True, exist_ok=False)
@@ -193,7 +193,7 @@ def run_regression(
                 final_depth_mm=12,
                 properties={
                     "PartNumber": "W3-PLATE-A",
-                    "Description": "第3周参数回归安装板",
+                    "Description": "Week 3 parameter-regression mounting plate",
                     "Material": "Q235B",
                 },
             ),
@@ -206,7 +206,7 @@ def run_regression(
                 final_depth_mm=16,
                 properties={
                     "PartNumber": "W3-BLOCK-B",
-                    "Description": "第3周参数回归定位块",
+                    "Description": "Week 3 parameter-regression locating block",
                     "Material": "6061-T6",
                 },
             ),
@@ -223,26 +223,26 @@ def run_regression(
         for part_path, x in component_specs:
             component = add_component(assembly, str(part_path), x=x, y=0.0, z=0.0, sw=session.sw)
             if component is None:
-                raise RuntimeError(f"添加装配组件失败: {part_path}")
+                raise RuntimeError(f"Assembly-component insertion failed: {part_path}")
             resolve_component(component)
 
         components = get_components(assembly)
         if len(components) != len(component_specs):
             raise RuntimeError(
-                f"装配组件数量错误: actual={len(components)}, expected={len(component_specs)}"
+                f"Assembly component count mismatch: actual={len(components)}, expected={len(component_specs)}"
             )
         assembly.ForceRebuild3(False)
         if not session.save(assembly, str(assembly_path)):
-            raise RuntimeError(f"装配体保存失败: {assembly_path}")
+            raise RuntimeError(f"Assembly save failed: {assembly_path}")
         result["assembly"] = {
-            "file": _require_file(assembly_path, "装配体"),
+            "file": _require_file(assembly_path, 'montaj'),
             "components": components,
             "component_count": len(components),
         }
 
         bom = export_assembly_bom_csv(assembly, bom_path)
         if not bom.get("success") or bom.get("row_count") != 2 or bom.get("quantity_total") != 3:
-            raise RuntimeError(f"BOM 数量或产物证据错误: {bom}")
+            raise RuntimeError(f"BOM count or artifact evidence incorrect: {bom}")
         _require_file(bom_path, "BOM")
         result["bom"] = bom
 
@@ -254,11 +254,11 @@ def run_regression(
         result["pack_and_go"] = package
         if pack_status == "blocked":
             result.setdefault("limitations", []).append(
-                "当前 SolidWorks 原生 Pack and Go 依赖枚举阻塞，已保留顶层产物和缺失依赖证据"
+                "Native SolidWorks Pack and Go dependency enumeration is blocked; top-level artifacts and missing-dependency evidence retained"
             )
         elif pack_status == "pilot":
             result.setdefault("limitations", []).append(
-                "当前 SolidWorks 原生 Pack and Go 未枚举全部依赖，已生成 GetDependencies2 暂存包；仍需人工复核"
+                "Native SolidWorks Pack and Go did not enumerate every dependency; a GetDependencies2 staging package was generated and still requires human review"
             )
 
         exports = batch_export_formats(
@@ -283,12 +283,12 @@ def run_regression(
             expected_outputs=[str(path) for path in expected_outputs],
         )
         if review.get("evaluation", {}).get("status") == "fail":
-            raise RuntimeError(f"交付复核失败: {review.get('evaluation')}")
+            raise RuntimeError(f"Delivery review failed: {review.get('evaluation')}")
         blank_previews = [
             item for item in review.get("previews", []) if item.get("likely_blank")
         ]
         if blank_previews:
-            raise RuntimeError(f"发现疑似空白预览: {blank_previews}")
+            raise RuntimeError(f"Potentially blank previews found: {blank_previews}")
         result["review"] = {
             "report_path": str(review_path),
             "evaluation": review.get("evaluation"),
@@ -303,22 +303,22 @@ def run_regression(
 
 
 def parse_args() -> argparse.Namespace:
-    """@brief 解析命令行参数。"""
-    parser = argparse.ArgumentParser(description="运行第 3 周 SolidWorks 真实交付回归。")
+    """@brief Parse CLI arguments."""
+    parser = argparse.ArgumentParser(description="Run Week 3 real SolidWorks delivery regression.")
     parser.add_argument(
         "--output-dir",
         default=str(_default_output_dir()),
-        help="输出根目录；每次运行会创建独立时间戳子目录。",
+        help="Output root; each run creates a separate timestamped directory.",
     )
-    parser.add_argument("--run-id", default="", help="指定本轮目录名，默认使用当前时间。")
-    parser.add_argument("--version", type=int, help="指定 SolidWorks 年份，例如 2026；默认连接最新注册版本。")
-    parser.add_argument("--hidden", action="store_true", help="尝试隐藏新启动的 SolidWorks 窗口。")
-    parser.add_argument("--wait-seconds", type=int, default=20, help="启动 SolidWorks 的等待秒数。")
+    parser.add_argument("--run-id", default="", help="Current-run directory name; defaults to the current time.")
+    parser.add_argument("--version", type=int, help="SolidWorks year, for example 2026; defaults to the latest registered version.")
+    parser.add_argument("--hidden", action="store_true", help="Attempt to hide newly started SolidWorks windows.")
+    parser.add_argument("--wait-seconds", type=int, default=20, help="Seconds to wait for SolidWorks startup.")
     return parser.parse_args()
 
 
 def main() -> int:
-    """@brief 命令行入口，始终写出结构化结果。"""
+    """@brief CLI entry point that always writes structured results."""
     args = parse_args()
     output_root = Path(args.output_dir).expanduser().resolve()
     run_id = args.run_id or datetime.now().strftime("%Y%m%d_%H%M%S")

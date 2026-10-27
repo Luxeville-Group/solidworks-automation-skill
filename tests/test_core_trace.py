@@ -1,4 +1,4 @@
-"""@brief Execution Trace adapter 单元测试（复用 queue/events JSONL，不依赖 SolidWorks）。"""
+"""Execution Trace adapter tests reusing queue/events JSONL without SolidWorks."""
 from __future__ import annotations
 
 import sys
@@ -51,7 +51,7 @@ def test_multiple_events_preserve_order(tmp_path):
 
 
 def test_legacy_schema_events_are_readable(tmp_path):
-    # 旧 queue_worker 事件（camelCase、job 维度、无 step_id）与新 trace 事件同文件共存
+    # Legacy queue_worker events (camelCase, job-level, no step_id) coexist with new trace events in one file.
     legacy = {
         "type": "run.claimed",
         "jobId": "job-1",

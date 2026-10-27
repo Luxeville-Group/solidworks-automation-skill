@@ -1,4 +1,4 @@
-"""开源 HSS 型材数据驱动的 SolidWorks 焊件与切割清单真机回归。"""
+"""Real SolidWorks weldment/cut-list regression driven by open-source HSS profile data."""
 from __future__ import annotations
 
 import argparse
@@ -26,35 +26,35 @@ from sw_weldment import (  # noqa: E402
 
 
 def _load_case() -> dict:
-    """@brief 读取已固定版本的开源型材回归参数。"""
+    """@brief Read pinned-version open-source profile regression parameters."""
     return json.loads((ROOT / "examples" / "weldment" / "coremark_hss1x1x16ga.json").read_text(encoding="utf-8"))
 
 
 def _validate_evidence(evidence: dict, *, stage: str) -> None:
-    """@brief 拒绝缺结构构件、实体或切割清单文件夹的伪焊件。"""
+    """@brief Reject false weldments lacking structural members, bodies, or cut-list folders."""
     if not evidence.get("has_weldment_feature"):
-        raise RuntimeError(f"{stage}: 未检测到 WeldmentFeature")
+        raise RuntimeError(f"{stage}: WeldmentFeature not detected")
     if not evidence.get("has_structural_member"):
-        raise RuntimeError(f"{stage}: 未检测到 StructuralMember 原生特征")
+        raise RuntimeError(f"{stage}: native StructuralMember feature not detected")
     if int(evidence.get("solid_body_count", 0)) < 4:
-        raise RuntimeError(f"{stage}: 结构构件实体少于矩形框架所需的 4 根")
+        raise RuntimeError(f"{stage}: fewer than the four structural-member bodies required for a rectangular frame")
     folders = evidence.get("cut_list_folders") or []
     if not folders or sum(int(item.get("body_count", 0)) for item in folders) < 4:
-        raise RuntimeError(f"{stage}: 切割清单未覆盖全部结构构件实体")
+        raise RuntimeError(f"{stage}: cut list does not cover all structural-member bodies")
     quantities = [
         int(item["properties"]["QUANTITY"]["resolved"])
         for item in folders
         if "QUANTITY" in item.get("properties", {})
     ]
     if sorted(quantities) != [2, 2]:
-        raise RuntimeError(f"{stage}: 期望两种等长构件各 2 根，实际数量={quantities}")
+        raise RuntimeError(f"{stage}: expected two equal-length member groups with quantity two each, actual={quantities}")
 
 
 def _sketch_rounded_rectangle(model, size: float, radius: float, *, clockwise: bool) -> list:
-    """@brief 绘制居中、闭合且可指定绕向的精确圆角矩形。"""
+    """@brief Draw an exact centered closed rounded rectangle with selectable winding direction."""
     half = size / 2.0
     if radius <= 0 or radius >= half:
-        raise ValueError("圆角半径必须大于 0 且小于方形半边长")
+        raise ValueError("Corner radius must be positive and less than half the square's side")
     low = half - radius
     diagonal = radius / (2.0 ** 0.5)
 
@@ -89,7 +89,7 @@ def _sketch_rounded_rectangle(model, size: float, radius: float, *, clockwise: b
 
 
 def run_regression(output_dir: Path, *, visible: bool = True, wait_seconds: int = 12) -> dict:
-    """@brief 创建自定义 HSS 型材、矩形焊接框架并验证重开切割清单。"""
+    """@brief Create a custom HSS profile and rectangular welded frame, then verify reopened cut lists."""
     case = _load_case()
     profile_data = case["profile"]
     geometry = case["regressionGeometry"]
@@ -145,8 +145,8 @@ def run_regression(output_dir: Path, *, visible: bool = True, wait_seconds: int 
         model,
         profile_path,
         [segments],
-        # 单一配置的独立 .sldlfp 按官方“supplied/non-configured profile”语义传空串；
-        # 配置名仍保留在 profile_evidence，供多配置型材后续显式选择。
+        # A standalone single-configuration .sldlfp uses an empty string under official supplied/non-configured profile semantics;
+        # retain the configuration name in profile_evidence for later explicit selection of multiconfiguration profiles.
         configuration_name="",
         apply_corner_treatment=True,
     )
@@ -161,27 +161,27 @@ def run_regression(output_dir: Path, *, visible: bool = True, wait_seconds: int 
         },
     )
     created = weldment_evidence(model)
-    _validate_evidence(created, stage="创建后")
+    _validate_evidence(created, stage="after creation")
     member_name = str(get_com_member(member, "Name") or "")
     if not save_document(model, str(part_path)):
-        raise RuntimeError("焊件 SLDPRT 保存失败")
+        raise RuntimeError("Weldment SLDPRT save failed")
     csv_output = export_cut_list_csv(created, csv_path)
     if not csv_output.is_file() or csv_output.stat().st_size < 20:
-        raise RuntimeError("切割清单 CSV 为空")
+        raise RuntimeError("Cut-list CSV is empty")
 
     report, report_path = run_review(
         model,
         str(review_dir),
         basename="hss_rectangular_frame",
-        # 通用 CAD 复核器的文件大小阈值不适用于精简 CSV；CSV 已在上方单独校验。
+        # Generic CAD review file-size thresholds do not apply to compact CSV; it was checked separately above.
         expected_outputs=[str(profile_path), str(part_path)],
     )
     sw.CloseDoc(str(get_com_member(model, "GetTitle") or part_path.name))
     reopened = open_document(sw, str(part_path), silent=True, raise_on_error=True)
     reopened_evidence = weldment_evidence(reopened)
-    _validate_evidence(reopened_evidence, stage="重开后")
+    _validate_evidence(reopened_evidence, stage="after reopen")
     if reopened_evidence["solid_body_count"] != created["solid_body_count"]:
-        raise RuntimeError("保存重开后结构构件实体数量发生变化")
+        raise RuntimeError("Structural-member body count changed after save-and-reopen")
 
     return {
         "status": "ok",
@@ -202,8 +202,8 @@ def run_regression(output_dir: Path, *, visible: bool = True, wait_seconds: int 
 
 
 def main() -> int:
-    """@brief 命令行入口。"""
-    parser = argparse.ArgumentParser(description="运行真实 SolidWorks 焊件切割清单回归。")
+    '@brief Command-line entry point.'
+    parser = argparse.ArgumentParser(description="Run real SolidWorks weldment cut-list regression.")
     parser.add_argument("--output-dir", default=str(Path(tempfile.gettempdir()) / "solidworks_weldment_regression"))
     parser.add_argument("--hidden", action="store_true")
     parser.add_argument("--wait-seconds", type=int, default=12)

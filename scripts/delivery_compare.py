@@ -1,4 +1,4 @@
-"""交付物版本比较与可审计重新生成计划。"""
+"""Compare deliverable revisions and build auditable regeneration plans."""
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -16,7 +16,7 @@ def _sha256(path: Path) -> str:
 
 
 def snapshot_files(paths: Iterable[str | Path]) -> dict[str, dict[str, Any]]:
-    """@brief 生成文件版本快照；目录和不存在路径不会伪装成交付物。"""
+    """@brief Snapshot file versions; directories and absent paths are not deliverables."""
     snapshot: dict[str, dict[str, Any]] = {}
     for raw_path in paths:
         path = Path(raw_path).expanduser().resolve()
@@ -41,7 +41,7 @@ def compare_snapshots(
     previous: dict[str, dict[str, Any]],
     current: dict[str, dict[str, Any]],
 ) -> dict[str, Any]:
-    """@brief 比较两轮交付文件并返回 added/removed/changed/unchanged。"""
+    """@brief Compare deliveries and return added/removed/changed/unchanged."""
     rows = []
     for path in sorted(set(previous) | set(current)):
         before = previous.get(path, {"path": path, "exists": False})
@@ -68,9 +68,9 @@ def build_regeneration_request(
     assumptions: list[str] | None = None,
     changed_inputs: list[str] | None = None,
 ) -> dict[str, Any]:
-    """@brief 创建不覆盖旧产物的局部重新生成请求。"""
+    """@brief Create a partial-regeneration request without overwriting prior artifacts."""
     if not project_id.strip() or not source_job_id.strip() or not failed_stage.strip():
-        raise ValueError("project_id、source_job_id、failed_stage 不能为空")
+        raise ValueError("project_id, source_job_id ve failed_stage boş olamaz")
     return {
         "schemaVersion": "1.0",
         "type": "regeneration_request",

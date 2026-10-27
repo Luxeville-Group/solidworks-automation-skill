@@ -1,20 +1,16 @@
-"""@brief Execution Core —— 内部编排层（orchestration glue，不是新 Worker/Queue/Agent）。
+"""@brief Internal Execution Core orchestration glue, not another Worker, Queue or Agent.
 
-把 Phase 2~4 的 State / Verification / Recovery / Trace 串成一条内部执行链：
+Connect Phase 2-4 State, Verification, Recovery and Trace:
+RunContext + StepRecord -> existing Handler -> minimally normalized ExecutionResult
+(with raw result retained) -> Verification Adapter when requires_review -> Recovery
+Decision on failure/blocked -> Trace.
 
-    RunContext + StepRecord
-      → Existing Handler（原样调用）
-      → ExecutionResult（最小归一化，保留 raw result）
-      →（requires_review 时）Verification Adapter
-      →（失败/blocked 时）Recovery Decision
-      → Trace
+Worker and existing modules retain queue claim, lease, heartbeat, approval, policy,
+stale recovery, Artifact Ledger, Reviewer and Backend Router implementation, actual
+retry/backend switching, replanning and networking.
 
-本模块**不**负责：Queue claim / lease / heartbeat / approval / policy / stale 恢复 /
-Artifact Ledger 实现 / Reviewer 实现 / Backend Router 实现 / 真正 retry / 真正切换
-backend / replan / 联网。这些仍由 Worker 与既有模块负责。
-
-兼容优先：Handler 异常被捕获进 ``ExecutionAssessment.exception`` 后由调用方原样
-``raise``，保证既有 Worker 的 ``except`` 三路语义完全不变。
+Preserve compatibility: capture Handler exceptions in ExecutionAssessment.exception
+for the caller to re-raise unchanged, retaining the Worker's three except branches.
 """
 from __future__ import annotations
 
@@ -38,9 +34,9 @@ from .capability import requires_review as registry_requires_review
 
 
 def normalize_tool_payload(raw: Mapping[str, Any]) -> dict[str, Any]:
-    """@brief 校验显式执行事实；保留历史结果字段，不将失败标记渲染成成功。
-    @param raw 既有工具或 Handler 的结构化结果。
-    @return 兼容原字段的结果；失败时附加稳定错误码和失败字段。
+    """@brief Validate explicit execution facts while preserving legacy fields and failures.
+    @param raw Structured result from an existing tool or Handler.
+    @return Compatible result with stable error codes and failure fields on failure.
     """
     payload = dict(raw)
     flags = ["success", "saved", "exported", "rebuild_ok"]
@@ -55,14 +51,14 @@ def normalize_tool_payload(raw: Mapping[str, Any]) -> dict[str, Any]:
         payload.update(status="error", success=False,
                        error_code=payload.get("error_code") or "TOOL_OPERATION_FAILED",
                        failed_fields=failed)
-        payload.setdefault("message", "必要执行步骤失败: " + ", ".join(failed))
+        payload.setdefault("message", "Gerekli yürütme adımı başarısız: " + ", ".join(failed))
     elif uncertain:
         payload.update(status="blocked", success=False, error_code="TOOL_RESULT_UNVERIFIED", unverified_fields=uncertain)
     return payload
 
 
 def _extract_message(raw: Any) -> str:
-    """@brief 从 handler 结果提取简短 message（不复制完整 result）。"""
+    """@brief Extract a short handler message without copying the full result."""
     if isinstance(raw, Mapping):
         return str(raw.get("message") or raw.get("summary") or "")
     if raw is None:
@@ -71,7 +67,7 @@ def _extract_message(raw: Any) -> str:
 
 
 def _extract_outputs(raw: Any) -> list[Any]:
-    """@brief 从 handler 结果提取 output 引用（最小归一化）。"""
+    """@brief Extract output references from a handler result with minimal normalization."""
     if isinstance(raw, Mapping):
         outputs = raw.get("outputs") or raw.get("artifacts") or []
         return list(outputs) if isinstance(outputs, (list, tuple)) else []
@@ -81,14 +77,14 @@ def _extract_outputs(raw: Any) -> list[Any]:
 
 
 def _extract_error_code(raw: Any) -> str | None:
-    """@brief 从 handler 结果提取结构化 error_code。"""
+    """@brief Extract a structured error_code from the handler result."""
     if isinstance(raw, Mapping):
         return raw.get("error_code") or raw.get("errorCode")
     return None
 
 
 def _exception_summary(exception: BaseException | None) -> dict[str, Any] | None:
-    """@brief 只保留异常类型/消息/错误码，不存完整堆栈。"""
+    """@brief Retain exception type, message and error code without the full stack."""
     if exception is None:
         return None
     return {
@@ -100,7 +96,7 @@ def _exception_summary(exception: BaseException | None) -> dict[str, Any] | None
 
 @dataclass
 class ExecutionAssessment:
-    """@brief Execution Core 返回的内部执行评估结果（sidecar，不影响既有 Queue 语义）。"""
+    """@brief Internal execution assessment sidecar; preserve existing Queue semantics."""
 
     run_context: RunContext
     step: StepRecord
@@ -112,7 +108,7 @@ class ExecutionAssessment:
     requires_review: bool = False
 
     def to_dict(self) -> dict[str, Any]:
-        """@brief 轻量序列化（不复制 raw_result / 完整异常）。"""
+        """@brief Serialize compactly without copying raw_result or the complete exception."""
         return {
             "run_id": self.run_context.run_id,
             "status": self.run_context.status.value,
@@ -135,7 +131,7 @@ def _trace(
     message: str = "",
     data: Mapping[str, Any] | None = None,
 ) -> None:
-    """@brief 写 Trace 事件；观测失败绝不能影响执行。"""
+    """@brief Write Trace events; observation failures must not affect execution."""
     if trace_dir is None:
         return
     try:
@@ -171,11 +167,12 @@ def execute_with_core(
     trace_dir: Any = None,
     defer_completion: bool = False,
 ) -> ExecutionAssessment:
-    """@brief 串起 State + Handler + Verification + Recovery + Trace，返回评估结果。
+    """@brief Connect State + Handler + Verification + Recovery + Trace and return assessment.
 
-    :param handler: 现有 handler（唯一真实执行实现），签名 ``handler(job)``。
-    :param reviewer: 可选零参 callable；requires_review 时若未提供 reviewer_result 才调用。
-    :param reviewer_result: 既有 Review 结果（dict/list）；提供时不重复调用 reviewer。
+    :param handler: Existing handler(job), the only actual execution implementation.
+    :param reviewer: Optional zero-argument callable used when requires_review and
+        no reviewer_result is supplied.
+    :param reviewer_result: Existing dict/list Review result; avoids repeat calls.
     """
     if operation_id or capability_id:
         required = registry_requires_review(operation_id=operation_id, capability_id=capability_id)
@@ -205,7 +202,7 @@ def execute_with_core(
     execution_result: ExecutionResult
     try:
         raw_result = handler(handler_arg)
-    except Exception as exc:  # noqa: BLE001 - 捕获后交还调用方，保持既有 except 语义。
+    except Exception as exc:  # noqa: BLE001 - return captured exceptions to the caller, preserving existing except semantics.
         exception = exc
         kind = classify_error(exception=exc) or ErrorKind.FATAL
         execution_result = ExecutionResult(
@@ -300,7 +297,7 @@ def execute_with_core(
                 run_id=run_id,
                 step_id=step_id,
             )
-        else:  # 仅明确 PASS 且无需人工复核，才可以完成。
+        else:  # Complete only on explicit PASS with no outstanding manual review.
             step.transition(StepStatus.SUCCESS)
             run.transition(RunStatus.COMPLETED)
     elif execution_result.success:
@@ -308,7 +305,7 @@ def execute_with_core(
         if not defer_completion:
             run.transition(RunStatus.COMPLETED)
 
-    # 仅在完整链模式（requires_review）下补 run 终态事件；Worker 模式由 Worker 自身写终态。
+    # Add run terminal events only in full-chain mode; in Worker mode the Worker writes them.
     if requires_review:
         final_event = {
             RunStatus.COMPLETED: "run.completed",

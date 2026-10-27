@@ -9,7 +9,7 @@ using SolidWorks.Interop.swpublished;
 
 namespace CadStudio.SolidWorks.AddinHost
 {
-    /// <summary>CAD Studio 的通用 SolidWorks 进程内 Add-in 宿主。</summary>
+    /// <summary>General SOLIDWORKS in-process Add-in host for CAD Studio.</summary>
     [ComVisible(true)]
     [Guid(AddinGuid)]
     [ProgId("CadStudio.SolidWorks.AddinHost")]
@@ -35,13 +35,13 @@ namespace CadStudio.SolidWorks.AddinHost
         private bool taskPaneReady;
         private bool propertyManagerPageReady;
 
-        /// <summary>初始化宿主并记录 COM 类已被实际实例化。</summary>
+        /// <summary>Initialize the host and record actual COM class instantiation.</summary>
         public SwAddin()
         {
             diagnostics.RecordEvent("constructed");
         }
 
-        /// <summary>注册 COM 类和 SolidWorks Add-ins 元数据。</summary>
+        /// <summary>Register the COM class and SOLIDWORKS Add-ins metadata.</summary>
         [ComRegisterFunction]
         public static void Register(Type type)
         {
@@ -50,7 +50,7 @@ namespace CadStudio.SolidWorks.AddinHost
             {
                 addin.SetValue(null, 0, RegistryValueKind.DWord);
                 addin.SetValue("Title", "CAD Studio Add-in Host", RegistryValueKind.String);
-                addin.SetValue("Description", "事件、PropertyManagerPage、TaskPane 与诊断宿主", RegistryValueKind.String);
+                addin.SetValue("Description", "Events, PropertyManagerPage, TaskPane ve tanılama Host", RegistryValueKind.String);
             }
             using (RegistryKey startup = Registry.CurrentUser.CreateSubKey(@"Software\SOLIDWORKS\AddInsStartup\" + guid))
             {
@@ -58,7 +58,7 @@ namespace CadStudio.SolidWorks.AddinHost
             }
         }
 
-        /// <summary>删除 Add-in 注册项。</summary>
+        /// <summary>Remove Add-in registration entries.</summary>
         [ComUnregisterFunction]
         public static void Unregister(Type type)
         {
@@ -67,7 +67,7 @@ namespace CadStudio.SolidWorks.AddinHost
             Registry.CurrentUser.DeleteSubKeyTree(@"Software\SOLIDWORKS\AddInsStartup\" + guid, false);
         }
 
-        /// <summary>由 SolidWorks 调用，建立回调、菜单、TaskPane 和事件订阅。</summary>
+        /// <summary>Called by SOLIDWORKS to create callbacks, menus, TaskPane, and event subscriptions.</summary>
         public bool ConnectToSW(object thisSw, int cookie)
         {
             try
@@ -78,7 +78,7 @@ namespace CadStudio.SolidWorks.AddinHost
                 diagnostics.MarkConnection(swApp.RevisionNumber(), callbackReady);
                 if (!callbackReady)
                 {
-                    throw new InvalidOperationException("SetAddinCallbackInfo2 未注册有效回调。");
+                    throw new InvalidOperationException("SetAddinCallbackInfo2 geçerli callback kaydetmedi.");
                 }
                 diagnostics.RecordEvent("callback_ready");
                 AttachApplicationEvents();
@@ -86,13 +86,13 @@ namespace CadStudio.SolidWorks.AddinHost
                 commandGroupReady = CreateCommandGroup();
                 if (!commandGroupReady)
                 {
-                    throw new InvalidOperationException("CommandGroup 激活失败。");
+                    throw new InvalidOperationException("CommandGroup etkinleştirilemedi.");
                 }
                 diagnostics.RecordEvent("command_group_ready");
                 taskPaneReady = CreateTaskPane();
                 if (!taskPaneReady)
                 {
-                    throw new InvalidOperationException("TaskPane 创建或显示失败。");
+                    throw new InvalidOperationException("TaskPane oluşturulamadı veya gösterilemedi.");
                 }
                 diagnostics.RecordEvent("task_pane_ready");
                 propertyManagerPageReady = CreatePropertyManagerPage();
@@ -108,7 +108,7 @@ namespace CadStudio.SolidWorks.AddinHost
             }
         }
 
-        /// <summary>由 SolidWorks 调用，解除订阅并释放全部宿主资源。</summary>
+        /// <summary>Called by SOLIDWORKS to unsubscribe and release all host resources.</summary>
         public bool DisconnectFromSW()
         {
             bool released = ReleaseHostResources();
@@ -118,14 +118,14 @@ namespace CadStudio.SolidWorks.AddinHost
             return released;
         }
 
-        /// <summary>CommandManager 回调：显示 PropertyManagerPage。</summary>
+        /// <summary>CommandManager callback: display PropertyManagerPage.</summary>
         public void ShowPropertyPage()
         {
             try
             {
                 if (propertyPage == null && !CreatePropertyManagerPage())
                 {
-                    throw new InvalidOperationException("PropertyManagerPage 创建失败。");
+                    throw new InvalidOperationException("PropertyManagerPage oluşturulamadı.");
                 }
                 propertyManagerPageReady = true;
                 diagnostics.MarkUi(commandGroupReady, taskPaneReady, propertyManagerPageReady);
@@ -138,7 +138,7 @@ namespace CadStudio.SolidWorks.AddinHost
             }
         }
 
-        /// <summary>CommandManager 回调：显示 TaskPane。</summary>
+        /// <summary>CommandManager callback: display TaskPane.</summary>
         public void ShowTaskPane()
         {
             try
@@ -152,19 +152,19 @@ namespace CadStudio.SolidWorks.AddinHost
             }
         }
 
-        /// <summary>CommandManager 回调：刷新诊断证据。</summary>
+        /// <summary>CommandManager callback: refresh diagnostic evidence.</summary>
         public void RefreshDiagnostics()
         {
             diagnostics.Flush();
         }
 
-        /// <summary>CommandManager 启用回调。</summary>
+        /// <summary>CommandManager enable callback.</summary>
         public int EnableCommand()
         {
             return swApp == null ? 0 : 1;
         }
 
-        /// <summary>创建并激活菜单与工具栏命令组。</summary>
+        /// <summary>Create and activate the menu/toolbar command group.</summary>
         private bool CreateCommandGroup()
         {
             commandManager = swApp.GetCommandManager(addinCookie);
@@ -172,14 +172,14 @@ namespace CadStudio.SolidWorks.AddinHost
             commandGroup = commandManager.CreateCommandGroup2(
                 CommandGroupId,
                 "CAD Studio",
-                "CAD Studio Add-in 宿主",
+                "CAD Studio Add-in Host",
                 "CAD Studio",
                 -1,
                 true,
                 ref errors);
             if (commandGroup == null || errors != (int)swCreateCommandGroupErrors.swCreateCommandGroup_Success)
             {
-                throw new InvalidOperationException("CreateCommandGroup2 失败，错误码：" + errors);
+                throw new InvalidOperationException("CreateCommandGroup2 başarısız; hata kodu: " + errors);
             }
 
             commandGroup.MainIconList = CreateMainIcons();
@@ -187,13 +187,13 @@ namespace CadStudio.SolidWorks.AddinHost
             commandGroup.HasMenu = true;
             commandGroup.HasToolbar = true;
             int itemType = (int)swCommandItemType_e.swMenuItem | (int)swCommandItemType_e.swToolbarItem;
-            commandGroup.AddCommandItem2("打开参数页", -1, "显示通用 PropertyManagerPage", "打开参数页", 0, nameof(ShowPropertyPage), nameof(EnableCommand), 1, itemType);
-            commandGroup.AddCommandItem2("显示任务窗格", -1, "显示 CAD Studio TaskPane", "显示任务窗格", 1, nameof(ShowTaskPane), nameof(EnableCommand), 2, itemType);
-            commandGroup.AddCommandItem2("刷新诊断", -1, "刷新 Add-in 诊断证据", "刷新诊断", 2, nameof(RefreshDiagnostics), nameof(EnableCommand), 3, itemType);
+            commandGroup.AddCommandItem2("Parametre sayfasını aç", -1, "Genel PropertyManagerPage göster", "Parametre sayfasını aç", 0, nameof(ShowPropertyPage), nameof(EnableCommand), 1, itemType);
+            commandGroup.AddCommandItem2("TaskPane göster", -1, "CAD Studio TaskPane göster", "TaskPane göster", 1, nameof(ShowTaskPane), nameof(EnableCommand), 2, itemType);
+            commandGroup.AddCommandItem2("Tanılamayı yenile", -1, "Add-in tanılama kanıtını yenile", "Tanılamayı yenile", 2, nameof(RefreshDiagnostics), nameof(EnableCommand), 3, itemType);
             return commandGroup.Activate();
         }
 
-        /// <summary>创建兼容高 DPI 的命令图标列表。</summary>
+        /// <summary>Create command icon lists supporting high DPI.</summary>
         private string[] CreateMainIcons()
         {
             int[] sizes = { 20, 32, 40, 64, 96, 128 };
@@ -205,7 +205,7 @@ namespace CadStudio.SolidWorks.AddinHost
             return paths;
         }
 
-        /// <summary>创建每种 DPI 尺寸对应的三命令横向图标条。</summary>
+        /// <summary>Create a horizontal three-command icon strip for each DPI size.</summary>
         private string[] CreateCommandIconStrips()
         {
             int[] sizes = { 20, 32, 40, 64, 96, 128 };
@@ -217,7 +217,7 @@ namespace CadStudio.SolidWorks.AddinHost
             return paths;
         }
 
-        /// <summary>创建 TaskPane 并托管 WinForms 控件句柄。</summary>
+        /// <summary>Create TaskPane and host the WinForms control handle.</summary>
         private bool CreateTaskPane()
         {
             string icon = CreateIconFile("taskpane.bmp", 20, 1);
@@ -232,7 +232,7 @@ namespace CadStudio.SolidWorks.AddinHost
             return displayed && taskPane.ShowView();
         }
 
-        /// <summary>创建含标签、文本框和按钮的通用 PropertyManagerPage。</summary>
+        /// <summary>Create a general PropertyManagerPage with label, text box, and button.</summary>
         private bool CreatePropertyManagerPage()
         {
             propertyPageHandler = new PropertyPageHandler(diagnostics.RecordEvent);
@@ -240,7 +240,7 @@ namespace CadStudio.SolidWorks.AddinHost
                 | (int)swPropertyManagerPageOptions_e.swPropertyManagerOptions_CancelButton
                 | (int)swPropertyManagerPageOptions_e.swPropertyManagerOptions_PushpinButton;
             int errors = 0;
-            propertyPage = swApp.ICreatePropertyManagerPage("CAD Studio Add-in 宿主", options, propertyPageHandler, ref errors);
+            propertyPage = swApp.ICreatePropertyManagerPage("CAD Studio Add-in Host", options, propertyPageHandler, ref errors);
             if (propertyPage == null || errors != 0)
             {
                 return false;
@@ -250,31 +250,31 @@ namespace CadStudio.SolidWorks.AddinHost
             var label = (IPropertyManagerPageLabel)propertyPage.AddControl2(
                 PropertyPageLabelId,
                 (short)swPropertyManagerPageControlType_e.swControlType_Label,
-                "宿主状态",
+                "Host durumu",
                 (short)swPropertyManagerPageControlLeftAlign_e.swControlAlign_LeftEdge,
                 controlOptions,
-                "显示当前 Add-in 连接状态");
-            label.Caption = "已连接；事件、TaskPane 和诊断记录器可用。";
+                "Mevcut Add-in bağlantı durumunu göster");
+            label.Caption = "Bağlandı; Events, TaskPane ve tanılama kaydedici kullanılabilir.";
             var textbox = (IPropertyManagerPageTextbox)propertyPage.AddControl2(
                 PropertyPageTextId,
                 (short)swPropertyManagerPageControlType_e.swControlType_Textbox,
-                "扩展载荷",
+                "Extension payload",
                 (short)swPropertyManagerPageControlLeftAlign_e.swControlAlign_LeftEdge,
                 controlOptions,
-                "供后续受控扩展传入短文本参数");
+                "Sonraki denetimli extension için kısa metin parametresi");
             textbox.Text = "ready";
             var button = (IPropertyManagerPageButton)propertyPage.AddControl2(
                 PropertyPageButtonId,
                 (short)swPropertyManagerPageControlType_e.swControlType_Button,
-                "记录诊断事件",
+                "Tanılama olayını kaydet",
                 (short)swPropertyManagerPageControlLeftAlign_e.swControlAlign_LeftEdge,
                 controlOptions,
-                "验证 PMP 回调链路");
-            button.Caption = "记录诊断事件";
+                "PMP callback zincirini doğrula");
+            button.Caption = "Tanılama olayını kaydet";
             return true;
         }
 
-        /// <summary>订阅必要且低频的 SolidWorks 应用事件。</summary>
+        /// <summary>Subscribe to necessary low-frequency SOLIDWORKS application events.</summary>
         private void AttachApplicationEvents()
         {
             applicationEvents = (SldWorks)swApp;
@@ -284,7 +284,7 @@ namespace CadStudio.SolidWorks.AddinHost
             applicationEvents.FileCloseNotify += OnFileClose;
         }
 
-        /// <summary>解除应用事件订阅。</summary>
+        /// <summary>Unsubscribe from application events.</summary>
         private void DetachApplicationEvents()
         {
             if (applicationEvents == null)
@@ -298,7 +298,7 @@ namespace CadStudio.SolidWorks.AddinHost
             applicationEvents = null;
         }
 
-        /// <summary>逐项释放资源，单项失败时继续清理其余对象。</summary>
+        /// <summary>Release resources individually; continue cleanup after an individual failure.</summary>
         private bool ReleaseHostResources()
         {
             bool success = true;
@@ -332,7 +332,7 @@ namespace CadStudio.SolidWorks.AddinHost
             return success;
         }
 
-        /// <summary>执行单项释放动作并记录异常。</summary>
+        /// <summary>Perform one release action and record exceptions.</summary>
         private bool TryRelease(string area, Action release)
         {
             try
@@ -361,7 +361,7 @@ namespace CadStudio.SolidWorks.AddinHost
         }
         private int OnFileClose(string fileName, int reason) { diagnostics.RecordEvent("file_close"); return 0; }
 
-        /// <summary>按名称创建运行时图标，避免部署额外二进制资源。</summary>
+        /// <summary>Create runtime icons by name to avoid extra deployed binary resources.</summary>
         private string CreateIconFile(string fileName, int size, int glyphCount)
         {
             string path = Path.Combine(diagnostics.DiagnosticDirectory, fileName);

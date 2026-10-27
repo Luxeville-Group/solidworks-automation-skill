@@ -1,4 +1,4 @@
-"""@brief 将复杂机械需求拆解为可审计的 SolidWorks 工程 DAG。"""
+"""@brief Compile complex mechanical requirements into an auditable SolidWorks engineering DAG."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Set, 
 
 
 class CapabilityLevel(str, Enum):
-    """@brief 描述技能实现和真实回归的成熟度。"""
+    """@brief Describe implementation and real-regression maturity of skills."""
 
     VERIFIED = "verified"
     PILOT = "pilot"
@@ -17,7 +17,7 @@ class CapabilityLevel(str, Enum):
 
 
 class PhaseStatus(str, Enum):
-    """@brief 描述单个工程阶段的执行状态。"""
+    """@brief Describe the execution state of one engineering stage."""
 
     PLANNED = "planned"
     BLOCKED = "blocked"
@@ -26,7 +26,7 @@ class PhaseStatus(str, Enum):
 
 @dataclass(frozen=True)
 class RetryPolicy:
-    """@brief 描述阶段失败后的局部重试和降级策略。"""
+    """@brief Describe partial retry and fallback policies after stage failure."""
 
     max_attempts: int
     strategy: str
@@ -36,7 +36,7 @@ class RetryPolicy:
 
 @dataclass(frozen=True)
 class CapabilityRoute:
-    """@brief 描述某阶段选择的能力、技能和 MCP 工具。"""
+    """@brief Describe the capability, skill, and MCP tools."""
 
     capability_id: str
     level: CapabilityLevel
@@ -48,7 +48,7 @@ class CapabilityRoute:
 
 @dataclass(frozen=True)
 class EngineeringPhase:
-    """@brief 描述工程 DAG 中可独立执行、验收和重试的阶段。"""
+    """@brief Describe an engineering DAG stage that can be executed, accepted, and retried independently."""
 
     id: str
     name: str
@@ -65,18 +65,18 @@ class EngineeringPhase:
 
     @property
     def skills(self) -> Tuple[str, ...]:
-        """@brief 返回去重后的阶段技能列表。"""
+        """@brief Return deduplicated stage skill names."""
         return _unique(item for route in self.routes for item in route.skills)
 
     @property
     def mcp_tools(self) -> Tuple[str, ...]:
-        """@brief 返回去重后的阶段 MCP 工具列表。"""
+        """@brief Return deduplicated MCP tools for the stage."""
         return _unique(item for route in self.routes for item in route.mcp_tools)
 
 
 @dataclass(frozen=True)
 class EngineeringPlan:
-    """@brief 描述复杂机械项目的完整阶段计划。"""
+    """@brief Describe the complete stage plan for a complex mechanical project."""
 
     objective: str
     project_type: str
@@ -89,38 +89,38 @@ class EngineeringPlan:
     schema_version: str = "1.0"
 
     def phase(self, phase_id: str) -> EngineeringPhase:
-        """@brief 按 ID 返回阶段，不存在时抛出明确错误。"""
+        """@brief Return a stage by ID or raise an explicit error when it does not exist."""
         for item in self.phases:
             if item.id == phase_id:
                 return item
-        raise KeyError("未知工程阶段: {}".format(phase_id))
+        raise KeyError("Bilinmeyen mühendislik aşaması: {}".format(phase_id))
 
     def validate(self) -> None:
-        """@brief 校验唯一 ID、依赖引用、无环性和 CAD 串行策略。"""
+        """@brief Validate unique IDs, dependency references, acyclicity, and CAD serialization policy."""
         phase_ids = [phase.id for phase in self.phases]
         if len(phase_ids) != len(set(phase_ids)):
-            raise ValueError("工程计划包含重复阶段 ID")
+            raise ValueError("Engineering plan contains duplicate stages ID")
 
         known = set(phase_ids)
         for phase in self.phases:
             missing = set(phase.depends_on) - known
             if missing:
-                raise ValueError("阶段 {} 引用了未知依赖: {}".format(phase.id, sorted(missing)))
+                raise ValueError("Aşama {} References an unknown dependency: {}".format(phase.id, sorted(missing)))
             if phase.id in phase.depends_on:
-                raise ValueError("阶段 {} 不能依赖自身".format(phase.id))
+                raise ValueError("Aşama {} Cannot depend on itself".format(phase.id))
             if phase.status == PhaseStatus.COMPLETED and any(
                 route.level == CapabilityLevel.NOT_IMPLEMENTED for route in phase.routes
             ):
-                raise ValueError("未实现能力所在阶段不能标记为完成: {}".format(phase.id))
+                raise ValueError("Uygulanmamış yetenek gerektiren aşama tamamlandı olarak işaretlenemez: {}".format(phase.id))
             if self.critical_cad_serial and phase.serial_required and phase.execution_lane != "solidworks-com":
-                raise ValueError("关键 CAD 阶段必须进入 solidworks-com 串行通道: {}".format(phase.id))
+                raise ValueError("Kritik CAD Stage must enter  solidworks-com Seri kanal: {}".format(phase.id))
 
         visiting: Set[str] = set()
         visited: Set[str] = set()
 
         def visit(phase_id: str) -> None:
             if phase_id in visiting:
-                raise ValueError("工程计划存在循环依赖: {}".format(phase_id))
+                raise ValueError("Engineering plan contains a dependency cycle: {}".format(phase_id))
             if phase_id in visited:
                 return
             visiting.add(phase_id)
@@ -133,13 +133,13 @@ class EngineeringPlan:
             visit(phase_id)
 
     def to_dict(self) -> Dict[str, Any]:
-        """@brief 返回适合任务协议和审计日志持久化的字典。"""
+        """@brief Return a dictionary suitable for persisting in the job protocol and audit log."""
         payload = asdict(self)
         return _enum_values(payload)
 
 
 def engineering_plan_from_dict(payload: Mapping[str, Any]) -> EngineeringPlan:
-    """@brief 从队列持久化 JSON 恢复工程计划，用于对话式局部重规划。"""
+    """@brief Restore a persisted queue JSON engineering plan for conversational partial replanning."""
     phases: List[EngineeringPhase] = []
     for raw_phase in payload.get("phases", []):
         if not isinstance(raw_phase, Mapping):
@@ -168,9 +168,9 @@ def engineering_plan_from_dict(payload: Mapping[str, Any]) -> EngineeringPlan:
                 risks=tuple(str(item) for item in raw_phase.get("risks", [])),
                 retry_policy=RetryPolicy(
                     max_attempts=int(raw_retry.get("max_attempts") or 1),
-                    strategy=str(raw_retry.get("strategy") or "局部重试"),
+                    strategy=str(raw_retry.get("strategy") or "Kısmi yeniden deneme"),
                     retryable_failures=tuple(str(item) for item in raw_retry.get("retryable_failures", [])),
-                    fallback=str(raw_retry.get("fallback") or "转人工复核"),
+                    fallback=str(raw_retry.get("fallback") or "İnsan incelemesine yönlendir"),
                 ),
                 status=PhaseStatus(str(raw_phase.get("status") or PhaseStatus.PLANNED.value)),
                 serial_required=bool(raw_phase.get("serial_required", True)),
@@ -195,7 +195,7 @@ def engineering_plan_from_dict(payload: Mapping[str, Any]) -> EngineeringPlan:
 
 @dataclass(frozen=True)
 class _CapabilityDefinition:
-    """@brief 保存编排器内置的保守能力清单。"""
+    """@brief Save the orchestrator's conservative built-in capability registry."""
 
     level: CapabilityLevel
     skills: Tuple[str, ...]
@@ -213,19 +213,19 @@ CAPABILITIES: Mapping[str, _CapabilityDefinition] = {
         CapabilityLevel.VERIFIED,
         (VIBECAD_SKILL, MAIN_SKILL),
         (),
-        "VibeCAD 可把自然语言转换为参数化设计计划；正式执行前仍需确认关键尺寸、载荷和制造约束。",
+        "VibeCAD Doğal dili parametrik tasarım planına dönüştürür. Yürütmeden önce kritik ölçüleri, yükleri ve üretim kısıtlarını doğrulayın.",
     ),
     "part_and_features": _CapabilityDefinition(
         CapabilityLevel.VERIFIED,
         (MAIN_SKILL, VIBECAD_SKILL),
         ("solidworks_health_check", "solidworks_new_document", "solidworks_create_basic_part", "solidworks_save_document"),
-        "参数化零件和基础特征已有真实 COM 封装；复杂轮廓需由技能脚本执行并复核。",
+        "Parametrik parça ve temel özellikler için gerçek  COM  wrapper; karmaşık konturlar skill betikleriyle yürütülüp incelenmelidir.",
     ),
     "holes_and_finishing": _CapabilityDefinition(
         CapabilityLevel.VERIFIED,
         (MAIN_SKILL, FILLET_SKILL),
         ("solidworks_create_hole_feature", "solidworks_inspect_hole_features", "solidworks_save_document"),
-        "盲孔、沉孔、沉头孔、半圆槽及孔位验收已验证；圆角和倒角由专项技能稳定路由。",
+        "Kör delik, silindirik havşa, konik havşa, yarım daire uçlu kanal ve delik konumu kontrolleri doğrulanmıştır; fillet/chamfer için uzmanlaşmış skill kullanılır.",
     ),
     "assembly_and_mates": _CapabilityDefinition(
         CapabilityLevel.VERIFIED,
@@ -239,25 +239,25 @@ CAPABILITIES: Mapping[str, _CapabilityDefinition] = {
             "solidworks_add_concentric_mate",
             "solidworks_save_document",
         ),
-        "组件插入以及重合、距离、同心 Mate 已验证；必须另外核对自由度和 Mate 特征树。",
+        "Bileşen ekleme; coincident, distance ve concentric  Mate  doğrulandı; hareket serbestliği ve  Mate  feature tree.",
     ),
     "motion_study": _CapabilityDefinition(
         CapabilityLevel.VERIFIED,
         (MAIN_SKILL,),
         ("solidworks_add_rotary_motor", "solidworks_inspect_motion_studies", "solidworks_validate_motion_study"),
-        "当前仅将旋转马达创建、计算和结果审计视为已验证能力。",
+        "Şu anda yalnızca döner motor oluşturma, hesaplama ve sonuç denetimi doğrulanmış kapsam içindedir.",
     ),
     "drawings_and_bom": _CapabilityDefinition(
         CapabilityLevel.PILOT,
         (MAIN_SKILL, "solidworks-engineering-drawing"),
         ("solidworks_generate_drawing", "solidworks_review_drawing", "solidworks_inspect_drawing"),
-        "工程图处于 Pilot，GB/T 第一角图框、BOM、尺寸链和钣金展开证据必须人工复核，禁止无人值守宣称完成。",
+        "Çizim durumu:  Pilot, GB/T Birinci açı çerçevesi, BOM, Ölçü zincirleri ve sac açınımı kanıtları insan tarafından incelenmelidir; gözetimsiz tamamlandı sonucu vermeyin.",
     ),
     "export_delivery": _CapabilityDefinition(
         CapabilityLevel.VERIFIED,
         (MAIN_SKILL,),
         ("solidworks_export_active",),
-        "STEP、PDF 等已通过窄接口导出，但每个目标文件仍需检查存在性、格式和哈希。",
+        "STEP, PDF  dar kapsamlı arayüzle dışa aktarılır; her hedef dosyanın varlığı, biçimi ve özeti (hash) yine de doğrulanmalıdır.",
     ),
     "geometry_and_delivery_review": _CapabilityDefinition(
         CapabilityLevel.VERIFIED,
@@ -268,11 +268,11 @@ CAPABILITIES: Mapping[str, _CapabilityDefinition] = {
             "solidworks_inspect_motion_studies",
             "solidworks_validate_motion_study",
         ),
-        "多视图、孔槽和 Motion 证据可自动收集；GB/T 图纸仍保留人工终审。",
+        "Çoklu görünüşler, delik/kanal ve  Motion Kanıt otomatik toplanabilir; GB/T Çizimler için son insan incelemesi korunur.",
     ),
 }
 
-# 编排器能力比探测器粒度更细；这些别名把本机类型库结果传递到相关阶段。
+# The orchestrator has finer-grained capabilities than the probe; these aliases route local type-library results to related stages.
 CAPABILITY_REPORT_ALIASES: Mapping[str, str] = {
     "holes_and_finishing": "part_and_features",
     "drawings_and_bom": "drawings",
@@ -280,33 +280,37 @@ CAPABILITY_REPORT_ALIASES: Mapping[str, str] = {
     "geometry_and_delivery_review": "part_and_features",
 }
 
+def _normalize_request(text: str) -> str:
+    """Normalize Turkish casing for Turkish and English keyword routing."""
+    return text.strip().replace("İ", "i").casefold().replace("ı", "i")
+
+
+_ASSEMBLY_WORDS = ("assembly", "assemblies", "multi-part", "multiple parts", "mechanism", "montaj", "çok parçalı", "birden fazla parça", "tam makine", "mekanizma")
+_MATE_WORDS = ("mate", "concentric", "interference", "degree of freedom", "dof", "ilişki", "eş merkez", "çakışma", "serbestlik")
+_MOTION_WORDS = ("motion", "motor", "rpm", "dynamics", "hareket", "devir", "dinamik")
+_DRAWING_WORDS = ("drawing", "bom", "bill of materials", "gb/t", "çizim", "teknik resim", "parça listesi", "malzeme listesi", "ayrıntı tablosu")
+_EXPORT_WORDS = ("step", "stp", "stl", "pdf", "export", "delivery", "dışa aktar", "teslim")
+_FEATURE_WORDS = ("hole", "slot", "fillet", "chamfer", "tolerance", "thread", "counterbore", "delik", "kanal", "yuvarlatma", "pah", "tolerans", "diş", "havşa")
 _COMPLEX_PROJECT_SIGNALS: Tuple[Tuple[str, ...], ...] = (
-    ("多零件", "多个零件", "装配", "装配体", "整机", "机构", "总成"),
-    ("mate", "配合", "同心", "自由度", "干涉"),
-    ("motion", "运动仿真", "运动算例", "马达", "转速", "动力学"),
-    ("工程图", "图纸", "bom", "明细表", "gb/t", "国标"),
-    ("step", "pdf", "交付包", "完整交付"),
-    ("沉孔", "盲孔", "槽", "圆角", "倒角", "孔位公差"),
+    _ASSEMBLY_WORDS, _MATE_WORDS, _MOTION_WORDS, _DRAWING_WORDS,
+    ("step", "pdf", "delivery package", "complete delivery", "teslim paketi", "tam teslim"),
+    _FEATURE_WORDS,
 )
 
 
 def requires_engineering_orchestration(brief: str) -> bool:
-    """@brief 判断需求是否需要跨阶段工程 DAG，而不是单步零件任务。
-
-    @param brief 用户自然语言需求。
-    @return 命中至少两个独立工程域，或明确要求整机/综合工程时返回 ``True``。
-    """
-    normalized = brief.strip().lower()
+    """@brief Determine whether a natural-language request needs a cross-stage engineering DAG. Return True for at least two independent engineering domains or an explicit complete-machine or combined-engineering request."""
+    normalized = _normalize_request(brief)
     if not normalized:
         return False
-    if any(keyword in normalized for keyword in ("综合工程", "完整工程", "全流程", "整机设计")):
+    if any(_normalize_request(keyword) in normalized for keyword in ("combined engineering", "complete engineering", "complete workflow", "complete machine design", "birleşik mühendislik", "tam mühendislik", "tam iş akışı", "tam makine tasarımı")):
         return True
-    matched_domains = sum(any(keyword in normalized for keyword in domain) for domain in _COMPLEX_PROJECT_SIGNALS)
+    matched_domains = sum(any(_normalize_request(keyword) in normalized for keyword in domain) for domain in _COMPLEX_PROJECT_SIGNALS)
     return matched_domains >= 2
 
 
 def _unique(values: Iterable[str]) -> Tuple[str, ...]:
-    """@brief 保持原顺序并移除重复字符串。"""
+    """@brief Remove duplicate strings while preserving original order."""
     seen: Set[str] = set()
     result: List[str] = []
     for value in values:
@@ -317,7 +321,7 @@ def _unique(values: Iterable[str]) -> Tuple[str, ...]:
 
 
 def _enum_values(value: Any) -> Any:
-    """@brief 递归将枚举转换为 JSON 兼容值。"""
+    """@brief Recursively convert enums to JSON-compatible values."""
     if isinstance(value, Enum):
         return value.value
     if isinstance(value, dict):
@@ -328,7 +332,7 @@ def _enum_values(value: Any) -> Any:
 
 
 def _normalise_level(raw_status: str, fallback: CapabilityLevel) -> CapabilityLevel:
-    """@brief 将能力探测器状态归一化为编排器成熟度。"""
+    """@brief Normalize capability probe status into orchestrator maturity levels."""
     status = raw_status.strip().lower()
     if status.startswith("verified"):
         return CapabilityLevel.VERIFIED
@@ -342,7 +346,7 @@ def _normalise_level(raw_status: str, fallback: CapabilityLevel) -> CapabilityLe
 
 
 def _route(capability_id: str, capability_report: Optional[Mapping[str, Any]]) -> CapabilityRoute:
-    """@brief 根据内置清单和可选本机探测报告选择执行路线。"""
+    """@brief Select execution routes from the built-in registry and optional local probe report."""
     definition = CAPABILITIES[capability_id]
     level = definition.level
     if capability_report:
@@ -366,7 +370,7 @@ def _route(capability_id: str, capability_report: Optional[Mapping[str, Any]]) -
 
 
 def _phase_status(routes: Sequence[CapabilityRoute]) -> PhaseStatus:
-    """@brief 未实现或仅参考能力默认阻塞，其余阶段默认待执行。"""
+    """@brief Unimplemented or reference-only capabilities are blocked by default; remaining stages start pending."""
     blocked_levels = {CapabilityLevel.REFERENCE_ONLY, CapabilityLevel.NOT_IMPLEMENTED}
     return PhaseStatus.BLOCKED if any(route.level in blocked_levels for route in routes) else PhaseStatus.PLANNED
 
@@ -384,7 +388,7 @@ def _phase(
     human_gate: bool = False,
     serial_required: bool = True,
 ) -> EngineeringPhase:
-    """@brief 创建状态保守、能力可追溯的工程阶段。"""
+    """@brief Create engineering stages with conservative status and traceable capabilities."""
     routes = tuple(_route(item, capability_report) for item in capability_ids)
     return EngineeringPhase(
         id=phase_id,
@@ -406,29 +410,24 @@ def build_engineering_plan(
     brief: str,
     capability_report: Optional[Mapping[str, Any]] = None,
 ) -> EngineeringPlan:
-    """@brief 将自然语言复杂机械任务拆成八阶段 SolidWorks DAG。
-
-    @param brief 用户的自然语言工程需求。
-    @param capability_report 可选的 ``sw_capability_probe.py`` 报告。
-    @return 默认均为待执行或阻塞状态的工程计划，不代表任何 CAD 工作已完成。
-    """
+    """@brief Split natural-language mechanical requirements into a SolidWorks DAG selected from eight stages. Optionally use a sw_capability_probe.py report. The returned plan is pending or blocked; it does not claim that CAD work is complete."""
     objective = brief.strip()
     if not objective:
-        raise ValueError("复杂机械任务描述不能为空")
+        raise ValueError("Karmaşık mekanik görev açıklaması boş olamaz")
 
-    planning_retry = RetryPolicy(2, "补齐缺失约束后重新规划", ("missing_requirement", "ambiguous_constraint"), "转人工确认关键工程参数")
-    cad_retry = RetryPolicy(2, "仅回滚并重试当前阶段", ("com_error", "rebuild_error", "selection_error"), "缩小特征批次并保留失败证据")
-    review_retry = RetryPolicy(1, "返回首个失败阶段局部返工", ("acceptance_failed", "artifact_missing"), "停止交付并请求人工复核")
+    planning_retry = RetryPolicy(2, "Eksik kısıtları tamamlayıp yeniden planlayın", ("missing_requirement", "ambiguous_constraint"), "Kritik mühendislik parametreleri için insan onayı isteyin")
+    cad_retry = RetryPolicy(2, "Yalnızca mevcut aşamayı geri alıp yeniden deneyin", ("com_error", "rebuild_error", "selection_error"), "Özellik gruplarını küçültüp hata kanıtını koruyun")
+    review_retry = RetryPolicy(1, "Return the first failed stage for local rework", ("acceptance_failed", "artifact_missing"), "Teslimi durdurup insan incelemesi isteyin")
 
     phase_catalog = (
         _phase(
             "requirements",
-            "需求澄清与工程约束",
+            "Gereksinimlerin netleştirilmesi ve mühendislik kısıtları",
             (),
             ("requirements_planning",),
             ("requirements.json", "design_plan.json", "assumptions.json"),
-            ("零件数量、功能、接口和运动目标明确", "关键尺寸、材料、载荷、公差和制造方式有来源或显式假设", "交付格式和验收门禁完整"),
-            ("自然语言缺少尺寸或载荷时可能产生不可制造方案", "GB/T 版本和企业模板未指定时不能猜测"),
+            ("Parça adedi, işlev, arayüzler ve hareket hedefi açık", "Kritik ölçüler, malzemeler, yükler, toleranslar ve üretim yöntemi kaynak veya açık varsayımla destekleniyor", "Teslim biçimleri ve kabul kontrolleri eksiksiz"),
+            ("Doğal dilde ölçü veya yük eksikliği üretilemez bir tasarıma yol açabilir", "GB/T Standart sürümü ve şirket şablonu belirtilmemişse tahmin etmeyin"),
             planning_retry,
             capability_report,
             human_gate=True,
@@ -436,91 +435,91 @@ def build_engineering_plan(
         ),
         _phase(
             "part-modeling",
-            "参数化零件建模",
+            "Parametrik parça modelleme",
             ("requirements",),
             ("part_and_features",),
-            ("四个或需求指定数量的 SLDPRT 文件", "part_parameters.json", "part_rebuild_report.json"),
-            ("零件数量与需求一致且文件可原生打开", "草图与关键特征可重建", "质量属性和包围盒符合设计参数"),
-            ("欠约束草图导致后续特征漂移", "零件接口尺寸不一致导致装配失败"),
+            ("Dört adet veya gereksinimde belirtilen sayıda  SLDPRT Dosya", "part_parameters.json", "part_rebuild_report.json"),
+            ("Parça adedi gereksinimle uyumlu ve dosyalar özgün uygulamada açılıyor", "Eskiz ve kritik özellikler yeniden oluşturulabiliyor (rebuild)", "Kütle özellikleri ve bounding box tasarım parametreleriyle uyumlu"),
+            ("Eksik kısıtlanmış eskiz sonraki özelliklerin kaymasına yol açabilir", "Parça arayüz ölçülerinin uyuşmaması montajı engeller"),
             cad_retry,
             capability_report,
         ),
         _phase(
             "holes-fillet-chamfer",
-            "孔槽、圆角与倒角",
+            "Delik/kanal, fillet ve chamfer",
             ("part-modeling",),
             ("holes_and_finishing",),
             ("feature_parameters.json", "hole_geometry_evidence.json", "updated SLDPRT files"),
-            ("沉孔、盲孔或槽的规格、深度和位置满足参数", "孔轴线位置和孔径公差通过几何验收", "圆角倒角存在且模型无重建错误"),
-            ("特征顺序不稳可能导致圆角求解失败", "B-Rep 不能单独证明盲孔或通孔，需交叉检查创建参数"),
+            ("Havşa, kör delik veya kanal özellikleri, derinliği ve konumu parametrelerle uyumlu", "Delik ekseni konumu ve çap toleransları geometri kontrolünden geçti", "Fillet ve chamfer mevcut, modelde rebuild hatası yok"),
+            ("Kararsız özellik sırası fillet çözümünün başarısız olmasına yol açabilir", "B-Rep  kör veya geçişli deliği tek başına kanıtlamaz; oluşturma parametreleriyle çapraz kontrol gerekir"),
             cad_retry,
             capability_report,
         ),
         _phase(
             "assembly-mates",
-            "装配体与 Mate",
+            "Montaj ve  Mate",
             ("holes-fillet-chamfer",),
             ("assembly_and_mates",),
             ("assembly.SLDASM", "mate_inventory.json", "degree_of_freedom_report.json"),
-            ("组件数量和引用文件完整", "同心、重合、距离等 Mate 与设计自由度预算一致", "旋转件未被错误锁定且无明显干涉"),
-            ("过定义 Mate 会锁死机构", "组件名称、配置或基准面语言差异可能导致选择失败"),
+            ("Bileşen adedi ve referans dosyaları eksiksiz", "concentric, coincident, distance gibi  Mate Tasarımın serbestlik derecesi hedefiyle uyumlu", "Dönen parça yanlışlıkla kilitlenmemiş ve belirgin çakışma yok"),
+            ("Aşırı kısıtlı Mate Mekanizmayı kilitleyebilir", "Bileşen adı, konfigürasyon veya düzlem dili farklılıkları seçimin başarısız olmasına yol açabilir"),
             cad_retry,
             capability_report,
         ),
         _phase(
             "motion-study",
-            "Motion 运动算例",
+            "Motion Hareket çalışması (Motion Study)",
             ("assembly-mates",),
             ("motion_study",),
             ("motion_study.json", "motion_validation.json", "calculated Motion Study in SLDASM"),
-            ("旋转马达对象真实存在", "算例时长和马达数量符合计划", "计算结果存在且 results_out_of_date=False"),
-            ("当前已验证范围不包含接触、摩擦、弹簧或完整动力学", "Motion Analysis 许可证缺失时只能明确降级，不能伪造结果"),
+            ("Döner motor nesnesi gerçekten mevcut", "Çalışma süresi ve motor adedi plana uygun", "Hesaplama sonucu mevcut ve  results_out_of_date=False"),
+            ("Doğrulanmış kapsam temas, sürtünme, yay veya tam dinamik analizi içermez", "Motion Analysis Lisans eksikse açıkça daha sınırlı çalışma moduna geçin; sonuç uydurmayın"),
             cad_retry,
             capability_report,
         ),
         _phase(
             "drawing-bom",
-            "GB/T 工程图与 BOM",
+            "GB/T Mühendislik çizimi ve  BOM",
             ("motion-study",),
             ("drawings_and_bom",),
             ("part_and_assembly_drawings.SLDDRW", "bom.csv", "drawing_review_checklist.json"),
-            ("图幅、图框、标题栏、字体和线型符合指定 GB/T/企业模板", "尺寸链、孔槽规格和定位尺寸完整", "BOM 数量、代号、材料和装配引用一致", "人工目视复核无重叠、压线和标题栏侵入"),
-            ("该能力仍为 Pilot，不能无人值守交付", "自动尺寸和 BOM 字段可能缺项或布局拥挤"),
-            RetryPolicy(2, "按视图或表格局部重排后复核", ("layout_overlap", "dimension_missing", "bom_mismatch"), "保留 SLDDRW 并转人工工程师终审"),
+            ("Sayfa boyutu, çerçeve, antet, yazı tipi ve çizgi türleri belirtilen standarda uygun:  GB/T/Şirket şablonu", "Ölçü zincirleri, delik/kanal özellikleri ve konum ölçüleri eksiksiz", "BOM Adet, parça kodu, malzeme ve montaj referansları tutarlı", "İnsan görsel incelemesinde çakışma, üst üste çizgiler veya antet taşması yok"),
+            ("Bu yetenek hâlâ  Pilot, Gözetimsiz teslim edilemez", "Otomatik ölçüler ve  BOM Alanlar eksik veya düzen sıkışık olabilir"),
+            RetryPolicy(2, "Görünüş veya tabloyu yerel yeniden düzenleyip inceleyin", ("layout_overlap", "dimension_missing", "bom_mismatch"), "Koru SLDDRW  ve son inceleme için mühendise yönlendirin"),
             capability_report,
             human_gate=True,
         ),
         _phase(
             "export-delivery",
-            "STEP/PDF 与交付导出",
+            "STEP/PDF  ve teslim export işlemi",
             ("drawing-bom",),
             ("export_delivery",),
             ("assembly.step", "drawing.pdf", "artifact_ledger.json"),
-            ("STEP 可重新打开且实体/组件数量合理", "PDF 页数、图幅和内容非空", "全部交付物存在、非空并记录 SHA-256"),
-            ("导出成功返回值不能替代文件格式校验", "引用丢失或字体替换会造成交付偏差"),
+            ("STEP Yeniden açılabilir ve katı /Bileşen adedi uygun", "PDF Sayfa adedi, boyutu ve içerik boş değil", "Tüm teslim dosyaları mevcut, boş değil ve kayıtlı:  SHA-256"),
+            ("Başarılı export dönüş değeri dosya biçimi doğrulamasının yerini tutmaz", "Eksik referanslar veya font değişimi teslimde sapmaya yol açabilir"),
             cad_retry,
             capability_report,
         ),
         _phase(
             "final-review",
-            "综合复核与交付门禁",
+            "Birleşik inceleme ve teslim kontrolü",
             ("export-delivery",),
             ("geometry_and_delivery_review",),
             ("isometric/front/top/right previews", "review_report.json", "review_gate.json"),
-            ("多视图目视检查通过", "零件、孔槽、Mate、Motion、图纸、BOM 和导出证据逐项通过", "任何 Pilot 项均有人类签署，失败项未被标记完成"),
-            ("仅检查文件存在会漏掉几何和装配错误", "局部修改可能使下游图纸或 Motion 结果过期"),
+            ("Birden çok görünüşün görsel incelemesi geçti", "Parça, delik/kanal, Mate, Motion, Çizimler, BOM  ve export kanıtları tek tek doğrulandı", "Any  Pilot  öğeleri insan tarafından onaylandı; başarısız öğeler tamamlandı olarak işaretlenmedi"),
+            ("Yalnızca dosya varlığını denetlemek geometri ve montaj hatalarını kaçırır", "Yerel değişiklik sonraki çizimi veya  Motion Sonuç güncel değil"),
             review_retry,
             capability_report,
             human_gate=True,
         ),
     )
 
-    normalized = objective.lower()
-    requested_features = any(keyword in normalized for keyword in ("孔", "槽", "圆角", "倒角", "公差", "螺纹"))
-    requested_assembly = any(keyword in normalized for keyword in ("装配", "装配体", "整机", "机构", "总成", "mate", "配合", "干涉", "自由度"))
-    requested_motion = any(keyword in normalized for keyword in ("motion", "运动仿真", "运动算例", "马达", "转速", "动力学"))
-    requested_drawing = any(keyword in normalized for keyword in ("工程图", "图纸", "bom", "明细表", "gb/t", "国标"))
-    requested_export = any(keyword in normalized for keyword in ("step", "stp", "stl", "pdf", "导出", "交付"))
+    normalized = _normalize_request(objective)
+    requested_features = any(_normalize_request(keyword) in normalized for keyword in _FEATURE_WORDS)
+    requested_assembly = any(_normalize_request(keyword) in normalized for keyword in (*_ASSEMBLY_WORDS, *_MATE_WORDS))
+    requested_motion = any(_normalize_request(keyword) in normalized for keyword in _MOTION_WORDS)
+    requested_drawing = any(_normalize_request(keyword) in normalized for keyword in _DRAWING_WORDS)
+    requested_export = any(_normalize_request(keyword) in normalized for keyword in _EXPORT_WORDS)
     requested_ids = {"requirements", "part-modeling", "final-review"}
     if requested_features:
         requested_ids.add("holes-fillet-chamfer")
@@ -544,7 +543,7 @@ def build_engineering_plan(
     phases = tuple(selected_phases)
 
     warnings = tuple(
-        "{} 使用 {}，必须经过人工门禁。".format(phase.name, route.level.value)
+        "{} Kullan {}, İnsan onayından geçmelidir.".format(phase.name, route.level.value)
         for phase in phases
         for route in phase.routes
         if route.level != CapabilityLevel.VERIFIED
@@ -554,9 +553,9 @@ def build_engineering_plan(
         project_type="complex_mechanical_system",
         phases=phases,
         assumptions=(
-            "未提供的尺寸、材料、载荷、公差和标准版本只记录为待确认项，不自动写成事实。",
-            "所有 SolidWorks COM 写操作进入 solidworks-com 单并发通道。",
-            "本计划描述待执行工作；阶段路由成功不等于模型或交付物已经完成。",
+            "Verilmeyen ölçüleri, malzemeleri, yükleri, toleransları ve standart sürümlerini doğrulanacak bilgi olarak kaydedin; gerçekmiş gibi sunmayın.",
+            "Tümü SolidWorks COM Write operations enter  solidworks-com  single-concurrency channel.",
+            "Bu plan yapılacak işi tanımlar; aşamanın yönlendirilmesi model veya teslim dosyalarının tamamlandığını göstermez.",
         ),
         warnings=warnings,
     )
@@ -565,23 +564,23 @@ def build_engineering_plan(
 
 
 _CHANGE_PHASE_KEYWORDS: Tuple[Tuple[str, Tuple[str, ...]], ...] = (
-    ("requirements", ("需求", "材料", "载荷", "标准", "数量")),
-    ("part-modeling", ("零件", "外形", "尺寸", "草图", "拉伸")),
-    ("holes-fillet-chamfer", ("孔", "沉孔", "盲孔", "槽", "圆角", "倒角", "公差")),
-    ("assembly-mates", ("装配", "mate", "配合", "同心", "干涉", "自由度")),
-    ("motion-study", ("motion", "运动", "马达", "转速", "动画")),
-    ("drawing-bom", ("工程图", "图纸", "bom", "明细表", "gb/t", "标注")),
-    ("export-delivery", ("step", "pdf", "导出", "交付")),
-    ("final-review", ("复核", "验收", "预览")),
+    ("requirements", ("requirement", "material", "load", "standard", "quantity", "gereksinim", "malzeme", "yük", "standart", "adet")),
+    ("part-modeling", ("part", "dimension", "sketch", "extrude", "parça", "dış ölçü", "ölçü", "eskiz", "ekstrüzyon")),
+    ("holes-fillet-chamfer", _FEATURE_WORDS),
+    ("assembly-mates", (*_ASSEMBLY_WORDS, *_MATE_WORDS)),
+    ("motion-study", (*_MOTION_WORDS, "animation", "animasyon")),
+    ("drawing-bom", (*_DRAWING_WORDS, "dimensioning", "ölçülendirme")),
+    ("export-delivery", _EXPORT_WORDS),
+    ("final-review", ("review", "acceptance", "preview", "incele", "kabul", "önizleme")),
 )
 
 
 def infer_affected_phases(change_request: str) -> Tuple[str, ...]:
-    """@brief 根据局部修改描述推断最靠前的受影响阶段。"""
-    normalized = change_request.strip().lower()
+    """@brief Infer the earliest affected stage from the local edit description."""
+    normalized = _normalize_request(change_request)
     if not normalized:
-        raise ValueError("局部修改描述不能为空")
-    matched = [phase_id for phase_id, keywords in _CHANGE_PHASE_KEYWORDS if any(keyword in normalized for keyword in keywords)]
+        raise ValueError("Yerel değişiklik açıklaması boş olamaz")
+    matched = [phase_id for phase_id, keywords in _CHANGE_PHASE_KEYWORDS if any(_normalize_request(keyword) in normalized for keyword in keywords)]
     return (matched[0],) if matched else ("requirements",)
 
 
@@ -590,17 +589,13 @@ def replan_for_local_change(
     change_request: str,
     affected_phase_ids: Optional[Sequence[str]] = None,
 ) -> EngineeringPlan:
-    """@brief 对局部修改阶段及其所有 DAG 后继重新规划。
-
-    未受影响且已经有外部验收证据的阶段可保留原状态；受影响阶段和后继统一回到
-    ``planned``（原能力为阻塞时仍保持 ``blocked``），从而避免沿用过期结果。
-    """
+    """@brief Replan a modified stage and all DAG successors. Unaffected stages with acceptance evidence retain their state. Affected stages return to planned, or remain blocked when their capability was blocked, preventing reuse of stale results."""
     plan.validate()
     roots = tuple(affected_phase_ids or infer_affected_phases(change_request))
     known = {phase.id for phase in plan.phases}
     unknown = set(roots) - known
     if unknown:
-        raise ValueError("局部修改引用了未知阶段: {}".format(sorted(unknown)))
+        raise ValueError("Local edit refers to an unknown stage: {}".format(sorted(unknown)))
 
     invalidated: Set[str] = set(roots)
     changed = True
@@ -625,7 +620,7 @@ def replan_for_local_change(
         revision=plan.revision + 1,
         change_request=change_request.strip(),
         warnings=plan.warnings
-        + ("局部修改已使以下阶段及其后继失效: {}".format(", ".join(sorted(invalidated))),),
+        + ("Yerel düzenleme şu aşama ve devamını geçersiz kıldı: {}".format(", ".join(sorted(invalidated))),),
     )
     replanned.validate()
     return replanned

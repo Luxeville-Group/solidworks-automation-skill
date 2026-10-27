@@ -1,4 +1,4 @@
-"""工程图 MCP 工具注册和输入契约测试。"""
+"""Drawing MCP registration and input contract tests."""
 from __future__ import annotations
 
 import json
@@ -24,7 +24,7 @@ def test_drawing_mcp_tools_are_registered():
 
 
 def test_release_mcp_gate_requires_drawing_tools():
-    """@brief 发布验证清单必须覆盖三个工程图 MCP 工具。"""
+    """@brief Release validation covers all three drawing MCP tools."""
     assert {"solidworks_generate_drawing", "solidworks_review_drawing", "solidworks_inspect_drawing"} <= REQUIRED_TOOLS
 
 

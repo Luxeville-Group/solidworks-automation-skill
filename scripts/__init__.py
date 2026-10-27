@@ -1,4 +1,4 @@
-"""@brief Python helper 兼容包；按需加载原生 COM，纯逻辑导入无需 Windows。"""
+"""@brief Compatibility package for Python helpers; load native COM on demand so pure-logic imports do not require Windows."""
 from importlib import import_module
 
 _EXPORTS = {
@@ -12,11 +12,10 @@ __all__ = list(_EXPORTS)
 
 
 def __getattr__(name):
-    """@brief 保留旧导入名称，仅实际调用对应能力时加载依赖。"""
+    """@brief Preserve legacy import names and load dependencies only when their capability is invoked."""
     module = _EXPORTS.get(name)
     if module is None:
         raise AttributeError(name)
     value = getattr(import_module("." + module, __name__), name)
     globals()[name] = value
     return value
-

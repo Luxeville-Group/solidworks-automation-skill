@@ -1,4 +1,4 @@
-"""CAD Studio 能力门禁、诊断和连接策略回归测试。"""
+"""CAD Studio capability-gate, diagnostic, and connection-policy regression tests."""
 from __future__ import annotations
 
 import json
@@ -49,8 +49,8 @@ def test_job_is_blocked_for_reference_only_capability(tmp_path):
         "id": "job-blocked",
         "runId": "run-blocked",
         "kind": "create_shell",
-        "title": "钣金任务",
-        "detail": "门禁测试",
+        "title": "Sac parça görevi",
+        "detail": "Gate test",
         "status": "queued",
         "progress": 0,
         "createdAt": "2026-01-01T00:00:00+00:00",
@@ -96,7 +96,7 @@ def test_doctor_returns_machine_readable_summary():
 
 
 def test_doctor_missing_environment_includes_download_remediations(monkeypatch):
-    """@brief 缺失环境必须给出官方入口或安装命令，并保留开放格式降级说明。"""
+    """Missing environments provide official download links or installation commands and retain open-format fallback guidance."""
     monkeypatch.setattr(cad_doctor.importlib.util, "find_spec", lambda _name: None)
     monkeypatch.setattr(cad_doctor.shutil, "which", lambda _name: None)
     monkeypatch.setattr(cad_doctor, "_is_writable", lambda _path: True)
@@ -132,15 +132,15 @@ def test_doctor_missing_environment_includes_download_remediations(monkeypatch):
     assert remediations["solver.calculix"]["downloadUrl"] == "https://www.calculix.de/"
     assert remediations["cad.solidworks"]["downloadUrl"] == "https://www.solidworks.com/"
     assert remediations["cad.autocad"]["downloadUrl"].startswith("https://www.autodesk.com/")
-    assert "开放格式仍可使用" in next(item["message"] for item in result["checks"] if item["id"] == "cad.solidworks")
+    assert "açık formatlar kullanılabilir" in next(item["message"] for item in result["checks"] if item["id"] == "cad.solidworks")
     assert "DXF/SVG/PDF/PNG" in next(item["message"] for item in result["checks"] if item["id"] == "cad.autocad")
 
 
 def test_doctor_does_not_prompt_for_other_agents_when_one_is_available(monkeypatch):
-    """@brief Agent Provider 是替代关系，已安装一个时不应提示下载其余三个。"""
+    """Agent providers are alternatives; when one is installed, do not suggest downloading the other three."""
     checks = [
-        cad_doctor._check("agent.codex", True, "codex 已发现"),
-        cad_doctor._check("agent.claude", False, "claude 未发现", severity="warning", action="安装 claude CLI", download_url="https://example.invalid"),
+        cad_doctor._check("agent.codex", True, "codex found"),
+        cad_doctor._check("agent.claude", False, "claude not found", severity="warning", action="Install claude CLI", download_url="https://example.invalid"),
     ]
 
     assert cad_doctor._collect_remediations(checks) == []
@@ -185,14 +185,14 @@ def test_direct_autocad_shortcut_target_is_preserved():
 
 
 def test_discover_installation_supports_injected_filesystem():
-    # 发现逻辑接受 exists 注入，CI 不需要安装 CAD 也能覆盖候选排序与结构。
+    # Discovery accepts an injected exists function, so CI checks candidate order/structure without installed CAD.
     result = discover_installation("autocad", exists=lambda path: str(path).lower() == r"d:\autocad 2024\acad.exe")
     assert result["installed"] is True
     assert result["executable"].lower().endswith(r"autocad 2024\acad.exe")
 
 
 def test_discover_installation_prefers_newest_uninstall_registry_entry(monkeypatch):
-    """@brief 多版本并存时必须选择最新版本，并兼容非标准安装目录名称。"""
+    """Select the newest installed version and support nonstandard installation directory names."""
     monkeypatch.setattr(cad_installation, "_shortcut_paths", lambda _product: [])
     monkeypatch.setattr(cad_installation, "_registry_paths", lambda _product: [])
     monkeypatch.setattr(cad_installation, "_common_candidates", lambda _product: [])

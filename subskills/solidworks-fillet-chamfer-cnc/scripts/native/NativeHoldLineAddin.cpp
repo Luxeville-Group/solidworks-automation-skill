@@ -1,10 +1,10 @@
 /**
  * @file NativeHoldLineAddin.cpp
- * @brief SolidWorks 进程内非托管 C++ 保持线写入桥接器。
+ * @brief SolidWorks in-process unmanaged C++ hold-line write bridge.
  *
- * @details 官方 ISetHoldLines 只支持进程内非托管 C++。SWBasic 负责在 SolidWorks
- * 主线程准备面组和保持线对象；本 DLL 仅把对象保留到下一次 UI 消息循环，调用一次
- * ISetHoldLines 并写出结构化证据。特征创建、命名和重建仍由 SWBasic 完成。
+ * @details Official ISetHoldLines supports only in-process unmanaged C++. SWBasic prepares
+ * face sets and hold lines on the main thread. This DLL retains objects until the next UI message loop, calls
+ * ISetHoldLines once and writes structured evidence. SWBasic creates, names and rebuilds the feature.
  */
 
 #include <Windows.h>
@@ -24,7 +24,7 @@ SldWorksNative::ISimpleFilletFeatureData2* g_prepared_data = nullptr;
 IDispatch* g_prepared_hold_line = nullptr;
 long g_job_scheduled = 0;
 
-/** @brief 失败时抛出带 HRESULT 的窄字符异常。 */
+/** @brief Throw a narrow-character exception with HRESULT on failure. */
 void Check(HRESULT result, const char* operation)
 {
     if (SUCCEEDED(result)) return;
@@ -34,7 +34,7 @@ void Check(HRESULT result, const char* operation)
     throw std::runtime_error(message.str());
 }
 
-/** @brief 把 UTF-8 文本转换成 UTF-16。 */
+/** @brief Convert UTF-8 text to UTF-16. */
 std::wstring Wide(const std::string& value)
 {
     if (value.empty()) return std::wstring();
@@ -48,7 +48,7 @@ std::wstring Wide(const std::string& value)
     return result;
 }
 
-/** @brief 返回编排器与 SolidWorks 进程共享的一次性作业文件路径。 */
+/** @brief Return the one-shot job path shared by the orchestrator and SolidWorks process. */
 std::wstring JobFilePath()
 {
     wchar_t temporary[MAX_PATH] = {};
@@ -58,7 +58,7 @@ std::wstring JobFilePath()
     return std::wstring(temporary) + L"cad-studio-hold-line-job.txt";
 }
 
-/** @brief 从 UTF-8 作业文件读取结果文件路径。 */
+/** @brief Read the result path from a UTF-8 job file. */
 std::wstring ReadResultPath()
 {
     const std::wstring path = JobFilePath();
@@ -87,7 +87,7 @@ std::wstring ReadResultPath()
     return Wide(result_path);
 }
 
-/** @brief 对 JSON 字符串中的控制字符和引号做最小安全转义。 */
+/** @brief Safely escape control characters and quotes in JSON strings. */
 std::string JsonString(const std::string& value)
 {
     std::ostringstream escaped;
@@ -117,7 +117,7 @@ std::string JsonString(const std::string& value)
     return escaped.str();
 }
 
-/** @brief 以替换方式写入 UTF-8 JSON 结果。 */
+/** @brief Write the UTF-8 JSON result by replacement. */
 void WriteResult(const std::wstring& path, const std::string& json)
 {
     HANDLE file = CreateFileW(
@@ -130,7 +130,7 @@ void WriteResult(const std::wstring& path, const std::string& json)
     CloseHandle(file);
 }
 
-/** @brief 释放已为延迟调用持有的 COM 引用并复位单任务门禁。 */
+/** @brief Release deferred-call COM references and reset the single-task gate. */
 void ReleasePreparedObjects()
 {
     if (g_prepared_hold_line != nullptr)
@@ -146,7 +146,7 @@ void ReleasePreparedObjects()
     InterlockedExchange(&g_job_scheduled, 0);
 }
 
-/** @brief 在 SolidWorks UI 消息循环中执行唯一一次原生 ISetHoldLines。 */
+/** @brief Execute one native ISetHoldLines call in the SolidWorks UI message loop. */
 VOID CALLBACK PreparedHoldLineTimerProc(HWND, UINT, UINT_PTR timer_id, DWORD)
 {
     KillTimer(nullptr, timer_id);
@@ -186,11 +186,11 @@ VOID CALLBACK PreparedHoldLineTimerProc(HWND, UINT, UINT_PTR timer_id, DWORD)
 }  // namespace
 
 /**
- * @brief 调度进程内 ISetHoldLines 调用。
- * @param application_unknown 当前 SolidWorks 应用对象；用于验证调用者上下文完整。
- * @param feature_data_unknown 已 Initialize(2) 且写入两个面组的 FeatureData。
- * @param hold_line_unknown 选择标记 8 对应的保持线边。
- * @return 0 表示已成功调度；实际结果由回调写入结果 JSON。
+ * @brief Schedule an in-process ISetHoldLines call.
+ * @param application_unknown Current SolidWorks application object for validating caller context.
+ * @param feature_data_unknown FeatureData with Initialize(2) and two populated face sets.
+ * @param hold_line_unknown Hold-line edge corresponding to selection mark 8.
+ * @return 0 means scheduled; the callback writes the actual result to JSON.
  */
 extern "C" __declspec(dllexport) int __stdcall RunPreparedHoldLine(
     IUnknown* application_unknown,

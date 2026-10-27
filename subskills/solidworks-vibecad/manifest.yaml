@@ -1,7 +1,7 @@
 name: solidworks-vibecad
 title: SolidWorks VibeCAD
 status: experimental
-summary: 自然语言机械设计需求到 SolidWorks 参数化设计计划、制造规则检查、执行摘要和审查门禁。
+summary: Natural-language mechanical requirements to SolidWorks parametric plans, manufacturing checks, execution outlines and review gates.
 entrypoint: SKILL.md
 scripts:
   - scripts/plan_from_brief.py

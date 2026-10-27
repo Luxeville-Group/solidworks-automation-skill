@@ -1,16 +1,16 @@
-# 安全策略
+# Security policy
 
-## 支持版本
+## Supported versions
 
-安全修复优先覆盖 GitHub Releases 中最新的 CAD Studio 版本和 `main` 分支。
+Security fixes prioritize the current fork's main branch. Upstream release evidence does not establish that a localized binary has been built or published.
 
-## 报告漏洞
+## Reporting vulnerabilities
 
-请使用 GitHub Security Advisory 私下报告可能导致凭据泄露、任意文件写入、命令注入、审批绕过或不受控 CAD 自动化的问题。不要在公开 Issue 中附带 API Key、公司图纸、任务队列或完整日志。
+Report credential exposure, arbitrary file writes, command injection, approval bypass or uncontrolled CAD automation privately through GitHub Security Advisories where available. If private reporting is unavailable, request a private contact without posting vulnerability details. Do not attach API keys, company drawings, task queues or complete logs to public issues.
 
-## 信任边界
+## Trust boundaries
 
-- CAD Studio 不保存 AI API Key；认证由 Agent CLI 或 CC Switch 管理。
-- CAD、跨目录、网络、删除和 Git 推送属于危险能力，必须经过策略门禁。
-- AI 输出不能替代机械工程师的尺寸、材料、载荷、安全和制造复核。
-- 官方开源构建目前未提供商业代码签名，下载后应核对 GitHub Release SHA-256。
+- CAD Studio does not store AI API keys; Agent CLI or CC Switch handles authentication.
+- CAD operations, cross-directory access, network operations, deletion and Git pushes pass through the existing policy gates.
+- AI output does not replace a mechanical engineer's checks of dimensions, materials, loads, safety and manufacturing.
+- Check release SHA-256 values and publisher provenance. A fork release needs its own trusted signing/update setup; do not disable signature verification to accept it.

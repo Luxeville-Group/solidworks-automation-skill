@@ -1,4 +1,4 @@
-"""@brief CAD Studio 本地优先 RAG 检索与可选云知识库连接器。"""
+"""@brief Local-first CAD Studio RAG retrieval with an optional cloud knowledge connector."""
 
 from __future__ import annotations
 
@@ -17,11 +17,11 @@ from typing import Any, Iterable
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 SUPPORTED_SUFFIXES = {".md", ".txt", ".json", ".yaml", ".yml"}
-TOKEN_PATTERN = re.compile(r"[A-Za-z][A-Za-z0-9_+.#/-]*|[\u4e00-\u9fff]")
+TOKEN_PATTERN = re.compile(r"[^\W\d_][\w+.#/-]*", re.UNICODE)
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
-    """@brief 禁止云 RAG 请求携带授权头自动跳转到其他地址。"""
+    """@brief Prevent cloud RAG requests from redirecting authorization headers to another address."""
 
     def redirect_request(self, req, fp, code, msg, headers, newurl):  # noqa: ANN001, ANN201
         return None
@@ -29,7 +29,7 @@ class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
 
 @dataclass(frozen=True)
 class KnowledgeChunk:
-    """@brief 一段可追溯的知识库检索结果。"""
+    """@brief A traceable knowledge retrieval result."""
 
     source: str
     title: str
@@ -40,7 +40,7 @@ class KnowledgeChunk:
 
 
 def default_knowledge_roots() -> list[Path]:
-    """@brief 返回内置机械知识根目录。"""
+    """@brief Return built-in mechanical knowledge roots."""
     return [
         REPO_ROOT / "SKILL.md",
         REPO_ROOT / "references",
@@ -49,7 +49,7 @@ def default_knowledge_roots() -> list[Path]:
 
 
 def _iter_documents(roots: Iterable[Path]) -> Iterable[Path]:
-    """@brief 枚举知识根目录中的受支持文本文件。"""
+    """@brief Enumerate supported text files in knowledge roots."""
     seen: set[Path] = set()
     for root in roots:
         root = Path(root).expanduser().resolve()
@@ -65,7 +65,7 @@ def _iter_documents(roots: Iterable[Path]) -> Iterable[Path]:
 
 
 def _document_text(path: Path, max_bytes: int = 2 * 1024 * 1024) -> str:
-    """@brief 安全读取知识文档，拒绝异常大的输入。"""
+    """@brief Read knowledge documents safely and reject excessively large inputs."""
     if path.stat().st_size > max_bytes:
         return ""
     try:
@@ -81,7 +81,7 @@ def _document_text(path: Path, max_bytes: int = 2 * 1024 * 1024) -> str:
 
 
 def _chunks(text: str, max_chars: int = 1400, overlap: int = 180) -> Iterable[str]:
-    """@brief 按段落切分知识文档，并保留少量上下文重叠。"""
+    """@brief Split knowledge documents by paragraph with a small context overlap."""
     paragraphs = [item.strip() for item in re.split(r"\n\s*\n", text) if item.strip()]
     current = ""
     for paragraph in paragraphs:
@@ -100,15 +100,14 @@ def _chunks(text: str, max_chars: int = 1400, overlap: int = 180) -> Iterable[st
 
 
 def _tokens(text: str) -> list[str]:
-    """@brief 提取中英文机械检索词；中文按单字并补充相邻二元组。"""
-    raw = [item.lower() for item in TOKEN_PATTERN.findall(text)]
-    chinese = [item for item in raw if "\u4e00" <= item <= "\u9fff"]
-    bigrams = ["".join(chinese[index : index + 2]) for index in range(len(chinese) - 1)]
-    return [*raw, *bigrams]
+    """@brief Extract Turkish and English engineering search terms while retaining Unicode letters."""
+    normalized = text.replace("İ", "i").casefold().replace("ı", "i")
+    return TOKEN_PATTERN.findall(normalized)
+
 
 
 def _title(path: Path, text: str) -> str:
-    """@brief 从 Markdown 标题或文件名生成结果标题。"""
+    """@brief Derive a result title from its Markdown heading or filename."""
     for line in text.splitlines():
         if line.lstrip().startswith("#"):
             return line.lstrip("# ").strip()[:120]
@@ -116,7 +115,7 @@ def _title(path: Path, text: str) -> str:
 
 
 def retrieve_local_knowledge(query: str, roots: Iterable[Path] | None = None, top_k: int = 6) -> list[KnowledgeChunk]:
-    """@brief 对本地 Skill 知识进行轻量 BM25 风格检索。"""
+    """@brief Run lightweight BM25-style retrieval over local Skill knowledge."""
     query_tokens = set(_tokens(query))
     if not query_tokens:
         return []
@@ -158,7 +157,7 @@ def retrieve_local_knowledge(query: str, roots: Iterable[Path] | None = None, to
 
 
 def retrieve_cloud_knowledge(query: str, config: dict[str, Any], timeout_seconds: float = 8.0) -> list[KnowledgeChunk]:
-    """@brief 调用显式配置的 HTTPS RAG 服务；令牌只从环境变量读取。"""
+    """@brief Call the explicitly configured  HTTPS RAG  service; read tokens from environment variables only."""
     endpoint = str(config.get("endpoint") or "").strip()
     parsed_endpoint = urllib.parse.urlsplit(endpoint)
     if (
@@ -168,13 +167,13 @@ def retrieve_cloud_knowledge(query: str, config: dict[str, Any], timeout_seconds
         or parsed_endpoint.password is not None
         or parsed_endpoint.fragment
     ):
-        raise ValueError("云知识库 endpoint 必须使用 HTTPS")
+        raise ValueError("Bulut bilgi tabanı endpoint Şunu kullanmalısınız:  HTTPS")
     token_env = str(config.get("tokenEnv") or "CAD_STUDIO_RAG_TOKEN")
     if token_env != "CAD_STUDIO_RAG_TOKEN":
-        raise ValueError("云知识库只允许从 CAD_STUDIO_RAG_TOKEN 读取令牌")
+        raise ValueError("Bulut bilgi tabanı token bilgisini yalnızca CAD_STUDIO_RAG_TOKEN değişkeninden okuyabilir")
     token = os.environ.get(token_env, "")
     if not token:
-        raise RuntimeError(f"云知识库缺少环境变量 {token_env}")
+        raise RuntimeError(f"Bulut bilgi tabanı için ortam değişkeni eksik {token_env}")
     payload = json.dumps(
         {
             "query": query,
@@ -194,10 +193,10 @@ def retrieve_cloud_knowledge(query: str, config: dict[str, Any], timeout_seconds
         with opener.open(request, timeout=timeout_seconds) as response:
             raw = json.loads(response.read(2 * 1024 * 1024).decode("utf-8"))
     except (urllib.error.URLError, TimeoutError, UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise RuntimeError(f"云知识库检索失败: {exc}") from exc
+        raise RuntimeError(f"Bulut bilgi tabanı araması başarısız: {exc}") from exc
     items = raw.get("chunks") if isinstance(raw, dict) else None
     if not isinstance(items, list):
-        raise RuntimeError("云知识库响应缺少 chunks 数组")
+        raise RuntimeError("Bulut bilgi tabanı yanıtında chunks dizisi eksik")
     chunks: list[KnowledgeChunk] = []
     for item in items:
         if not isinstance(item, dict) or not str(item.get("text") or "").strip():
@@ -206,7 +205,7 @@ def retrieve_cloud_knowledge(query: str, config: dict[str, Any], timeout_seconds
         chunks.append(
             KnowledgeChunk(
                 source=str(item.get("source") or endpoint),
-                title=str(item.get("title") or "云知识")[:120],
+                title=str(item.get("title") or "Bulut bilgisi")[:120],
                 text=text,
                 score=float(item.get("score") or 0.0),
                 sha256=hashlib.sha256(text.encode("utf-8")).hexdigest(),
@@ -217,7 +216,7 @@ def retrieve_cloud_knowledge(query: str, config: dict[str, Any], timeout_seconds
 
 
 def build_job_knowledge_context(job: dict[str, Any]) -> dict[str, Any]:
-    """@brief 根据任务目标构建可注入 Codex Prompt 的可审计 RAG 上下文。"""
+    """@brief Build auditable RAG context from the objective for injection into the Codex prompt."""
     query = "\n".join(
         str(value)
         for value in (job.get("objective"), job.get("detail"), job.get("expectedOutput"), job.get("prompt"))
@@ -235,9 +234,9 @@ def build_job_knowledge_context(job: dict[str, Any]) -> dict[str, Any]:
     if knowledge_config.get("cloudEnabled") is True:
         capabilities = job.get("capabilities") if isinstance(job.get("capabilities"), list) else []
         if "external_network" not in capabilities:
-            warnings.append("云知识库未执行：任务未声明 external_network 能力。")
+            warnings.append("Bulut bilgi tabanı kullanılmadı: görev belirtmiyor:  external_network  capability.")
         elif not job.get("approvedAt"):
-            warnings.append("云知识库未执行：外部网络能力尚未人工审批。")
+            warnings.append("Bulut bilgi tabanı kullanılmadı: dış ağ erişimi henüz onaylanmadı.")
         else:
             try:
                 chunks.extend(retrieve_cloud_knowledge(query, knowledge_config))

@@ -1,4 +1,4 @@
-"""DFM 规则复核回归。"""
+"""DFM rule-review regression tests."""
 from __future__ import annotations
 
 import hashlib
@@ -12,10 +12,10 @@ from scripts.dfm_profiles import validate_profile
 
 
 def _write_document(path: Path, manufacturing: dict, *, features: list[dict] | None = None) -> Path:
-    """@brief 写出测试用 NeutralCadDocument。"""
+    """Write a test NeutralCadDocument."""
     payload = {
         "documentId": path.stem,
-        "title": "DFM 测试件",
+        "title": "DFM test part",
         "units": "mm",
         "features": features
         or [
@@ -36,19 +36,19 @@ def _profile(
     processes: list[str] | None = None,
     source_type: str = "supplier",
 ) -> dict:
-    """@brief 构造测试用严格 DFM Profile。"""
+    """Build a strict test DFM Profile."""
     return {
         "schema": "cadstudio.dfm-profile",
         "version": "1.0",
         "id": profile_id,
-        "source": {"type": source_type, "name": f"测试来源 {profile_id}", "revision": "A"},
+        "source": {"type": source_type, "name": f"Test source {profile_id}", "revision": "A"},
         "processes": processes or [],
         "limits": limits,
     }
 
 
 def test_machining_dfm_passes_machine_rules_but_stays_review_required(tmp_path: Path) -> None:
-    """@brief 规则通过也必须保留人工复核状态。"""
+    """Passing rules still require human review."""
     source = _write_document(
         tmp_path / "machining.cadstudio.json",
         {
@@ -74,7 +74,7 @@ def test_machining_dfm_passes_machine_rules_but_stays_review_required(tmp_path: 
 
 
 def test_sheet_metal_dfm_blocks_missing_k_factor_and_bend_radius(tmp_path: Path) -> None:
-    """@brief 缺少钣金关键输入时必须阻断，不得伪造可交付。"""
+    """Missing critical sheet-metal inputs block delivery instead of creating false readiness."""
     source = _write_document(
         tmp_path / "sheet.cadstudio.json",
         {"process": "sheet_metal", "material": "Q235B", "wallThickness": 1.5},
@@ -89,7 +89,7 @@ def test_sheet_metal_dfm_blocks_missing_k_factor_and_bend_radius(tmp_path: Path)
 
 
 def test_3d_printing_build_volume_failure_is_review_evidence_not_certification(tmp_path: Path) -> None:
-    """@brief 超出成型空间形成 fail 检查，但顶层仍是待人工复核。"""
+    """Exceeding the build envelope fails the check while the top-level state still requires human review."""
     source = _write_document(
         tmp_path / "printed.cadstudio.json",
         {
@@ -112,7 +112,7 @@ def test_3d_printing_build_volume_failure_is_review_evidence_not_certification(t
 
 
 def test_dfm_report_output_is_versioned_and_records_artifact_hash(tmp_path: Path) -> None:
-    """@brief 写报告不得覆盖旧文件，返回产物必须带本轮 SHA-256。"""
+    """Reports preserve old files and returned artifacts carry this run's SHA-256."""
     source = _write_document(
         tmp_path / "laser.cadstudio.json",
         {"process": "laser_cutting", "material": "304", "wallThickness": 2.0, "kerf": 0.15},
@@ -136,7 +136,7 @@ def test_dfm_report_output_is_versioned_and_records_artifact_hash(tmp_path: Path
 
 
 def test_supplier_profile_records_hash_applicability_and_capacity_violations(tmp_path: Path) -> None:
-    """@brief 供应商材料、机台空间和刀具不足必须成为可追溯违反项。"""
+    """Insufficient supplier materials, machine envelope, or tools become traceable violations."""
     source = _write_document(
         tmp_path / "supplier.cadstudio.json",
         {
@@ -181,7 +181,7 @@ def test_supplier_profile_records_hash_applicability_and_capacity_violations(tmp
 
 
 def test_profile_merge_uses_strict_intersection_and_never_relaxes_limits(tmp_path: Path) -> None:
-    """@brief 后加载 Profile 不能放宽最小刀具和设备空间约束。"""
+    """Later Profiles must not relax minimum-tool or equipment-envelope constraints."""
     source = _write_document(
         tmp_path / "merge.cadstudio.json",
         {"process": "machining", "material": "Al6061", "wallThickness": 4, "internalCornerRadius": 3},
@@ -203,7 +203,7 @@ def test_profile_merge_uses_strict_intersection_and_never_relaxes_limits(tmp_pat
 
 
 def test_empty_material_intersection_blocks_conflicting_profiles(tmp_path: Path) -> None:
-    """@brief 两个 Profile 能力交集为空时必须阻断而非任选其一。"""
+    """Disjoint Profile capability sets block execution rather than arbitrarily selecting one."""
     source = _write_document(
         tmp_path / "conflict.cadstudio.json",
         {"process": "machining", "material": "Al6061", "wallThickness": 4},
@@ -219,11 +219,11 @@ def test_empty_material_intersection_blocks_conflicting_profiles(tmp_path: Path)
 
     assert report["status"] == "blocked"
     assert report["error_code"] == "dfm_invalid_profile"
-    assert "交集为空" in report["checks"][0]["message"]
+    assert "kesişimi boş" in report["checks"][0]["message"]
 
 
 def test_sheet_metal_profile_checks_forming_space_thickness_and_bend_tooling(tmp_path: Path) -> None:
-    """@brief 钣金 Profile 必须覆盖成型空间、厚度和折弯模具边界。"""
+    """Sheet-metal Profiles cover build envelope, thickness, and bend-tool limits."""
     source = _write_document(
         tmp_path / "sheet-profile.cadstudio.json",
         {
@@ -259,7 +259,7 @@ def test_sheet_metal_profile_checks_forming_space_thickness_and_bend_tooling(tmp
 
 
 def test_printer_profile_limits_material_build_volume_wall_and_overhang(tmp_path: Path) -> None:
-    """@brief 打印机与材料 Profile 必须共同限制成型空间、壁厚和悬垂角。"""
+    """Printer and material Profiles jointly constrain envelope, wall thickness, and overhang angle."""
     source = _write_document(
         tmp_path / "printer.cadstudio.json",
         {
@@ -295,7 +295,7 @@ def test_printer_profile_limits_material_build_volume_wall_and_overhang(tmp_path
 
 
 def test_profile_rejects_unknown_fields_and_relative_path_escape(tmp_path: Path) -> None:
-    """@brief 未知覆盖字段和相对路径逃逸必须在读取前阻断。"""
+    """Reject unknown override fields and relative path escape before reading."""
     source_dir = tmp_path / "model"
     source_dir.mkdir()
     source = _write_document(
@@ -312,13 +312,13 @@ def test_profile_rejects_unknown_fields_and_relative_path_escape(tmp_path: Path)
 
     assert escaped["status"] == "blocked"
     assert escaped["error_code"] == "dfm_invalid_profile"
-    assert "逃逸" in escaped["checks"][0]["message"]
+    assert "dışına çıkıyor" in escaped["checks"][0]["message"]
     assert unknown["status"] == "blocked"
-    assert "未知或不允许覆盖" in unknown["checks"][0]["message"]
+    assert "bilinmeyen veya geçersiz kılınamayan" in unknown["checks"][0]["message"]
 
 
 def test_profile_requires_real_brep_and_rejects_handwritten_claim(tmp_path: Path) -> None:
-    """@brief 要求实体证据时缺失或手写伪来源都必须阻断。"""
+    """When solid evidence is required, missing evidence and fabricated provenance both block delivery."""
     source = _write_document(
         tmp_path / "brep-required.cadstudio.json",
         {"process": "machining", "material": "Al6061", "wallThickness": 3},
@@ -351,15 +351,15 @@ def test_profile_requires_real_brep_and_rejects_handwritten_claim(tmp_path: Path
 
     assert missing["status"] == "blocked"
     assert missing["error_code"] == "dfm_brep_evidence_required"
-    assert any("不能证明 SolidWorks" in item or "缺少真实 B-Rep" in item for item in missing["limitations"])
+    assert any("SolidWorks katı topolojisini kanıtlamaz" in item or "Gerçek B-Rep eksik" in item for item in missing["limitations"])
     assert fake["status"] == "blocked"
     assert fake["error_code"] == "dfm_invalid_brep_evidence"
     assert tampered["status"] == "blocked"
-    assert "SHA-256 不匹配" in tampered["checks"][0]["message"]
+    assert "SHA-256 uyuşmuyor" in tampered["checks"][0]["message"]
 
 
 def test_verified_solidworks_brep_is_hashed_and_drives_envelope_check(tmp_path: Path) -> None:
-    """@brief 真实格式的 SolidWorks B-Rep 测量证据应参与包络判断并记录哈希。"""
+    """Properly formatted SolidWorks B-Rep measurements participate in envelope checks and record hashes."""
     source = _write_document(
         tmp_path / "brep-valid.cadstudio.json",
         {"process": "machining", "material": "Al6061", "wallThickness": 3},
@@ -393,7 +393,7 @@ def test_verified_solidworks_brep_is_hashed_and_drives_envelope_check(tmp_path: 
 
 
 def test_verified_occt_brep_requires_nonempty_topology(tmp_path: Path) -> None:
-    """@brief OCCT B-Rep 证据必须绑定本轮 .brep 产物且至少含一个实体。"""
+    """OCCT B-Rep evidence binds to this run's .brep artifact and contains at least one solid."""
     source = _write_document(
         tmp_path / "occt-brep.cadstudio.json",
         {"process": "machining", "material": "Al6061", "wallThickness": 3},
@@ -423,11 +423,11 @@ def test_verified_occt_brep_requires_nonempty_topology(tmp_path: Path) -> None:
     assert ok["status"] == "review_required"
     assert ok["brepEvidence"]["backend"] == "headless_occt"
     assert failed["status"] == "blocked"
-    assert "未证明存在实体" in failed["checks"][0]["message"]
+    assert "katı varlığını göstermiyor" in failed["checks"][0]["message"]
 
 
 def test_non_applicable_profile_is_recorded_but_not_applied(tmp_path: Path) -> None:
-    """@brief 混合 Profile 库中的其他工艺必须记录适用性但不能污染当前约束。"""
+    """Other processes in a mixed Profile library record applicability without contaminating current constraints."""
     source = _write_document(
         tmp_path / "applicability.cadstudio.json",
         {"process": "machining", "material": "Al6061", "wallThickness": 3},
@@ -442,11 +442,11 @@ def test_non_applicable_profile_is_recorded_but_not_applied(tmp_path: Path) -> N
 
 
 def test_profile_hash_is_stable_for_equivalent_key_order() -> None:
-    """@brief Profile 哈希必须基于规范化内容而非 JSON 键顺序。"""
+    """Profile hashes depend on normalized content rather than JSON key order."""
     first = _profile("stable", {"minimumWallThickness": 2, "allowedMaterials": ["Q235B", "Al6061"]})
     second = {
         "limits": {"allowedMaterials": ["Al6061", "Q235B"], "minimumWallThickness": 2.0},
-        "source": {"revision": "A", "name": "测试来源 stable", "type": "supplier"},
+        "source": {"revision": "A", "name": "Test source stable", "type": "supplier"},
         "id": "stable",
         "version": "1.0",
         "schema": "cadstudio.dfm-profile",
@@ -457,7 +457,7 @@ def test_profile_hash_is_stable_for_equivalent_key_order() -> None:
 
 
 def test_inch_document_is_normalized_before_profile_capacity_checks(tmp_path: Path) -> None:
-    """@brief 英寸模型必须先换算为毫米，不能直接与毫米设备空间比较。"""
+    """Convert inch models to millimeters before comparison with millimeter equipment envelopes."""
     source = _write_document(
         tmp_path / "inch.cadstudio.json",
         {"process": "machining", "material": "Al6061", "wallThickness": 0.125, "unit": "inch"},
@@ -478,7 +478,7 @@ def test_inch_document_is_normalized_before_profile_capacity_checks(tmp_path: Pa
 
 
 def test_profile_rejects_boolean_numeric_limit() -> None:
-    """@brief Python boolean 不得被悄悄当作 1 mm 数值。"""
+    """Python booleans must not silently become 1 mm numeric values."""
     invalid = _profile("boolean-limit", {"minimumWallThickness": True})
 
     try:
@@ -486,11 +486,11 @@ def test_profile_rejects_boolean_numeric_limit() -> None:
     except ValueError as exc:
         assert "boolean" in str(exc)
     else:
-        raise AssertionError("boolean 数值限制应被拒绝")
+        raise AssertionError("Boolean numeric limits must be rejected")
 
 
 def test_dfm_review_cli_accepts_profile_and_records_effective_limits(tmp_path: Path) -> None:
-    """@brief dfm_review.py CLI 必须能读取 Profile 并写出能力快照。"""
+    """dfm_review.py CLI reads Profiles and writes a capability snapshot."""
     source = _write_document(
         tmp_path / "cli-profile.cadstudio.json",
         {"process": "machining", "material": "Al6061", "wallThickness": 3},

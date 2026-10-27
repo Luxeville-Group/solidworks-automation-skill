@@ -1,4 +1,4 @@
-"""CalculiX 多网格收敛序列回归。"""
+"""CalculiX multi-mesh convergence sequence regressions."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -9,7 +9,7 @@ from scripts.fea_convergence import run_convergence_study, validate_convergence_
 
 
 def _analysis(case_index: int) -> dict:
-    """@brief 返回拓扑数量递增、物理条件一致的受控测试网格。"""
+    """@brief Return controlled meshes with increasing topology counts and identical physics."""
     nodes = [
         {"id": 1, "x": 0, "y": 0, "z": 0},
         {"id": 2, "x": 10, "y": 0, "z": 0},
@@ -41,7 +41,7 @@ def _analysis(case_index: int) -> dict:
 
 
 def _study() -> dict:
-    """@brief 返回三档收敛协议样件。"""
+    """@brief Return a three-level convergence protocol fixture."""
     return {
         "schemaVersion": "1.0",
         "studyId": "cantilever_convergence",
@@ -55,16 +55,16 @@ def _study() -> dict:
 
 
 def test_validate_convergence_requires_strict_mesh_refinement() -> None:
-    """@brief 网格尺寸、节点数和单元数必须按粗到细严格变化。"""
+    """@brief Mesh sizes, node counts, and element counts must change strictly from coarse to fine."""
     request = _study()
     assert validate_convergence_request(request)["studyId"] == "cantilever_convergence"
     request["cases"][2]["characteristicSizeMm"] = 5
-    with pytest.raises(ValueError, match="严格递减"):
+    with pytest.raises(ValueError, match="kesin azalmalıdır"):
         validate_convergence_request(request)
 
 
 def test_validate_convergence_accepts_nonlinear_and_fingerprints_contact_controls() -> None:
-    """@brief 非线性收敛允许执行，但接触和增量设置必须在所有网格中完全一致。"""
+    """@brief Nonlinear convergence requires identical contact and increment settings across meshes."""
     request = _study()
     for case in request["cases"]:
         analysis = case["analysis"]
@@ -79,20 +79,20 @@ def test_validate_convergence_accepts_nonlinear_and_fingerprints_contact_control
         })
     assert validate_convergence_request(request)["cases"][0]["analysis"]["analysisType"] == "static_nonlinear"
     request["cases"][1]["analysis"]["nonlinearControls"]["maximumIncrement"] = 0.25
-    with pytest.raises(ValueError, match="完全一致"):
+    with pytest.raises(ValueError, match="aynı olmalıdır"):
         validate_convergence_request(request)
 
 
 def test_validate_convergence_rejects_changed_physics() -> None:
-    """@brief 不同网格之间不得悄悄改变材料、载荷或约束。"""
+    """@brief Never silently change materials, loads, or constraints between meshes."""
     request = _study()
     request["cases"][2]["analysis"]["material"]["elasticModulusMPa"] = 70000
-    with pytest.raises(ValueError, match="材料、载荷和约束"):
+    with pytest.raises(ValueError, match="malzeme, yük ve constraint"):
         validate_convergence_request(request)
 
 
 def test_run_convergence_compares_last_two_real_result_summaries(tmp_path: Path, monkeypatch) -> None:
-    """@brief 汇总器必须使用每档求解结果并给出可审计相对变化。"""
+    """@brief Use every solve result and return auditable relative changes."""
     values = {
         "coarse": (1.0, 100.0),
         "medium": (1.04, 104.0),
@@ -128,7 +128,7 @@ def test_run_convergence_compares_last_two_real_result_summaries(tmp_path: Path,
 
 
 def test_run_convergence_retains_nonconverged_review_gate(tmp_path: Path, monkeypatch) -> None:
-    """@brief 最后两档变化超限时不得伪报网格收敛。"""
+    """@brief Excessive final-two-mesh changes must not be reported as convergence."""
     call = 0
 
     def fake_run(_analysis, _output_dir, timeout_seconds):

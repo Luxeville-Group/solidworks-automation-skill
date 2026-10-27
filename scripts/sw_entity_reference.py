@@ -1,7 +1,6 @@
-"""SolidWorks 语义实体引用。
+"""SOLIDWORKS semantic entity references.
 
-把特征名、实体类型和几何签名组合成可审计引用，逐步减少对 Face1/Edge1
-和屏幕坐标的依赖。模块不猜测 COM API；调用方负责提供候选实体的元数据。
+Combine feature name, entity type, and geometry signature into auditable references, reducing dependence on Face1/Edge1 and screen coordinates. Do not guess COM APIs; callers supply candidate entity metadata.
 """
 from __future__ import annotations
 
@@ -14,19 +13,19 @@ from typing import Any, Iterable, Mapping
 
 @dataclass(frozen=True)
 class SemanticEntityReference:
-    """@brief 可序列化的语义实体引用。"""
+    """@brief Serializable semantic entity reference."""
 
     entity_type: str
     feature_name: str | None = None
     geometry_signature: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        """@brief 转为任务证据 JSON。"""
+        """@brief Convert to task evidence JSON."""
         return asdict(self)
 
 
 def geometry_signature(values: Any, precision: int = 6) -> str:
-    """@brief 对几何摘要做稳定哈希，避免把屏幕坐标写入任务。"""
+    """@brief Hash geometry summaries stably instead of storing screen coordinates in tasks."""
 
     def normalize(value: Any) -> Any:
         if isinstance(value, numbers.Real) and not isinstance(value, bool):
@@ -42,7 +41,7 @@ def geometry_signature(values: Any, precision: int = 6) -> str:
 
 
 def reference_from_metadata(entity_type: str, feature_name: str | None = None, geometry: Any = None) -> SemanticEntityReference:
-    """@brief 从特征名、类型和几何摘要创建引用。"""
+    """@brief Build a reference from feature name, type, and geometry summary."""
     return SemanticEntityReference(
         entity_type=str(entity_type),
         feature_name=str(feature_name) if feature_name else None,
@@ -54,7 +53,7 @@ def resolve_semantic_reference(
     reference: SemanticEntityReference,
     candidates: Iterable[Mapping[str, Any]],
 ) -> dict[str, Any]:
-    """@brief 按类型、特征名和几何签名解析候选实体。"""
+    """@brief Resolve candidates by type, feature name, and geometry signature."""
     scored: list[tuple[int, Mapping[str, Any]]] = []
     for candidate in candidates:
         score = 0

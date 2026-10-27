@@ -1,52 +1,52 @@
-# 工程图 API 参考
+# Drawing API Reference
 
-## 创建视图
+## Creating views
 
-### 标准三视图
+### Three standard views
 
 ```python
-drawing.Create3rdAngleViews2(partPath)  # 第三角投影法
-drawing.CreateFirstAngleViews2(partPath) # 第一角投影法
+drawing.Create3rdAngleViews2(partPath)  # Third-angle projection
+drawing.CreateFirstAngleViews2(partPath) # First-angle projection
 ```
 
-### 自定义视图
+### Custom views
 
 ```python
 view = drawing.CreateDrawViewFromModelView3(
-    ModelName,     # str: 零件/装配体路径
-    ViewName,      # str: 视图方向（见下表）
-    X, Y, Z        # float: 放置位置（米）
+    ModelName,     # str: part/assembly path
+    ViewName,      # str: view orientation (table below)
+    X, Y, Z        # float: placement coordinates (meters)
 )
 ```
 
-视图方向名称：
-| 名称 | 说明 |
+View orientation names:
+| Name | Description |
 |---|---|
-| `*Front` | 前视图 |
-| `*Back` | 后视图 |
-| `*Top` | 俯视图 |
-| `*Bottom` | 仰视图 |
-| `*Left` | 左视图 |
-| `*Right` | 右视图 |
-| `*Isometric` | 等轴测 |
-| `*Trimetric` | 三等轴测 |
-| `*Dimetric` | 二等轴测 |
+| `*Front` | Front |
+| `*Back` | Back |
+| `*Top` | Top |
+| `*Bottom` | Bottom |
+| `*Left` | Left |
+| `*Right` | Right |
+| `*Isometric` | Isometric |
+| `*Trimetric` | Trimetric |
+| `*Dimetric` | Dimetric |
 
-### 设置视图比例
+### Setting view scale
 
 ```python
-view.ScaleRatio = (1.0, 2.0)  # 1:2 比例
-view.ScaleRatio = (2.0, 1.0)  # 2:1 比例
+view.ScaleRatio = (1.0, 2.0)  # Scale 1:2
+view.ScaleRatio = (2.0, 1.0)  # Scale 2:1
 ```
 
-## 尺寸标注
+## Dimensions
 
-### 自动标注（模型项目）
+### Automatic dimensions (Model Items)
 
 ```python
 drawing.InsertModelAnnotations3(
-    InsertType,    # int: 0=整个模型
-    AnnotationType, # int: 32768=标记为工程图的模型尺寸
+    InsertType,    # int: 0=entire model
+    AnnotationType, # int: 32768=model dimensions marked for drawings
     DuplicateDims, # bool
     AutoArrange,   # bool
     UseDoc,        # bool
@@ -54,40 +54,40 @@ drawing.InsertModelAnnotations3(
 )
 ```
 
-> SW2024/2026 的动态 pywin32 代理通常把 `InsertModelAnnotations3` 暴露在工程图
-> `IModelDoc2` 上，而不是 `IModelDocExtension`。技能脚本会先尝试文档对象，
-> 再兼容旧的 Extension 代理。`32` 是几何公差，`32768` 才是标记为工程图
-> 的模型尺寸；返回 `False` 或
-> 复核不到尺寸实体时不得把尺寸证据标记为已验证。
+> SW2024/2026 dynamic pywin32 proxies commonly expose `InsertModelAnnotations3` on the drawing's
+> `IModelDoc2`, not `IModelDocExtension`. The skill tries the document object first,
+> then supports the older Extension proxy. `32` means geometric tolerances; `32768` means model dimensions
+> marked for drawings. A `False` return or
+> failure to read back dimension entities must not be reported as verified dimension evidence.
 >
-> 该 API 只导入模型中已经存在的 `DisplayDimension`。对没有草图尺寸的矩形
-> 或只有拉伸参数的零件，先在草图编辑态调用 `sw_part.auto_dimension_sketch()`
-> 或由明确的参数化建模步骤创建模型尺寸；不得期待工程图 API 凭空生成尺寸。
+> This API imports only existing model `DisplayDimension` entities. For rectangles without sketch dimensions
+> or parts containing only extrusion parameters, call `sw_part.auto_dimension_sketch()` in sketch edit mode first,
+> or create dimensions through explicit parametric modeling. The drawing API cannot invent missing model dimensions.
 >
-> 能力清单将这一路径单独记录为 `drawing_dimension_insertion=verified`（SW2024/2026）。
-> SW2026 SP01.1 已连续三次回读 3 个真实视图和 6 个真实尺寸实体。
-> 完整工程图交付仍属于 `drawings_and_bom=pilot`，因为尺寸布局、孔槽定位链、
-> 图框、标题栏和 BOM 需要人工目视复核。
+> The capability registry records this path separately as `drawing_dimension_insertion=verified` (SW2024/2026).
+> Three consecutive SW2026 SP01.1 runs read back three real views and six real dimension entities.
+> Complete drawing delivery remains `drawings_and_bom=pilot` because dimension layout, hole/slot location chains,
+> borders, title blocks and BOMs require human visual review.
 
-### SW2026 尺寸文字边界证据
+### SW2026 dimension-text boundary evidence
 
-本机 `SolidWorks.Interop.sldworks.dll` 反射确认：
+Reflection against the local `SolidWorks.Interop.sldworks.dll` confirms:
 
-- `IAnnotation.GetPosition()` 返回注解锚点。
-- `IAnnotation.GetTextFormat(index)` / `GetTextFormatCount()` 返回文字格式。
-- `ITextFormat.CharHeight`、`WidthFactor`、`CharSpacingFactor` 可读取字体尺度。
-- `IDisplayDimension.GetText(swDimensionTextParts_e)` 可读取用户文字片段。
-- `IAnnotation` 没有尺寸文字原生 bounding-box API；不要调用或宣称存在 `GetBox()`。
+- `IAnnotation.GetPosition()` returns the annotation anchor.
+- `IAnnotation.GetTextFormat(index)` / `GetTextFormatCount()` return text formatting.
+- `ITextFormat.CharHeight`, `WidthFactor` and `CharSpacingFactor` expose font dimensions.
+- `IDisplayDimension.GetText(swDimensionTextParts_e)` reads user text fragments.
+- `IAnnotation` has no native dimension-text bounding-box API; do not call or claim `GetBox()` exists.
 
-`scripts/sw_drawing.py::estimate_dimension_text_box()` 因此只生成保守估算边界：
+Therefore `scripts/sw_drawing.py::estimate_dimension_text_box()` produces only conservative estimated bounds:
 
-1. 以 `IAnnotation.GetPosition()` 为中心。
-2. 按字符数、`CharHeight`、`WidthFactor` 和 `CharSpacingFactor` 估算未旋转文字宽高。
-3. 由于 API 未给出尺寸文字角度，使用该矩形对角线构造任意旋转均可覆盖的方形包络。
-4. padding 取 `max(1 mm, 0.4 * CharHeight)`；字段缺失时使用保守默认值并降低置信度。
-5. `GetText(0)` 在 SW2026 可能不返回格式化后的主尺寸数值；缺失时按 8 个等宽字符保守占位。
+1. Center on `IAnnotation.GetPosition()`.
+2. Estimate unrotated width/height from character count, `CharHeight`, `WidthFactor` and `CharSpacingFactor`.
+3. Because the API supplies no dimension-text angle, use the rectangle diagonal to construct a square envelope covering any rotation.
+4. Use padding `max(1 mm, 0.4 * CharHeight)`; missing fields receive conservative defaults and reduced confidence.
+5. `GetText(0)` may omit the formatted main dimension value in SW2026; conservatively reserve eight monospaced characters when absent.
 
-报告必须保留以下字段，禁止把估算值冒充原生证据：
+Reports must retain these fields; estimates must not be presented as native evidence:
 
 ```json
 {
@@ -102,106 +102,106 @@ drawing.InsertModelAnnotations3(
 }
 ```
 
-即使全部估算边界未发现碰撞，`review_drawing_layout()` 仍返回
-`review_required / DRAWING_LAYOUT_ESTIMATED_EVIDENCE_REQUIRES_VISUAL_REVIEW`。
-估算边界发生相交时返回 `DRAWING_LAYOUT_ESTIMATED_COLLISION_RISK`，finding 必须为
-`evidence_source=estimated`、`confirmed_collision=false`；只有原生边界证据才可使用
-`DRAWING_LAYOUT_COLLISION_DETECTED` 表示确认碰撞。
-非空 BMP/PDF 只能证明预览产物可用，不能自动证明尺寸没有重叠；最终必须目视复核。
+Even when no estimated boundaries collide, `review_drawing_layout()` still returns
+`review_required / DRAWING_LAYOUT_ESTIMATED_EVIDENCE_REQUIRES_VISUAL_REVIEW`.
+Overlapping estimates produce `DRAWING_LAYOUT_ESTIMATED_COLLISION_RISK`; findings must have
+`evidence_source=estimated` and `confirmed_collision=false`. Only native boundary evidence can use
+`DRAWING_LAYOUT_COLLISION_DETECTED` to indicate a confirmed collision.
+A nonempty BMP/PDF establishes a usable preview, not absence of overlapping dimensions; final visual review remains required.
 
-更强的非 COM 方案是先用 SolidWorks 官方导出 PDF，再调用
-`sw_review.inspect_pdf_text_layout()` 读取 PDF 中真实矢量文字 span 的边界。该方法能
-发现可提取文字之间的实际重叠，比字符宽度估算更可靠，也不需要 OCR；但它仍不能
-证明文字与尺寸线、几何线或被轮廓化字体之间无碰撞。标题栏中“第 张 + 页码”等
-设计性叠放也可能产生真实边界相交，因此结果只标记重叠风险，不直接判定视觉缺陷。
-缺少 PyMuPDF 时安装：
+A stronger non-COM approach exports PDF through SolidWorks' official interface, then uses
+`sw_review.inspect_pdf_text_layout()` to read real vector-text span bounds. This can
+detect actual overlap between extractable text spans more reliably than character-width estimates, without OCR. It still cannot
+prove absence of collisions with dimension lines, geometry or outlined fonts. Intentional title-block overlays, such as a sheet label
+plus page number, may also intersect, so results flag overlap risk rather than automatically declaring a visual defect.
+Install PyMuPDF if missing:
 
 ```powershell
 python -m pip install -r requirements-pdf.txt
 ```
 
-依赖安装在自定义目录时设置 `CADSTUDIO_PYMUPDF_PATH` 指向该目录。
+If installed in a custom directory, point `CADSTUDIO_PYMUPDF_PATH` to that directory.
 
-因此工程图边界证据强度依次为：PDF 矢量文字边界 > COM 锚点/字体保守估算 > OCR，
-最终交付仍保留一次 PDF/BMP 目视复核。
+Drawing boundary evidence therefore ranks as PDF vector-text bounds > conservative COM anchor/font estimates > OCR.
+Retain a final PDF/BMP visual review before delivery.
 
-### 手动添加尺寸
+### Adding dimensions manually
 
 ```python
-# 先选择两个实体
+# Select two entities first.
 drawing.Extension.SelectByID2("Edge1@View1", "EDGE", 0, 0, 0, False, 0, None, 0)
 drawing.Extension.SelectByID2("Edge2@View1", "EDGE", 0, 0, 0, True, 0, None, 0)
-# 添加尺寸
-drawing.AddDimension2(x, y, 0)  # 尺寸标注放置位置
+# Add a dimension.
+drawing.AddDimension2(x, y, 0)  # Dimension placement
 ```
 
-## 注释与标注
+## Notes and annotations
 
 ```python
-# 添加注释
+# Add a note.
 note = drawing.InsertNote(text)
 
-# 添加表面粗糙度符号
+# Add a surface-finish symbol.
 drawing.InsertSurfaceFinishSymbol3(...)
 
-# 添加焊接符号
+# Add a weld symbol.
 drawing.InsertWeldSymbol(...)
 
-# 添加基准符号
+# Add a datum symbol.
 drawing.InsertDatumTag2(...)
 ```
 
-## BOM 表
+## BOM tables
 
 ```python
 bom = drawing.InsertBomTable4(
-    TemplateName,  # str: BOM 模板路径(.sldbomtbt)
-    X, Y,          # float: 位置
-    BomType,       # int: 1=顶层, 2=仅零件, 3=缩进
-    Configuration, # str: 配置名
-    TableAnchor,   # str: 锚点名
-    Hidden         # bool: 是否包含隐藏组件
+    TemplateName,  # str: BOM template path (.sldbomtbt)
+    X, Y,          # float: position
+    BomType,       # int: 1=top-level, 2=parts-only, 3=indented
+    Configuration, # str: configuration name
+    TableAnchor,   # str: anchor name
+    Hidden         # bool: include hidden components
 )
 ```
 
-## 图纸操作
+## Sheet operations
 
 ```python
-# 获取当前图纸
+# Get the current sheet.
 sheet = drawing.GetCurrentSheet()
 
-# 获取所有图纸名称
+# Get all sheet names.
 names = drawing.GetSheetNames()
 
-# 激活指定图纸
+# Activate a sheet.
 drawing.ActivateSheet(sheetName)
 
-# 添加新图纸
+# Add a new sheet.
 drawing.NewSheet4(
-    Name,        # str: 图纸名称
-    PaperSize,   # int: 纸张大小（5=A4, 6=A3, 7=A2, 8=A1, 9=A0）
-    TemplateIn,  # int: 12=自定义
-    Scale1,      # float: 比例分子
-    Scale2,      # float: 比例分母
-    FirstAngle,  # bool: 第一角投影法
-    Template,    # str: 图纸格式路径
-    W, H,        # float: 宽高
+    Name,        # str: sheet name
+    PaperSize,   # int: paper size (5=A4, 6=A3, 7=A2, 8=A1, 9=A0)
+    TemplateIn,  # int: 12=custom
+    Scale1,      # float: scale numerator
+    Scale2,      # float: scale denominator
+    FirstAngle,  # bool: first-angle projection
+    Template,    # str: sheet-format path
+    W, H,        # float: width and height
     PropertySheet, # str
     Zone_LeftMargin, Zone_RightMargin, Zone_TopMargin, Zone_BottomMargin,
-    Zone_Col, Zone_Row  # int: 分区
+    Zone_Col, Zone_Row  # int: zones
 )
 
-# 设置图纸格式
-sheet.SetTemplateName(formatPath)  # .slddrt 文件路径
+# Set sheet format.
+sheet.SetTemplateName(formatPath)  # .slddrt path
 ```
 
-## 导出 PDF
+## Exporting PDF
 
 ```python
 sw = model.GetSldWorksObject()
 pdf_data = sw.GetExportFileData(1)  # swExportPDFData
 sheet_names = drawing.GetSheetNames()
-pdf_data.SetSheets(0, sheet_names)  # 0=指定图纸
+pdf_data.SetSheets(0, sheet_names)  # 0=specified sheets
 
 errors = VARIANT(pythoncom.VT_BYREF | pythoncom.VT_I4, 0)
 warnings = VARIANT(pythoncom.VT_BYREF | pythoncom.VT_I4, 0)

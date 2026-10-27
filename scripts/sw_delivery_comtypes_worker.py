@@ -1,8 +1,6 @@
-"""@brief comtypes Pack and Go 子进程 worker。
+"""@brief comtypes Pack and Go subprocess worker.
 
-由 ``sw_delivery._comtypes_pack_and_go`` 以独立子进程方式启动，接收 JSON
-载荷 (stdin)，输出单行 JSON 结果 (stdout)。隔离 Python COM 库状态；
-共享 CAD 服务的退出与文档清理仍必须按 PID 和文档归属单独校验。
+Launched by sw_delivery._comtypes_pack_and_go in a separate process. Receives a JSON payload on stdin and emits one JSON result line on stdout. Python COM library state is isolated; quitting a shared CAD service and cleaning documents still require independent PID and ownership checks.
 """
 from __future__ import annotations
 
@@ -17,17 +15,17 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 
 def main() -> int:
-    """@brief 有界 JSON 输入，显式 COM 生命周期，stdout 只承载一次结果。"""
+    """@brief Bound JSON input, manage COM lifetime explicitly, and emit exactly one stdout result."""
     initialized = False
     try:
         raw = sys.stdin.buffer.read(1024 * 1024 + 1)
         if len(raw) > 1024 * 1024:
-            raise ValueError("Pack and Go 请求超过 1 MiB")
+            raise ValueError("Pack and Go isteği 1 MiB sınırını aşıyor")
         payload = json.loads(raw.decode("utf-8"))
         target = payload["target"]
         existing = payload.get("existing_files") or {}
         if not isinstance(payload.get("expected_pid"), int) or payload["expected_pid"] <= 0:
-            raise ValueError("回退必须明确父实例 PID")
+            raise ValueError("Fallback ana örneğin PID değerini açıkça belirtmeli")
         import pythoncom
         pythoncom.CoInitialize()
         initialized = True
@@ -46,7 +44,7 @@ def main() -> int:
             )
         print(json.dumps({"result": result}, ensure_ascii=True))
         return 0
-    except BaseException as exc:  # noqa: BLE001 - 完整回传给父进程
+    except BaseException as exc:  # noqa: BLE001 - return full details to the parent process
         print(
             json.dumps(
                 {

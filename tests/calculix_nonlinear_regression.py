@@ -1,4 +1,4 @@
-"""@brief CalculiX 2.23 几何非线性、塑性和面接触真机回归。"""
+"""@brief CalculiX 2.23 real-solver regression for geometric nonlinearity, plasticity, and surface contact."""
 from __future__ import annotations
 
 import argparse
@@ -14,7 +14,7 @@ from scripts.fea_analysis import run_analysis
 
 
 def _block_nodes(z0: float, z1: float, first_id: int) -> list[dict]:
-    """@brief 返回 10x10 mm 方柱的八个 C3D8 节点。"""
+    """@brief Return eight C3D8 nodes for a column with a 10x10 mm square cross-section."""
     points = [
         (0, 0, z0), (10, 0, z0), (10, 10, z0), (0, 10, z0),
         (0, 0, z1), (10, 0, z1), (10, 10, z1), (0, 10, z1),
@@ -26,7 +26,7 @@ def _block_nodes(z0: float, z1: float, first_id: int) -> list[dict]:
 
 
 def _single_block(analysis_id: str, *, plastic: bool) -> dict:
-    """@brief 构造受轴向压力的单块 NLGEOM/塑性样件。"""
+    """@brief Build a single-block NLGEOM/plasticity specimen under axial compression."""
     material = {"name": "Steel", "elasticModulusMPa": 210000, "poissonRatio": 0.3, "densityKgM3": 7850}
     if plastic:
         material["plasticCurve"] = [
@@ -54,7 +54,7 @@ def _single_block(analysis_id: str, *, plastic: bool) -> dict:
 
 
 def _contact_blocks() -> dict:
-    """@brief 构造共面接触的上下两块 C3D8 实体。"""
+    """@brief Build upper and lower C3D8 solids with coplanar contact."""
     nodes = _block_nodes(0, 10, 1) + _block_nodes(10, 20, 9)
     return {
         "schemaVersion": "1.1", "analysisId": "two_block_contact",
@@ -95,7 +95,7 @@ def _contact_blocks() -> dict:
 
 
 def run_regression(output_dir: Path) -> dict:
-    """@brief 顺序执行三项真实求解并强制检查证据。"""
+    """@brief Execute three real solves sequentially and require complete evidence."""
     cases = [
         ("geometric_nonlinear", _single_block("geometric_nonlinear", plastic=False)),
         ("material_plasticity", _single_block("material_plasticity", plastic=True)),
@@ -105,10 +105,10 @@ def run_regression(output_dir: Path) -> dict:
     for capability, request in cases:
         result = run_analysis(request, output_dir, timeout_seconds=180)
         if result.get("status") != "review_required":
-            raise RuntimeError(f"{capability} 回归失败: {result}")
+            raise RuntimeError(f"{capability} regression failed: {result}")
         evidence = result.get("resultEvidence", {}).get("summary", {})
         if not evidence.get("resultTerminated") or evidence.get("maximumDisplacementMm") is None:
-            raise RuntimeError(f"{capability} 缺少完整结果证据。")
+            raise RuntimeError(f"{capability} lacks complete result evidence.")
         results.append({
             "capability": capability,
             "analysisId": request["analysisId"],
@@ -121,15 +121,15 @@ def run_regression(output_dir: Path) -> dict:
     target = output_dir.resolve() / "nonlinear_regression_report.json"
     target.parent.mkdir(parents=True, exist_ok=True)
     if target.exists():
-        raise FileExistsError(f"拒绝覆盖已有回归报告: {target}")
+        raise FileExistsError(f"Refusing to overwrite an existing regression report: {target}")
     target.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
     report["reportPath"] = str(target)
     return report
 
 
 def main() -> int:
-    """@brief 命令行入口。"""
-    parser = argparse.ArgumentParser(description="CalculiX 非线性与接触真机回归")
+    '@brief Command-line entry point.'
+    parser = argparse.ArgumentParser(description="CalculiX nonlinear/contact real-solver regression")
     parser.add_argument("--output-dir", type=Path, required=True)
     args = parser.parse_args()
     print(json.dumps(run_regression(args.output_dir), ensure_ascii=False, indent=2))

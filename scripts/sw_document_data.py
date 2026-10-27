@@ -1,7 +1,6 @@
-"""SolidWorks 参数与自定义属性操作。
+"""SOLIDWORKS dimension and custom-property operations.
 
-本模块只封装已由 SolidWorks 2024 Interop 和官方 API Help 核对的接口：
-``IDimension.SetSystemValue3`` 与 ``ICustomPropertyManager.Add3/Get6``。
+Wrap only interfaces checked against SOLIDWORKS 2024 Interop and official API Help: IDimension.SetSystemValue3 and ICustomPropertyManager.Add3/Get6.
 """
 from __future__ import annotations
 
@@ -41,21 +40,21 @@ SET_VALUE_STATUS = {
 
 
 def _configuration_names(model) -> list[str]:
-    """返回文档配置名，兼容 COM 返回 tuple/list/None。"""
+    """Return document configuration names, supporting COM tuple/list/None results."""
     names = get_com_member(model, "GetConfigurationNames")
     return [str(name) for name in (names or [])]
 
 
 def _resolve_configuration_name(names: Sequence[str], requested: str) -> str | None:
-    """@brief 按 SolidWorks 配置名不区分大小写语义返回实际名称。"""
+    """@brief Return the actual configuration name using SOLIDWORKS case-insensitive matching."""
     matches = [str(name) for name in names if str(name).casefold() == requested.casefold()]
     if len(matches) > 1:
-        raise RuntimeError(f"配置名大小写匹配不唯一: {requested}")
+        raise RuntimeError(f"Konfigürasyon adı büyük/küçük harf eşleşmesi tekil değil: {requested}")
     return matches[0] if matches else None
 
 
 def _active_configuration_name(model) -> str:
-    """@brief 返回当前活动配置名；接口不可用时返回空字符串。"""
+    """@brief Return the active configuration name, or an empty string when unavailable."""
     try:
         manager = get_com_member(model, "ConfigurationManager")
         active = get_com_member(manager, "ActiveConfiguration")
@@ -65,7 +64,7 @@ def _active_configuration_name(model) -> str:
 
 
 def inspect_configurations(model) -> dict[str, Any]:
-    """@brief 读取配置族清单并返回当前配置，配置修改仍需人工复核。"""
+    """@brief Read the configuration-family inventory and current configuration; changes still require manual review."""
     names = _configuration_names(model)
     current = _active_configuration_name(model)
     return {
@@ -73,7 +72,7 @@ def inspect_configurations(model) -> dict[str, Any]:
         "configurations": names,
         "active_configuration": current,
         "review_required": True,
-        "limitations": ["未执行设计表创建/编辑和大型配置族批量变更", "配置间尺寸、属性、抑制状态和几何差异仍需人工复核"],
+        "limitations": ["Design table oluşturma/düzenleme veya büyük konfigürasyon ailesi toplu değişikliği yapılmadı", "Konfigürasyonlar arasındaki ölçü, özellik, suppression ve geometri farkları elle incelenmeli"],
     }
 
 
@@ -84,14 +83,14 @@ def activate_configuration(
     rebuild: bool = True,
     save: bool = False,
 ) -> dict[str, Any]:
-    """@brief 激活现有配置并通过活动配置名回读验证。"""
+    """@brief Activate an existing configuration and verify by reading its active name."""
     requested_name = str(configuration_name).strip()
     if not requested_name:
-        raise ValueError("configuration_name 不能为空")
+        raise ValueError("configuration_name boş olamaz")
     names = _configuration_names(model)
     name = _resolve_configuration_name(names, requested_name)
     if name is None:
-        raise LookupError(f"找不到配置: {requested_name}")
+        raise LookupError(f"Konfigürasyon bulunamadı: {requested_name}")
 
     before = _active_configuration_name(model)
     api_called = before != name
@@ -131,25 +130,24 @@ def create_configuration(
     rebuild: bool = True,
     save: bool = False,
 ) -> dict[str, Any]:
-    """@brief 使用 AddConfiguration3 创建配置，并校验清单及活动配置回读。
+    """@brief Create a configuration using AddConfiguration3 and verify inventory and active-name readback.
 
-    ``options`` 对应官方 ``swConfigurationOptions2_e`` 位掩码。默认值 0 保持
-    SolidWorks 默认行为；非零值必须由调用者基于目标版本枚举显式提供。
+    options is the official swConfigurationOptions2_e bitmask. Default 0 preserves SOLIDWORKS behavior; callers must explicitly select nonzero values from the target-version enum.
     """
     requested_name = str(configuration_name).strip()
     if not requested_name:
-        raise ValueError("configuration_name 不能为空")
+        raise ValueError("configuration_name boş olamaz")
     if if_exists not in {"reuse", "error"}:
-        raise ValueError("if_exists 只支持 reuse 或 error")
+        raise ValueError("if_exists yalnızca reuse veya error destekler")
     if int(options) < 0:
-        raise ValueError("options 不能为负数")
+        raise ValueError("options negatif olamaz")
 
     before_names = _configuration_names(model)
     existing_name = _resolve_configuration_name(before_names, requested_name)
     existed = existing_name is not None
     name = existing_name or requested_name
     if existed and if_exists == "error":
-        raise FileExistsError(f"配置已存在: {name}")
+        raise FileExistsError(f"Konfigürasyon zaten var: {name}")
 
     created = None if existed else get_com_member(
         model,
@@ -160,7 +158,7 @@ def create_configuration(
         int(options),
     )
     if not existed and created is None:
-        raise RuntimeError(f"AddConfiguration3 未返回配置对象: {name}")
+        raise RuntimeError(f"AddConfiguration3 konfigürasyon nesnesi döndürmedi: {name}")
 
     after_names = _configuration_names(model)
     listed_name = _resolve_configuration_name(after_names, name)
@@ -198,7 +196,7 @@ def create_configuration(
 
 
 def _dimension_value_mm(dimension, configuration_name: str | None = None) -> float:
-    """读取尺寸系统值并转为毫米。"""
+    """Read a dimension system value and convert it to millimeters."""
     if configuration_name:
         return float(dimension.GetSystemValue2(configuration_name)) * 1000.0
     return float(get_com_member(dimension, "SystemValue")) * 1000.0
@@ -214,25 +212,24 @@ def update_dimension_mm(
     rebuild: bool = True,
     save: bool = False,
 ) -> dict[str, Any]:
-    """修改命名尺寸并返回可审计证据。
+    """Update a named dimension and return auditable evidence.
 
-    ``configuration_mode`` 支持 ``current``、``all``、``specific``；specific
-    必须提供配置名。SolidWorks API 内部单位为米。
+    configuration_mode supports current, all, and specific; specific requires configuration names. SOLIDWORKS internal API lengths are meters.
     """
     if not dimension_name.strip():
-        raise ValueError("dimension_name 不能为空")
+        raise ValueError("dimension_name boş olamaz")
     if value_mm <= 0:
-        raise ValueError("value_mm 必须大于 0")
+        raise ValueError("value_mm sıfırdan büyük olmalı")
     if configuration_mode not in SET_VALUE_MODES:
-        raise ValueError(f"不支持的配置范围: {configuration_mode}")
+        raise ValueError(f"Desteklenmeyen konfigürasyon kapsamı: {configuration_mode}")
 
     dimension = model.Parameter(dimension_name)
     if dimension is None:
-        raise LookupError(f"找不到尺寸: {dimension_name}")
+        raise LookupError(f"Ölçü bulunamadı: {dimension_name}")
 
     requested_names = [str(name).strip() for name in (configuration_names or []) if str(name).strip()]
     if configuration_mode == "specific" and not requested_names:
-        raise ValueError("specific 模式必须提供 configuration_names")
+        raise ValueError("specific modu configuration_names gerektirir")
     if configuration_mode == "all":
         evidence_names = _configuration_names(model)
     elif configuration_mode == "specific":
@@ -288,13 +285,13 @@ def update_dimension_mm(
 def _property_manager(model, configuration_name: str = ""):
     manager = model.Extension.CustomPropertyManager(configuration_name)
     if manager is None:
-        scope = configuration_name or "文件级"
-        raise RuntimeError(f"无法取得 {scope} 自定义属性管理器")
+        scope = configuration_name or "Dosya düzeyi"
+        raise RuntimeError(f"Alınamadı: {scope} custom property manager")
     return manager
 
 
 def read_custom_property(model, name: str, *, configuration_name: str = "") -> dict[str, Any]:
-    """读取一个文件级或配置级自定义属性。"""
+    """Read a file-level or configuration-level custom property."""
     manager = _property_manager(model, configuration_name)
     raw_value = VARIANT(pythoncom.VT_BYREF | pythoncom.VT_BSTR, "")
     resolved_value = VARIANT(pythoncom.VT_BYREF | pythoncom.VT_BSTR, "")
@@ -321,17 +318,17 @@ def set_custom_properties(
     property_type: str = "text",
     save: bool = False,
 ) -> dict[str, Any]:
-    """写入文件级或配置级属性，并逐项回读验证。"""
+    """Write file-level or configuration-level properties and verify each by readback."""
     if not properties:
-        raise ValueError("properties 不能为空")
+        raise ValueError("properties boş olamaz")
     if property_type not in PROPERTY_TYPES:
-        raise ValueError(f"不支持的属性类型: {property_type}")
+        raise ValueError(f"Desteklenmeyen özellik türü: {property_type}")
     manager = _property_manager(model, configuration_name)
     results = []
     for raw_name, raw_value in properties.items():
         name = str(raw_name).strip()
         if not name:
-            raise ValueError("属性名不能为空")
+            raise ValueError("Özellik adı boş olamaz")
         value = str(raw_value)
         add_status = int(manager.Add3(name, PROPERTY_TYPES[property_type], value, 2))
         readback = read_custom_property(model, name, configuration_name=configuration_name)

@@ -62,7 +62,7 @@ def test_dotnet_preflight_marks_complete_runtime_evidence_as_pilot(monkeypatch, 
 
 
 def test_dotnet_preflight_verifies_three_consecutive_runtime_runs(monkeypatch, tmp_path):
-    """@brief 最近三次报告及产物哈希均有效时升级 verified。"""
+    """@brief Promote to verified when the latest three reports and artifact hashes are valid."""
     monkeypatch.setattr(_MODULE, "discover_installation", lambda _product: {"installed": True, "executable": r"D:\AutoCAD 2024\acad.exe"})
     monkeypatch.setattr(_MODULE, "_sdk_info", lambda: {"dotnet": "dotnet", "sdk_versions": ["8.0.423"], "msbuild": None})
     monkeypatch.setattr(_MODULE, "_find_managed_api", lambda _installation: [
@@ -87,7 +87,7 @@ def test_dotnet_preflight_verifies_three_consecutive_runtime_runs(monkeypatch, t
 
 
 def test_dotnet_preflight_latest_failed_run_breaks_verified_history(monkeypatch, tmp_path):
-    """@brief 最近一次真机失败必须立即打断历史 verified。"""
+    """@brief The latest real-machine failure must immediately interrupt historical verified status."""
     monkeypatch.setattr(_MODULE, "discover_installation", lambda _product: {"installed": True, "executable": r"D:\AutoCAD 2024\acad.exe"})
     monkeypatch.setattr(_MODULE, "_sdk_info", lambda: {"dotnet": "dotnet", "sdk_versions": ["8.0.423"], "msbuild": None})
     monkeypatch.setattr(_MODULE, "_find_managed_api", lambda _installation: [

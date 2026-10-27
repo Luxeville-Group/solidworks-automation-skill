@@ -1,4 +1,4 @@
-"""原生扫描输入的拒绝边界；不启动 CAD。"""
+'Native scan-input rejection boundaries without starting CAD.'
 import unittest
 from pydantic import ValidationError
 from scripts.sw_native_wire import BuildSpec, Sweep, Box, Target

@@ -104,59 +104,59 @@ const ANIME_SKY_WALLPAPER_URL = new URL("./assets/wallpaper-anime-sky.webp", imp
 const TOKYO_NEON_WALLPAPER_URL = new URL("./assets/wallpaper-tokyo-neon.webp", import.meta.url).href;
 
 const wallpapers: Array<{ id: PresetWallpaperId; name: string; hint: string; assetUrl?: string; credit?: string }> = [
-  { id: "blossom", name: "樱影", hint: "内置动态壁纸" },
-  { id: "fuji", name: "富士暮色", hint: "CC0 · Alpsdake", assetUrl: FUJI_WALLPAPER_URL, credit: "Alpsdake · CC0" },
-  { id: "anime-sky", name: "青空原野", hint: "CC BY-SA · mendhak", assetUrl: ANIME_SKY_WALLPAPER_URL, credit: "mendhak · CC BY-SA 4.0" },
-  { id: "tokyo-neon", name: "东京霓虹", hint: "CC BY-SA · Basile Morin", assetUrl: TOKYO_NEON_WALLPAPER_URL, credit: "Basile Morin · CC BY-SA 4.0" },
-  { id: "blueprint", name: "Blueprint", hint: "淡蓝工程网格" },
-  { id: "studio", name: "Studio", hint: "白色摄影棚光" },
-  { id: "mist", name: "Mist", hint: "晨雾玻璃质感" },
+  { id: "blossom", name: "Kiraz Gölgesi", hint: "Yerleşik hareketli duvar kâğıdı" },
+  { id: "fuji", name: "Fuji Alacakaranlığı", hint: "CC0 · Alpsdake", assetUrl: FUJI_WALLPAPER_URL, credit: "Alpsdake · CC0" },
+  { id: "anime-sky", name: "Mavi Gökyüzü", hint: "CC BY-SA · mendhak", assetUrl: ANIME_SKY_WALLPAPER_URL, credit: "mendhak · CC BY-SA 4.0" },
+  { id: "tokyo-neon", name: "Tokyo Neon", hint: "CC BY-SA · Basile Morin", assetUrl: TOKYO_NEON_WALLPAPER_URL, credit: "Basile Morin · CC BY-SA 4.0" },
+  { id: "blueprint", name: "Blueprint", hint: "Açık mavi mühendislik ızgarası" },
+  { id: "studio", name: "Studio", hint: "Beyaz stüdyo ışığı" },
+  { id: "mist", name: "Mist", hint: "Sabah sisi cam dokusu" },
 ];
 
 const navItems = [
-  ["project", "01 总览", Layout],
-  ["model", "02 建模", CubeFocus],
-  ["holes", "03 特征", Ruler],
-  ["drawing", "04 图纸", FilePlus],
-  ["check", "05 复核", ShieldCheck],
-  ["export", "06 交付", Export],
-  ["settings", "设置", GearSix],
-  ["help", "帮助", Question],
+  ["project", "01 Genel bakış", Layout],
+  ["model", "02 Modelleme", CubeFocus],
+  ["holes", "03 Özellik (feature)", Ruler],
+  ["drawing", "04 Çizim", FilePlus],
+  ["check", "05 İncele", ShieldCheck],
+  ["export", "06 Teslim", Export],
+  ["settings", "Ayarlar", GearSix],
+  ["help", "Yardım", Question],
 ] as const;
 type ActiveTab = (typeof navItems)[number][0];
 
 const pageCopy: Record<ActiveTab, { title: string; subtitle: string }> = {
   project: {
-    title: "项目工作台",
-    subtitle: "拖入草图、参数表或模型文件，把零件、装配、外壳、治具、钣金、图纸和交付包交给本地 CAD Agent 流程处理。",
+    title: "Proje çalışma alanı",
+    subtitle: "Eskiz, parametre tablosu veya model dosyalarını sürükleyin; parça, montaj, muhafaza, fikstür, sac, çizim ve teslim görevlerini yerel CAD Agent ile yürütün.",
   },
   model: {
-    title: "建模中心",
-    subtitle: "从通用零件、装配体、治具夹具、钣金件、外壳、逆向重建等模板发起任务，不再局限于单一外壳。",
+    title: "Modelleme merkezi",
+    subtitle: "Genel parçalar, montajlar, fikstürler, sac parçalar, muhafazalar ve tersine modelleme şablonlarından görev başlatın.",
   },
   holes: {
-    title: "孔槽与连接",
-    subtitle: "管理通孔、沉头孔、螺纹孔、长圆孔、接口开槽、阵列孔和装配定位特征，要求真实几何切除。",
+    title: "Delikler, kanallar ve bağlantılar",
+    subtitle: "Geçişli, havşalı ve dişli delikleri, oval kanalları, arayüz açıklıklarını, delik dizilerini ve montaj konumlama özelliklerini gerçek malzeme kesimiyle yönetin.",
   },
   drawing: {
-    title: "图纸工程",
-    subtitle: "面向中国机械工程师的 GB/T 风格图纸、尺寸链、孔表、技术要求、标题栏和 DWG/DXF/PDF 输出。",
+    title: "Çizim merkezi",
+    subtitle: "GB/T teknik resimleri, ölçü zincirleri, delik tabloları, teknik koşullar, antet ve DWG/DXF/PDF çıktıları.",
   },
   check: {
-    title: "检查门禁",
-    subtitle: "汇总 Policy Gate、Artifact Ledger、Reviewer Gate、格式检查和 3D 打印/CNC/钣金制造风险。",
+    title: "Kontrol noktaları",
+    subtitle: "Policy Gate, Artifact Ledger, Reviewer Gate, biçim kontrolleri ve 3D baskı/CNC/sac üretim risklerini inceleyin.",
   },
   export: {
-    title: "交付中心",
-    subtitle: "整理 SLDPRT、SLDASM、STEP、STL、DWG、DXF、PDF、PNG 预览、复核报告和 Git 交付记录。",
+    title: "Teslim merkezi",
+    subtitle: "SLDPRT, SLDASM, STEP, STL, DWG, DXF, PDF, PNG önizlemelerini, inceleme raporlarını ve Git teslim kayıtlarını düzenleyin.",
   },
   settings: {
-    title: "软件设置",
-    subtitle: "管理本地 Agent、CC Switch 模型路由、审批策略、壁纸外观、默认规范库和输出目录。",
+    title: "Uygulama ayarları",
+    subtitle: "Yerel Agent, CC Switch model yönlendirmesi, onay politikası, duvar kâğıdı, varsayılan standartlar ve çıktı klasörünü yönetin.",
   },
   help: {
-    title: "使用帮助",
-    subtitle: "从环境准备、AI 选择到建模、复核和交付的完整操作路径。",
+    title: "Kullanım yardımı",
+    subtitle: "Ortam hazırlığından, AI  seçiminden modelleme, inceleme ve teslime kadar tam iş akışı.",
   },
 };
 
@@ -167,10 +167,10 @@ const CONVERSATIONS_KEY = "cad-studio.agent-conversations.v1";
 const APP_VERSION = "0.3.4";
 const LEGACY_CONVERSATION_ID = "conversation-legacy";
 const manualReviewOptions = [
-  ["native-open", "已用目标 CAD 软件原生打开并确认无报错"],
-  ["dimensions", "已核对关键尺寸、公差、基准和定位尺寸"],
-  ["features", "已核对孔槽、螺纹、装配和真实几何特征"],
-  ["artifacts", "已核对本轮交付文件、格式、路径和版本"],
+  ["native-open", "Dosya hedef CAD uygulamasında açıldı ve hata olmadığı doğrulandı"],
+  ["dimensions", "Kritik ölçüler, toleranslar, datum ve konum ölçüleri kontrol edildi"],
+  ["features", "Delik, kanal, diş, montaj ve gerçek geometrik özellikler kontrol edildi"],
+  ["artifacts", "Bu yürütmenin teslim dosyaları, biçimleri, yolları ve sürümleri kontrol edildi"],
 ] as const;
 const helpTopics: Array<{
   id: HelpTopicId;
@@ -181,65 +181,65 @@ const helpTopics: Array<{
 }> = [
   {
     id: "start",
-    label: "快速开始",
-    title: "从需求到第一次执行",
-    summary: "先确认环境，再选择模板或直接输入需求。模板只负责填写配置，只有点击执行才会创建任务。",
+    label: "Hızlı başlangıç",
+    title: "Gereksinimlerden ilk yürütmeye",
+    summary: "Önce ortamı doğrulayın, ardından şablon seçin veya gereksinimleri girin. Şablon yalnızca ayarları doldurur; görev ancak Yürüt seçildiğinde oluşturulur.",
     items: [
-      { title: "检查环境", detail: "在设置页确认 Python、Agent CLI，以及需要使用的 SolidWorks 或 AutoCAD。" },
-      { title: "准备需求", detail: "写清用途、关键尺寸、材料、工艺和输出格式；安全参数和装配接口不要交给 AI 猜测。" },
-      { title: "选择模板", detail: "建模、孔槽和图纸卡片用于预填任务类型。检查下方配置后，再点击执行按钮。" },
-      { title: "批准与执行", detail: "桌面 CAD、全权限或跨目录访问会进入审批；批准后由本地 Worker 执行。" },
+      { title: "Ortamı kontrol et", detail: "Ayarlar bölümünden Python, Agent CLI ve kullanılacak SolidWorks veya AutoCAD ortamını doğrulayın." },
+      { title: "Gereksinimleri hazırlama", detail: "Kullanımı, kritik ölçüleri, malzemeyi, üretim yöntemini ve çıktı biçimini belirtin. Güvenlik parametrelerini ve montaj arayüzlerini AI tahminine bırakmayın." },
+      { title: "Şablon seç", detail: "Modelleme, delik/kanal ve çizim kartları görev türünü doldurur. Aşağıdaki ayarları kontrol edip Yürüt düğmesini seçin." },
+      { title: "Onay ve yürütme", detail: "Masaüstü CAD, tam yetki veya klasörler arası erişim onay gerektirir. Onaydan sonra yerel worker görevi yürütür." },
     ],
   },
   {
     id: "projects",
-    label: "项目与任务",
-    title: "管理左侧任务历史",
-    summary: "项目、任务和 AI 对话都保存在本机并相互隔离。切换项目后，只显示该项目的任务与对话。",
+    label: "Projeler ve görevler",
+    title: "Soldaki görev geçmişini yönetme",
+    summary: "Proje, görevler ve  AI  konuşmaları yerelde ve birbirinden ayrı saklanır. Proje değiştirildiğinde yalnızca o projenin görevleri ve konuşmaları gösterilir.",
     items: [
-      { title: "切换与删除项目", detail: "点击左上角项目名切换或新建项目；垃圾桶需要二次确认，活动任务未取消时不能删除项目。" },
-      { title: "新建任务", detail: "新建任务只打开配置区，不会自动执行，也不会污染任务历史。" },
-      { title: "独立 AI 对话", detail: "在 AI 对话标题栏切换或新建对话。每段对话保留自己的上下文、Agent 公司和模型选择。" },
-      { title: "模型与公司", detail: "OpenAI Codex、Anthropic Claude Code、Google Gemini CLI 和 OpenCode 分开标注；CC Switch 中的真实模型会自动加入选择列表。" },
-      { title: "运行中任务", detail: "执行中的任务需要先取消，待状态变为已取消后才能删除。" },
+      { title: "Projeyi değiştir veya sil", detail: "Proje değiştirmek veya oluşturmak için sol üstteki proje adını seçin. Silme ikinci onay gerektirir; etkin görevler iptal edilmeden proje silinemez." },
+      { title: "Yeni görev", detail: "Yeni görev yalnızca ayar bölümünü açar; otomatik yürütmez ve görev geçmişine kayıt eklemez." },
+      { title: "Bağımsız AI Konuşma", detail: "AI konuşma başlığından konuşma değiştirin veya oluşturun. Her konuşma kendi bağlamını, Agent sağlayıcısını ve model seçimini korur." },
+      { title: "Model ve sağlayıcı", detail: "OpenAI Codex, Anthropic Claude Code, Google Gemini CLI  ve  OpenCode  ayrı gösterilir; CC Switch  içindeki gerçek modeller seçim listesine otomatik eklenir." },
+      { title: "Çalışan görevler", detail: "Çalışan görev önce iptal edilmelidir; durum İptal edildi olduğunda silinebilir." },
     ],
   },
   {
     id: "status",
-    label: "状态说明",
-    title: "理解任务状态",
-    summary: "侧边栏强调是否已经产出结果，任务监视器保留更严格的审批、复核和错误状态。",
+    label: "Durum açıklamaları",
+    title: "Görev durumlarını anlama",
+    summary: "Kenar çubuğu çıktı üretilip üretilmediğini gösterir; görev izleyici onay, inceleme ve hata durumlarını ayrıntılı korur.",
     items: [
-      { title: "排队 / 执行中", detail: "任务已进入本地队列，或已被 Worker 领取。长时间无心跳可重启执行器。" },
-      { title: "待审批", detail: "任务请求桌面 CAD、全权限、网络或跨目录能力，需要用户明确批准。" },
-      { title: "已完成", detail: "任务已经生成结果和交付物；若存在工程警告，任务详情仍会要求人工确认。" },
-      { title: "失败 / 已取消", detail: "失败任务可以重新执行；取消任务不会自动删除其历史记录。" },
+      { title: "Sırada / Çalışıyor", detail: "Görev yerel kuyruğa alındı veya  Worker  tarafından alındı. Uzun süre heartbeat yoksa yürütücüyü yeniden başlatın." },
+      { title: "Onay bekliyor", detail: "Görev masaüstü erişimi istiyor:  CAD,  tam yetki, ağ veya klasörler arası erişim için açık kullanıcı onayı gerekir." },
+      { title: "Tamamlandı", detail: "Görev sonuçları ve teslim dosyaları üretildi. Mühendislik uyarıları varsa görev ayrıntıları hâlâ insan onayı ister." },
+      { title: "Başarısız / İptal edildi", detail: "Başarısız görevler yeniden çalıştırılabilir; iptal etmek geçmiş kaydını otomatik silmez." },
     ],
   },
   {
     id: "delivery",
-    label: "复核与交付",
-    title: "确认文件可以交付",
-    summary: "生成文件不等于制造验收。关键尺寸、孔槽、装配和工程图仍要在目标 CAD 软件中复核。",
+    label: "İnceleme ve teslim",
+    title: "Dosyaların teslim edilebilirliğini doğrulayın",
+    summary: "Dosya üretmek üretim kabulü değildir. Kritik ölçüleri, delikleri, kanalları, montajı ve çizimleri hedef CAD uygulamasında inceleyin.",
     items: [
-      { title: "检查产物", detail: "确认 STEP、STL、SLDPRT、DWG、DXF 或 PDF 路径、大小和本轮生成标记。" },
-      { title: "查看交付门禁", detail: "交付中心统一显示可交付、待人工复核、阻断或证据不完整；侧栏的已完成只代表任务已产生结果。" },
-      { title: "原生打开", detail: "用 SolidWorks 或 AutoCAD 打开文件，确认无修复提示、缺失引用或版本异常。" },
-      { title: "核对几何", detail: "检查包络尺寸、孔径、孔位、壁厚、螺纹、装配干涉以及制造方向。" },
-      { title: "局部重新生成", detail: "失败或待复核任务会显示重跑起点，只重做该阶段及后继；旧产物、错误和复核证据继续保留在版本记录中。" },
-      { title: "完成复核", detail: "在复核页勾选真实完成的检查项并填写说明，记录会写入本地任务元数据。" },
+      { title: "Çıktıları kontrol et", detail: "STEP, STL, SLDPRT, DWG, DXF veya PDF dosyalarının yolunu, boyutunu ve bu yürütmede üretildiğini doğrulayın." },
+      { title: "Teslim kontrolünü görüntüle", detail: "Teslim merkezi teslim edilebilir, insan incelemesi bekliyor, engellendi veya kanıt eksik durumlarını gösterir. Kenar çubuğundaki tamamlandı durumu yalnızca çıktı üretildiğini belirtir." },
+      { title: "Özgün uygulamada aç", detail: "Dosyayı SolidWorks veya AutoCAD ile açın; onarım uyarısı, eksik referans veya sürüm sorunu olmadığını doğrulayın." },
+      { title: "Geometriyi kontrol et", detail: "Dış ölçüleri, delik çap ve konumlarını, duvar kalınlığını, dişleri, montaj çakışmalarını ve üretim yönünü kontrol edin." },
+      { title: "Kısmi yeniden üretim", detail: "Başarısız veya inceleme bekleyen görevler yeniden başlama aşamasını gösterir. Yalnızca o aşama ve devamı tekrarlanır; eski çıktılar, hatalar ve inceleme kanıtları sürüm geçmişinde korunur." },
+      { title: "İncelemeyi tamamla", detail: "İnceleme sayfasında gerçekten tamamlanan kontrolleri işaretleyip açıklama yazın; kayıt yerel görev meta verisine eklenir." },
     ],
   },
   {
     id: "troubleshooting",
-    label: "故障处理",
-    title: "常见问题排查",
-    summary: "先看任务卡片错误、Worker 心跳和 Agent 输出，再决定重新执行或重启执行器。",
+    label: "Sorun giderme",
+    title: "Sık karşılaşılan sorunlar",
+    summary: "Önce görev kartındaki hataları, worker heartbeat durumunu ve Agent çıktısını inceleyin; ardından yeniden çalıştırmaya veya yürütücüyü yeniden başlatmaya karar verin.",
     items: [
-      { title: "点击后停顿", detail: "等待按钮会立即显示当前阶段。首次环境检测可能较慢，之后使用缓存结果。" },
-      { title: "Worker 无心跳", detail: "点击重启执行器。运行中的任务会先恢复到队列，再由新 Worker 接管。" },
-      { title: "Windows 拒绝访问", detail: "关闭重复运行的 CAD Studio/Worker 后重试；队列写入会自动进行短时退避。" },
-      { title: "任务失败", detail: "展开任务查看错误和日志，修正输入或环境后点击重新执行。" },
+      { title: "Tıklamadan sonra bekleme", detail: "Bekleme düğmesi mevcut aşamayı hemen gösterir. İlk ortam denetimi yavaş olabilir; sonraki denetimler önbelleği kullanır." },
+      { title: "Worker Heartbeat yok", detail: "Yürütücüyü yeniden başlatın. Çalışan görevler önce sıraya döner; yeni worker bunları devralır." },
+      { title: "Windows Erişim reddedildi", detail: "Yinelenen CAD Studio/worker örneklerini kapatıp yeniden deneyin. Kuyruk yazmaları kısa beklemelerle yeniden denenir." },
+      { title: "Görev başarısız", detail: "Hatayı ve günlükleri görmek için görevi genişletin; girdileri veya ortamı düzeltip yeniden çalıştırın." },
     ],
   },
 ];
@@ -247,8 +247,8 @@ const defaultApiConfig: ApiIntegrationConfig = {
   mode: "codex_cli",
   agentProvider: "codex",
   providerName: "Codex CLI",
-  endpoint: "本机 Codex 登录态",
-  model: "由 Codex 配置决定",
+  endpoint: "Yerel Codex oturum bilgisi",
+  model: "Codex ayarlarını kullan",
   keyStatus: "configured",
 };
 const agentProviderCatalog: Record<AgentProviderId, { name: string; company: string; protocol: string; model: string; models: Array<{ value: string; label: string }> }> = {
@@ -256,16 +256,16 @@ const agentProviderCatalog: Record<AgentProviderId, { name: string; company: str
     name: "Codex",
     company: "OpenAI",
     protocol: "codex-exec-v1",
-    model: "跟随 Codex 配置",
+    model: "Codex ayarlarını kullan",
     models: [
       { value: "gpt-5.5", label: "GPT-5.5" },
       { value: "gpt-5.6-sol", label: "GPT-5.6 Sol" },
       { value: "gpt-5.6-terra", label: "GPT-5.6 Terra" },
     ],
   },
-  claude: { name: "Claude Code", company: "Anthropic", protocol: "claude-print-v1", model: "跟随 Claude 配置", models: [] },
-  gemini: { name: "Gemini CLI", company: "Google", protocol: "gemini-headless-v1", model: "跟随 Gemini 配置", models: [] },
-  opencode: { name: "OpenCode", company: "多供应商", protocol: "opencode-jsonl-v1", model: "跟随 OpenCode 配置", models: [] },
+  claude: { name: "Claude Code", company: "Anthropic", protocol: "claude-print-v1", model: "Claude ayarlarını kullan", models: [] },
+  gemini: { name: "Gemini CLI", company: "Google", protocol: "gemini-headless-v1", model: "Gemini ayarlarını kullan", models: [] },
+  opencode: { name: "OpenCode", company: "Birden fazla sağlayıcı", protocol: "opencode-jsonl-v1", model: "OpenCode ayarlarını kullan", models: [] },
 };
 
 function ccSwitchProvidersForAgent(sync: CcSwitchSync | null, agentProvider: AgentProviderId) {
@@ -289,10 +289,10 @@ const wallpaperShots = [
   { x: -1, y: 2.5, scale: 1.09 },
 ];
 const wallpaperMotionLabels: Record<WallpaperMotionMode, string> = {
-  still: "静止",
-  breathe: "呼吸",
-  cinematic: "电影镜头",
-  follow: "跟随指针",
+  still: "Durağan",
+  breathe: "Nefes",
+  cinematic: "Sinematik kamera",
+  follow: "İşaretçiyi izle",
 };
 const defaultKnowledgeBase: KnowledgeBaseConfig = {
   cloudEnabled: false,
@@ -304,31 +304,31 @@ const defaultKnowledgeBase: KnowledgeBaseConfig = {
 };
 
 const cadApplicationLabels: Record<CodexConfig["cadApplication"], string> = {
-  auto: "AI 自动选软件",
-  solidworks: "SolidWorks 三维建模",
-  autocad: "AutoCAD 二维图纸",
-  both: "SolidWorks + AutoCAD 联动",
+  auto: "AI uygulamayı seçsin",
+  solidworks: "SolidWorks 3B modelleme",
+  autocad: "AutoCAD 2B çizim",
+  both: "SolidWorks + AutoCAD Birlikte kullanım",
 };
 
 const cadApplicationRoutes: Record<CodexConfig["cadApplication"], string> = {
-  auto: "AI 根据任务自动选择: 三维实体/装配/开孔优先 SolidWorks；DWG/DXF/PDF、国标图纸和批量改图优先 AutoCAD；交付包可联动两者。",
-  solidworks: "必须优先调用本机 SolidWorks，通过 solidworks-automation 的 Python COM 封装完成三维建模、装配、真实开孔、STEP/STL/SLDPRT 导出和预览复核。",
-  autocad: "必须优先调用本机 AutoCAD，通过 autocad-automation 的 Python COM/ActiveX 封装完成 DWG/DXF/PDF 二维绘图、图层、尺寸标注、图框标题栏和原生预览复核。",
-  both: "先用 SolidWorks 完成三维实体、装配、开孔和 STEP/STL；再用 AutoCAD 完成 DWG/DXF/PDF 工程图、孔槽定位尺寸、标题栏和图纸复核。",
+  auto: "AI göreve göre uygulamayı seçer: 3B katı, montaj ve delik için SolidWorks; DWG/DXF/PDF, GB/T teknik resimleri ve toplu çizim düzenlemeleri için AutoCAD önceliklidir. Teslim paketinde ikisi birlikte kullanılabilir.",
+  solidworks: "Yerel SolidWorks uygulamasını kullanın. solidworks-automation Python COM wrapper üzerinden 3B modelleme, montaj, gerçek delik açma, STEP/STL/SLDPRT dışa aktarma ve önizleme incelemesini yürütün.",
+  autocad: "Yerel AutoCAD uygulamasını kullanın. autocad-automation Python COM/ActiveX wrapper üzerinden DWG/DXF/PDF çizimlerini, katmanları, ölçülendirmeyi, çerçeve/anteti ve uygulama içi önizleme incelemesini tamamlayın.",
+  both: "Önce SolidWorks ile 3B katı, montaj, delik ve STEP/STL çıktıları oluşturun. Ardından AutoCAD ile DWG/DXF/PDF teknik resimlerini, delik/kanal konum ölçülerini, anteti ve çizim incelemesini tamamlayın.",
 };
 
 const codexTargets: Record<CodexConfig["target"], string> = {
-  auto: "AI 自动判断",
-  general_part: "通用零件建模",
-  assembly: "装配体与约束",
-  shell: "3D 打印外壳建模",
-  fixture: "治具/夹具/支架",
-  sheet_metal: "钣金展开与折弯",
-  holes: "孔槽/螺纹/阵列",
-  drawing: "国标 CAD 图纸",
-  package: "交付包整理",
-  reverse: "逆向建模/草图重建",
-  skill: "Skills 规范沉淀",
+  auto: "AI otomatik belirlesin",
+  general_part: "Genel parça modelleme",
+  assembly: "Montaj ve kısıtlar (mates)",
+  shell: "3D Baskı muhafazası modelleme",
+  fixture: "Aparat/Fikstür/Braket",
+  sheet_metal: "Sac açınımı ve büküm",
+  holes: "Delik/kanal/Diş (thread)/Dizi (pattern)",
+  drawing: "GB/T CAD Çizim",
+  package: "Teslim paketini düzenle",
+  reverse: "Tersine modelleme/Eskizi yeniden oluştur",
+  skill: "Skills Standartları belgele",
 };
 
 const taskTemplates: Array<{
@@ -340,28 +340,28 @@ const taskTemplates: Array<{
   output: CodexConfig["expectedOutput"];
   icon: typeof CubeFocus;
 }> = [
-  { key: "part", tab: "model", title: "通用零件", detail: "拉伸、旋转、孔槽、倒角、圆角和参数表建模", target: "general_part", output: "cad_files", icon: CubeFocus },
-  { key: "assembly", tab: "model", title: "装配体", detail: "零件导入、基准约束、干涉检查和爆炸图准备", target: "assembly", output: "cad_files", icon: Graph },
-  { key: "fixture", tab: "model", title: "治具夹具", detail: "定位销、压紧位、安装孔、减重槽和 CNC 可加工性", target: "fixture", output: "cad_files", icon: Aperture },
-  { key: "sheet", tab: "model", title: "钣金件", detail: "折弯、展开、K 因子、孔位避让和 DXF 展开输出", target: "sheet_metal", output: "drawing_package", icon: Layout },
-  { key: "shell", tab: "model", title: "电子外壳", detail: "壁厚、卡扣、螺丝柱、接口开孔和 3D 打印约束", target: "shell", output: "cad_files", icon: Archive },
-  { key: "reverse", tab: "model", title: "逆向重建", detail: "根据图片、草图或旧模型重建参数化特征树", target: "reverse", output: "cad_files", icon: ImageSquare },
-  { key: "holes", tab: "holes", title: "孔槽工程", detail: "通孔、沉头孔、螺纹孔、长圆孔、接口槽和孔表", target: "holes", output: "cad_files", icon: Ruler },
-  { key: "threaded-holes", tab: "holes", title: "螺纹孔", detail: "M3/M4/M5/M6 攻丝底孔、螺纹深度、孔口倒角和孔标注", target: "holes", output: "cad_files", icon: GearSix },
-  { key: "counterbore", tab: "holes", title: "沉头/沉孔", detail: "沉头角度、沉孔直径、螺钉规格、装配避让和剖视标注", target: "holes", output: "drawing_package", icon: Aperture },
-  { key: "hole-pattern", tab: "holes", title: "阵列孔", detail: "线性阵列、圆周阵列、孔距、基准定位和孔表生成", target: "holes", output: "drawing_package", icon: Graph },
-  { key: "interface-cutout", tab: "holes", title: "接口开槽", detail: "USB、网口、按键、散热窗、线束出口和圆角真实切除", target: "holes", output: "cad_files", icon: Ruler },
-  { key: "drawing", tab: "drawing", title: "GB/T 图纸", detail: "三视图、剖视、尺寸链、形位公差、技术要求和标题栏", target: "drawing", output: "drawing_package", icon: FilePlus },
-  { key: "tolerance", tab: "drawing", title: "公差标注", detail: "尺寸公差、形位公差、表面粗糙度、基准符号和技术要求", target: "drawing", output: "drawing_package", icon: Ruler },
-  { key: "bom", tab: "drawing", title: "装配明细", detail: "装配图、爆炸图、BOM、序号球标和采购/加工清单", target: "assembly", output: "drawing_package", icon: Layout },
-  { key: "drawing-convert", tab: "drawing", title: "图纸转换", detail: "DWG、DXF、PDF、PNG 预览输出和国标图框检查", target: "drawing", output: "drawing_package", icon: Export },
+  { key: "part", tab: "model", title: "Genel parça", detail: "Extrude, revolve, delik/kanal, chamfer, fillet ve parametre tablosu modelleme", target: "general_part", output: "cad_files", icon: CubeFocus },
+  { key: "assembly", tab: "model", title: "Montaj (assembly)", detail: "Parça içe aktarma, datum constraints, çakışma kontrolü ve patlatılmış görünüş hazırlığı", target: "assembly", output: "cad_files", icon: Graph },
+  { key: "fixture", tab: "model", title: "Fikstür ve bağlama aparatları", detail: "Konumlama pimleri, sıkıştırma noktaları, montaj delikleri, hafifletme kanalları ve  CNC İşlenebilirlik", target: "fixture", output: "cad_files", icon: Aperture },
+  { key: "sheet", tab: "model", title: "Sac parça", detail: "Büküm, açınım, K faktörü, delik boşlukları ve DXF açınım çıktısı", target: "sheet_metal", output: "drawing_package", icon: Layout },
+  { key: "shell", tab: "model", title: "Elektronik muhafaza", detail: "Duvar kalınlığı, snap-fit, vida yuvaları, arayüz açıklıkları ve  3D Baskı kısıtları", target: "shell", output: "cad_files", icon: Archive },
+  { key: "reverse", tab: "model", title: "Tersine yeniden modelleme", detail: "Resim, eskiz veya eski modelden parametrik feature tree oluşturun", target: "reverse", output: "cad_files", icon: ImageSquare },
+  { key: "holes", tab: "holes", title: "Delik/kanal tasarımı", detail: "Geçişli, havşalı ve dişli delikler, oval kanallar, arayüz kanalları ve delik tabloları", target: "holes", output: "cad_files", icon: Ruler },
+  { key: "threaded-holes", tab: "holes", title: "Dişli delik", detail: "M3/M4/M5/M6 Kılavuz deliği çapı, diş derinliği, ağız pahı ve hole callout", target: "holes", output: "cad_files", icon: GearSix },
+  { key: "counterbore", tab: "holes", title: "Konik havşa (countersink)/Silindirik havşa (counterbore)", detail: "Havşa açısı, silindirik havşa çapı, vida standardı, montaj açıklığı ve kesit işaretleri", target: "holes", output: "drawing_package", icon: Aperture },
+  { key: "hole-pattern", tab: "holes", title: "Delik dizisi", detail: "Doğrusal ve dairesel diziler, delik aralığı, datum konumlama ve delik tablosu", target: "holes", output: "drawing_package", icon: Graph },
+  { key: "interface-cutout", tab: "holes", title: "Arayüz kanalı", detail: "USB, Ağ girişi, düğme, havalandırma, kablo çıkışı ve fillet için gerçek kesim", target: "holes", output: "cad_files", icon: Ruler },
+  { key: "drawing", tab: "drawing", title: "GB/T Çizim", detail: "Üç görünüş, kesit, ölçü zincirleri, GD&T, teknik koşullar ve antet", target: "drawing", output: "drawing_package", icon: FilePlus },
+  { key: "tolerance", tab: "drawing", title: "Tolerans gösterimi", detail: "Ölçü toleransları, GD&T, yüzey pürüzlülüğü, datum sembolleri ve teknik koşullar", target: "drawing", output: "drawing_package", icon: Ruler },
+  { key: "bom", tab: "drawing", title: "Montaj detayları", detail: "Montaj çizimi, patlatılmış görünüş, BOM, balloons ve satın alma/işleme listesi", target: "assembly", output: "drawing_package", icon: Layout },
+  { key: "drawing-convert", tab: "drawing", title: "Çizim dönüştürme", detail: "DWG, DXF, PDF, PNG Çıktı önizlemesi ve GB/T çizim çerçevesi kontrolü", target: "drawing", output: "drawing_package", icon: Export },
 ];
 
 const codexOutputs: Record<CodexConfig["expectedOutput"], string> = {
-  auto: "AI 自动选择输出",
+  auto: "AI çıktıyı seçsin",
   cad_files: "SLDPRT / STEP / STL",
-  drawing_package: "DWG / DXF / PDF 图纸包",
-  research_report: "调研报告 / 执行建议",
+  drawing_package: "DWG / DXF / PDF Çizim paketi",
+  research_report: "Araştırma raporu / Yürütme önerileri",
 };
 
 function resolvedExpectedOutput(config: CodexConfig) {
@@ -370,33 +370,33 @@ function resolvedExpectedOutput(config: CodexConfig) {
 }
 
 const processLabels: Record<CodexConfig["process"], string> = {
-  auto: "AI 自动选工艺",
-  FDM: "FDM 3D 打印",
-  SLA: "SLA 光固化",
-  CNC: "CNC 加工",
-  sheet_metal: "钣金",
+  auto: "AI üretim yöntemini seçsin",
+  FDM: "FDM 3D Baskı",
+  SLA: "SLA Fotopolimer baskı",
+  CNC: "CNC İşleme",
+  sheet_metal: "Sac (sheet metal)",
 };
 
 const materialLabels: Record<CodexConfig["material"], string> = {
-  auto: "AI 自动选材料",
+  auto: "AI malzemeyi seçsin",
   PLA: "PLA",
   PETG: "PETG",
   ABS: "ABS",
   Al6061: "Al6061",
 };
 
-const deliveryFormats = ["STEP", "STL", "SLDPRT", "SLDASM", "DWG", "DXF", "PDF", "PNG", "DFM 报告", "复核报告"];
+const deliveryFormats = ["STEP", "STL", "SLDPRT", "SLDASM", "DWG", "DXF", "PDF", "PNG", "DFM Rapor", "İnceleme raporu"];
 
 function nextPaint() {
   return new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
 }
 
 function jobKindDetail(kind: AutomationJobKind) {
-  if (kind === "create_shell") return { title: "新建 CAD 任务", detail: "生成零件、装配、外壳、孔槽和基础检查任务" };
-  if (kind === "import_model") return { title: "导入已有文件", detail: "读取 CAD 模型、工程图或图片草图作为参考" };
-  if (kind === "dfm_review") return { title: "DFM 制造复核", detail: "检查机加工、钣金、激光切割或 3D 打印风险" };
-  if (kind === "codex_task" || kind === "agent_task") return { title: "Agent 执行", detail: "把图形化配置转换为当前 AI 的非交互执行任务" };
-  return { title: "生成交付包", detail: "整理 STEP、STL、PDF、DWG 和交付清单" };
+  if (kind === "create_shell") return { title: "Yeni CAD Görev", detail: "Parça, montaj, muhafaza, delik/kanal ve temel kontrol görevleri oluşturun" };
+  if (kind === "import_model") return { title: "Mevcut dosyayı içe aktar", detail: "CAD modeli, çizimi veya resim/eskizi referans olarak okuyun" };
+  if (kind === "dfm_review") return { title: "DFM Üretim incelemesi", detail: "İşleme, sac, lazer kesim veya 3D baskı riskleri" };
+  if (kind === "codex_task" || kind === "agent_task") return { title: "Agent Yürüt", detail: "Görsel ayarları seçili AI için etkileşimsiz yürütme görevine dönüştürün" };
+  return { title: "Teslim paketi oluştur", detail: "STEP, STL, PDF, DWG dosyalarını ve teslim listesini düzenleyin" };
 }
 
 function isVideoPath(path: string) {
@@ -404,7 +404,7 @@ function isVideoPath(path: string) {
 }
 
 function displayNameFromPath(path: string) {
-  return path.split(/[\\/]/).pop()?.replace(/\.[^.]+$/, "") || "我的壁纸";
+  return path.split(/[\\/]/).pop()?.replace(/\.[^.]+$/, "") || "Duvar kâğıtlarım";
 }
 
 function revokeObjectUrl(url?: string) {
@@ -422,7 +422,7 @@ function wallpaperFromPath(path: string): WallpaperFile {
 
 function preloadWallpaper(wallpaper: WallpaperFile) {
   return new Promise<void>((resolve, reject) => {
-    const timeout = window.setTimeout(() => reject(new Error("壁纸加载超时")), 12_000);
+    const timeout = window.setTimeout(() => reject(new Error("Duvar kâğıdı yükleme zaman aşımı")), 12_000);
     if (wallpaper.kind === "video") {
       const video = document.createElement("video");
       video.preload = "metadata";
@@ -432,7 +432,7 @@ function preloadWallpaper(wallpaper: WallpaperFile) {
       };
       video.onerror = () => {
         window.clearTimeout(timeout);
-        reject(new Error("视频格式无法加载"));
+        reject(new Error("Video biçimi yüklenemiyor"));
       };
       video.src = wallpaper.url;
       video.load();
@@ -445,7 +445,7 @@ function preloadWallpaper(wallpaper: WallpaperFile) {
     };
     image.onerror = () => {
       window.clearTimeout(timeout);
-      reject(new Error("图片格式无法加载"));
+      reject(new Error("Resim biçimi yüklenemiyor"));
     };
     image.src = wallpaper.url;
   });
@@ -467,7 +467,7 @@ function loadSettings(payload?: unknown): AppSettings | null {
         : parsed.customWallpaperPath
           ? parsed.activeWallpaper ?? "custom"
           : "blossom";
-    const migratedName = typeof parsed.projectName === "string" && parsed.projectName.trim() ? parsed.projectName.trim().slice(0, 48) : "未命名项目";
+    const migratedName = typeof parsed.projectName === "string" && parsed.projectName.trim() ? parsed.projectName.trim().slice(0, 48) : "Adsız proje";
     const migratedProject: ProjectRecord = {
       ...DEFAULT_PROJECT,
       name: migratedName,
@@ -551,7 +551,7 @@ function loadAgentChat(payload?: unknown): AgentChatMessage[] {
     if (payload === undefined && !raw) return [];
     const messages = payload === undefined ? JSON.parse(raw as string) : payload;
     return Array.isArray(messages)
-      ? messages.filter((message) => !String(message?.content || "").startsWith("你好，我是 CAD Studio 的 AI 执行助手")).slice(-30)
+      ? messages.filter((message) => !String(message?.content || "").startsWith("Merhaba, ben  CAD Studio   AI Yürütme asistanı")).slice(-30)
       : [];
   } catch {
     return [];
@@ -608,31 +608,31 @@ function newConversationId() {
 }
 
 function formatTimeLabel(value?: string) {
-  if (!value) return "刚刚";
+  if (!value) return "Az önce";
   if (value.startsWith("unix:")) return value;
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  return date.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
 
 function eventTypeLabel(type?: string) {
-  if (!type) return "执行记录";
-  if (type.includes("approval")) return "审批";
-  if (type.includes("codex.started")) return "AI 启动";
-  if (type.includes("codex.completed")) return "AI 结束";
-  if (type.includes("heartbeat")) return "心跳";
-  if (type.includes("claimed")) return "接单";
-  if (type.includes("failed")) return "失败";
-  if (type.includes("passed")) return "完成";
-  if (type.includes("review")) return "复核";
-  if (type.includes("artifact")) return "交付物";
-  if (type.includes("step")) return "步骤";
+  if (!type) return "Yürütme kaydı";
+  if (type.includes("approval")) return "Onay";
+  if (type.includes("codex.started")) return "AI Başlat";
+  if (type.includes("codex.completed")) return "AI Bitir";
+  if (type.includes("heartbeat")) return "Heartbeat";
+  if (type.includes("claimed")) return "Görevi al";
+  if (type.includes("failed")) return "Başarısız";
+  if (type.includes("passed")) return "Tamamlandı";
+  if (type.includes("review")) return "İncele";
+  if (type.includes("artifact")) return "Teslim dosyaları";
+  if (type.includes("step")) return "Adımlar";
   return type.replaceAll(".", " ");
 }
 
 function workerLogMessage(entry: WorkerLogEntry | string) {
   if (typeof entry === "string") return entry;
-  return entry.message || entry.status || "worker 已更新任务状态";
+  return entry.message || entry.status || "worker Görev durumu güncellendi";
 }
 
 function workerLogTime(entry: WorkerLogEntry | string) {
@@ -641,11 +641,11 @@ function workerLogTime(entry: WorkerLogEntry | string) {
 
 function readableExecutionMessage(message?: string, job?: AutomationJob) {
   if (!message) return "";
-  if (message.includes("WinError 2") || message.includes("系统找不到指定的文件")) {
+  if (message.includes("WinError 2") || message.includes("Sistem belirtilen dosyayı bulamıyor")) {
     if (job?.executor === "codex" || job?.kind === "codex_task") {
-      return "找不到所选 Agent CLI。请到设置里检查执行核心，或确认对应 CLI 已安装并能在命令行运行。";
+      return "Seçilen Agent CLI bulunamadı. Ayarlardan yürütücüyü kontrol edin; ilgili CLI yüklü ve komut satırından çalıştırılabilir olmalıdır.";
     }
-    return "找不到要启动的本地程序。请检查 Python、SolidWorks、AutoCAD 或相关执行器是否已安装。";
+    return "Başlatılacak yerel program bulunamadı. Python, SolidWorks, AutoCAD veya ilgili yürütücünün yüklü olduğunu doğrulayın.";
   }
   return message;
 }
@@ -654,7 +654,7 @@ function compactJobMessage(job: AutomationJob, events?: QueueEvent[]) {
   const message =
     (job.status === "approval_required" ? job.approvalReasons?.[0] : undefined) ||
     events?.[events.length - 1]?.message ||
-    (job.reviewGate?.status ? `复核结果: ${job.reviewGate.status}` : undefined) ||
+    (job.reviewGate?.status ? `İnceleme sonucu: ${job.reviewGate.status}` : undefined) ||
     job.lastMessage ||
     job.result?.message ||
     job.result?.outputPath ||
@@ -673,62 +673,62 @@ function buildChatPrompt(
 ) {
   const recentHistory = history
     .slice(-8)
-    .map((message) => `${message.role === "user" ? "用户" : message.role === "assistant" ? "AI" : "系统"}: ${message.content}`)
+    .map((message) => `${message.role === "user" ? "Kullanıcı" : message.role === "assistant" ? "AI" : "Sistem"}: ${message.content}`)
     .join("\n");
   return [
     buildCodexPrompt(config, projectPath, runtime),
     "",
-    "CAD Studio 对话执行要求:",
-    "- 你正在响应软件内的 AI 执行对话框，不要输出隐藏推理；请输出可给用户看的执行计划、关键决策、工具调用结果、文件路径和验证结论。",
-    "- 如果用户说继续改、重做、调整审美或补充尺寸，需要基于上文和本地文件继续推进，而不是从零开始。",
-    "- 面向普通用户表达，不暴露无关开发者配置；必要的命令、文件路径和失败原因要写清楚。",
-    "- 若涉及 SolidWorks 或 AutoCAD，本轮仍遵循本地 skills 和中国机械制图/可制造规范。",
-    `- 当前 AI 接入方式: ${apiModeLabel(api.mode)}；Provider: ${api.providerName}；Endpoint: ${api.endpoint}；Model: ${api.model}；Key: ${keyStatusLabel(api.keyStatus)}。`,
+    "CAD Studio Konuşma yürütme gereksinimleri:",
+    "- Uygulama içindeki AI konuşmasına yanıt veriyorsunuz. Gizli akıl yürütmeyi paylaşmayın; kullanıcıya yönelik yürütme planını, önemli kararları, araç sonuçlarını, dosya yollarını ve doğrulama sonucunu gösterin.",
+    "- Kullanıcı değişikliğe devam etmek, yeniden yapmak, görünümü ayarlamak veya ölçü eklemek isterse önceki konuşma ve yerel dosyalardan devam edin; sıfırdan başlamayın.",
+    "- Kullanıcıya anlaşılır biçimde yanıt verin; ilgisiz geliştirici ayarlarını göstermeyin. Gerekli komutları, dosya yollarını ve hata nedenlerini açıkça yazın.",
+    "- SolidWorks veya AutoCAD kullanırken yerel skill kurallarına ve GB/T mekanik çizim/üretim şartlarına uyun.",
+    `- Mevcut AI Bağlantı yöntemi: ${apiModeLabel(api.mode)}; Provider: ${api.providerName}; Endpoint: ${api.endpoint}; Model: ${api.model}; Key: ${keyStatusLabel(api.keyStatus)}.`,
     "",
-    "最近对话:",
-    recentHistory || "暂无历史对话。",
+    "Son konuşmalar:",
+    recentHistory || "Önceki konuşma yok.",
     "",
-    "用户本次指令:",
+    "Kullanıcının mevcut talimatı:",
     userText,
   ].join("\n");
 }
 
 function apiModeLabel(mode: ApiIntegrationMode) {
-  if (mode === "cc_switch") return "同步 CC Switch";
-  return "本机 Agent CLI";
+  if (mode === "cc_switch") return "Eşitle CC Switch";
+  return "Yerel Agent CLI";
 }
 
 function keyStatusLabel(status: ApiIntegrationConfig["keyStatus"]) {
-  if (status === "synced") return "已同步";
-  if (status === "configured") return "已配置";
-  return "未配置";
+  if (status === "synced") return "Eşitlendi";
+  if (status === "configured") return "Yapılandırıldı";
+  return "Yapılandırılmadı";
 }
 
 function reviewStatusLabel(status?: string) {
-  if (status === "pass") return "通过";
-  if (status === "fail") return "失败";
-  if (status === "warning") return "注意";
-  return status || "待复核";
+  if (status === "pass") return "Geçti";
+  if (status === "fail") return "Başarısız";
+  if (status === "warning") return "Not";
+  return status || "İnceleme bekliyor";
 }
 
 function jobReviewStatusLabel(job?: AutomationJob) {
-  if (job?.reviewDecision === "approved") return "人工复核通过";
-  if (job?.reviewDecision === "rejected") return "人工复核驳回";
+  if (job?.reviewDecision === "approved") return "İnsan incelemesi geçti";
+  if (job?.reviewDecision === "rejected") return "İnsan incelemesi reddetti";
   if (job?.reviewGate?.status) return reviewStatusLabel(job.reviewGate.status);
-  return "未复核";
+  return "İncelenmedi";
 }
 
 function reviewOptionsFor(job?: AutomationJob): Array<readonly [string, string]> {
   const options: Array<readonly [string, string]> = [...manualReviewOptions];
   const descriptor = `${job?.kind ?? ""} ${job?.expectedOutput ?? ""} ${job?.target ?? ""} ${(job?.requiredArtifacts ?? []).join(" ")}`;
-  if (/DWG|DXF|PDF|SLDDRW|DRAWING|图纸/i.test(descriptor) || job?.drawingEvidence) {
-    options.push(["drawing", "已核对图框标题栏、视图、尺寸链、孔表和技术要求"]);
+  if (/DWG|DXF|PDF|SLDDRW|DRAWING|çizim|teknik resim/i.test(descriptor) || job?.drawingEvidence) {
+    options.push(["drawing", "Çerçeve, antet, görünüşler, ölçü zincirleri, delik tabloları ve teknik koşullar kontrol edildi"]);
   }
-  if (/BOM|物料|明细表/i.test(descriptor) || job?.bomEvidence) {
-    options.push(["bom", "已核对 BOM、配置、材料、零件号和数量与模型一致"]);
+  if (/BOM|bill of materials|malzeme|parça listesi|ayrıntı tablosu/i.test(descriptor) || job?.bomEvidence) {
+    options.push(["bom", "BOM, konfigürasyon, malzeme, parça numarası ve adetlerin modelle uyumu kontrol edildi"]);
   }
-  if (/DFM|制造|CNC|钣金|激光|打印/i.test(descriptor) || job?.dfmEvidence) {
-    options.push(["dfm", "已结合材料、工艺、尺寸、公差和供应商能力完成 DFM 人工复核"]);
+  if (/DFM|manufacturing|CNC|sheet metal|laser|print|üretim|sac|lazer|baskı/i.test(descriptor) || job?.dfmEvidence) {
+    options.push(["dfm", "Malzeme, işlem, ölçüler, toleranslar ve tedarikçi yetenekleri dikkate alınarak DFM insan incelemesi tamamlandı"]);
   }
   return options;
 }
@@ -810,47 +810,47 @@ function capabilitySnapshot(runtime: RuntimeHealth, capabilityIds: string[]) {
 
 function buildCodexPrompt(config: CodexConfig, projectPath?: string, runtime?: RuntimeHealth | null) {
   const strictRules = [
-    "用户未明确指定的建模类型、工艺、材料、输出格式、尺寸细节和检查项，由 AI 根据工程目标自动选择最佳方案，并在结果中说明选择理由。",
-    config.realCutouts ? "所有孔、槽、螺纹、接口和减重结构必须是真实几何特征，不能只画线或只做外观标记。" : "如果涉及孔槽，需要明确说明当前是否已真实切除。",
-    config.strictGbDrawing ? "CAD 图纸必须按中国机械制图常用格式复核，尺寸链、孔表、技术要求、图框标题栏要完整。" : "图纸输出需要标明当前规范覆盖范围。",
-    "结果必须保存到用户指定的本地输出目录，不向 GitHub 或外部服务发布。",
+    "Kullanıcının açıkça belirtmediği modelleme türü, işlem, malzeme, çıktı biçimi, ölçü ayrıntıları ve kontrol öğeleri için  AI Mühendislik hedefine göre en uygun yaklaşımı seçip sonuçta gerekçeyi açıklayın.",
+    config.realCutouts ? "Tüm delikler, kanallar, dişler, arayüzler ve hafifletme yapıları gerçek geometrik özellikler olmalıdır; yalnızca çizgi veya görünüm işareti yeterli değildir." : "Delik veya kanal varsa malzemenin gerçekten kesilip kesilmediğini açıkça belirtin.",
+    config.strictGbDrawing ? "CAD Çizimleri GB/T mekanik çizim kurallarına göre inceleyin; boyut zincirleri, delik tabloları, teknik şartlar, çizim çerçevesi ve antet eksiksiz olmalıdır." : "Çizim çıktıları mevcut standart kapsamını belirtmelidir.",
+    "Sonuçları kullanıcının belirttiği yerel çıktı klasörüne kaydedin; GitHub veya dış hizmetlerde yayınlamayın.",
   ];
 
   return [
-    "你是用户选择的本机 Agent Provider，请执行由 CAD Studio 图形化界面生成的任务。",
+    "Kullanıcının seçtiği yerel Agent sağlayıcısı olarak CAD Studio arayüzünde oluşturulan görevi yürütün.",
     "",
-    `任务目标: ${config.objective}`,
-    `目标 CAD 软件: ${cadApplicationLabels[config.cadApplication]}`,
-    `软件路由策略: ${cadApplicationRoutes[config.cadApplication]}`,
-    `任务类型: ${codexTargets[config.target]}`,
-    `期望输出: ${resolvedExpectedOutput(config)}`,
-    `项目/模型路径: ${projectPath || "未指定"}`,
-    `制造方式: ${processLabels[config.process]}`,
-    `材料: ${materialLabels[config.material]}`,
-    `单位: ${config.unit}`,
-    `参考包络尺寸: ${config.length > 0 && config.width > 0 && config.height > 0 ? `${config.length} x ${config.width} x ${config.height} ${config.unit}` : "未指定，涉及装配接口或制造前必须向用户确认"}`,
-    `参考壁厚/板厚: ${config.wallThickness > 0 ? `${config.wallThickness} ${config.unit}` : "未指定，由 AI 给出建议但制造前必须确认"}`,
-    `输出目录: ${config.outputDir}`,
-    `Skill 路径: ${runtime?.solidworksSkillPath || "由桌面端启动时自动检测"}`,
-    `AutoCAD 子技能路径: ${runtime?.autocadSkillPath || "由桌面端启动时自动检测"}`,
+    `Görev hedefi: ${config.objective}`,
+    `Hedef CAD Uygulama: ${cadApplicationLabels[config.cadApplication]}`,
+    `Uygulama yönlendirme politikası: ${cadApplicationRoutes[config.cadApplication]}`,
+    `Görev türü: ${codexTargets[config.target]}`,
+    `Beklenen çıktı: ${resolvedExpectedOutput(config)}`,
+    `Proje/Model yolu: ${projectPath || "Belirtilmedi"}`,
+    `Üretim yöntemi: ${processLabels[config.process]}`,
+    `Malzeme: ${materialLabels[config.material]}`,
+    `Birim: ${config.unit}`,
+    `Referans dış ölçüler: ${config.length > 0 && config.width > 0 && config.height > 0 ? `${config.length} x ${config.width} x ${config.height} ${config.unit}` : "Belirtilmedi; montaj arayüzü veya üretim öncesinde kullanıcıdan doğrulanmalıdır"}`,
+    `Referans duvar kalınlığı/Sac kalınlığı: ${config.wallThickness > 0 ? `${config.wallThickness} ${config.unit}` : "Belirtilmedi; AI öneri sunmalıdır. Üretimden önce doğrulama zorunludur."}`,
+    `Çıktı klasörü: ${config.outputDir}`,
+    `Skill Yol: ${runtime?.solidworksSkillPath || "Masaüstü uygulaması başlatıldığında otomatik algılanır"}`,
+    `AutoCAD Alt skill yolu: ${runtime?.autocadSkillPath || "Masaüstü uygulaması başlatıldığında otomatik algılanır"}`,
     "",
-    "强制规则:",
+    "Zorunlu kurallar:",
     ...strictRules.map((rule) => `- ${rule}`),
     "",
-    "自动决策规则:",
-    "- 若某项为 AI 自动判断/选择，先根据用户目标、输入文件、制造方式、成本、强度、可加工性和交付要求做最佳选择。",
-    "- 自动选择后必须在 summary 或 verification 中解释为什么这么选。",
-    "- 若信息不足以可靠决策，先采用行业常用保守方案，并标记残余风险。",
-    "- 不得自动猜测装配接口、关键尺寸、公差、载荷和安全相关材料；缺失时必须询问，或明确标为概念方案不可制造。",
+    "Otomatik karar kuralları:",
+    "- Otomatik seçilen alanlarda kullanıcı hedeflerini, girdileri, üretim yöntemini, maliyeti, dayanımı, işlenebilirliği ve teslim gereksinimlerini değerlendirin.",
+    "- Otomatik seçimden sonra  summary  veya  verification  içinde seçimin nedenini açıklayın.",
+    "- Güvenilir karar için bilgi yetersizse yaygın muhafazakâr bir yaklaşım kullanın ve kalan riski açıkça belirtin.",
+    "- Montaj arayüzleri, kritik ölçüler, toleranslar, yükler ve güvenlikle ilgili malzemeler tahmin edilmemelidir; eksik bilgiler sorulmalı veya tasarımın üretime uygun olmayan bir konsept olduğu açıkça belirtilmelidir.",
     "",
-    "执行方式:",
-    "- 必须把 CAD Studio 的图形化配置转换成可执行的本地 CAD 自动化任务。",
-    "- 三维实体、装配、开孔、钣金、STEP/STL/SLDPRT 导出优先调用 SolidWorks。",
-    "- 二维 DWG/DXF/PDF、国标图纸、尺寸链、孔表、图框标题栏优先调用 AutoCAD。",
-    "- 若目标软件为 AI 自动选软件，需要先判断本任务应该调用 SolidWorks、AutoCAD 或两者联动，并说明理由。",
-    "- 优先使用 solidworks-automation skill 及其 SolidWorks/AutoCAD 子技能。",
-    "- 先检查现有文件和规范，再小步实现。",
-    "- 结束时用中文说明输出文件、验证结果和本地保存位置。",
+    "Yürütme yöntemi:",
+    "- CAD Studio arayüz ayarlarını yürütülebilir yerel CAD otomasyon görevlerine dönüştürün.",
+    "- 3B katı, montaj, delik, sac, STEP/STL/SLDPRT Export için öncelik:  SolidWorks.",
+    "- 2B DWG/DXF/PDF, Standart çizim, ölçü zinciri, delik tablosu, çerçeve ve antet için öncelik:  AutoCAD.",
+    "- Uygulama seçimi otomatikse görevin SolidWorks, AutoCAD veya ikisini birlikte gerektirip gerektirmediğini belirleyip açıklayın.",
+    "- Öncelikle kullanın:  solidworks-automation skill  ve  SolidWorks/AutoCAD  subskill.",
+    "- Önce mevcut dosya ve standartları kontrol edin, sonra küçük adımlarla uygulayın.",
+    "- Sonuçta çıktı dosyalarını, doğrulama sonuçlarını ve yerel kayıt konumunu Türkçe olarak, İngilizce teknik terimleri koruyarak açıklayın.",
   ].join("\n");
 }
 
@@ -872,14 +872,14 @@ function App() {
   const [projectMenuOpen, setProjectMenuOpen] = useState(false);
   const [deleteCandidateProjectId, setDeleteCandidateProjectId] = useState<string | null>(null);
   const [deletingProjectId, setDeletingProjectId] = useState<string | null>(null);
-  const [projectName, setProjectName] = useState("未命名项目");
-  const [projectNameDraft, setProjectNameDraft] = useState("未命名项目");
+  const [projectName, setProjectName] = useState("Adsız proje");
+  const [projectNameDraft, setProjectNameDraft] = useState("Adsız proje");
   const [editingProjectName, setEditingProjectName] = useState(false);
   const [recentProjectPath, setRecentProjectPath] = useState<string | undefined>();
   const [apiConfig, setApiConfig] = useState<ApiIntegrationConfig>(defaultApiConfig);
   const [knowledgeBase, setKnowledgeBase] = useState<KnowledgeBaseConfig>(defaultKnowledgeBase);
   const [ccSwitchSync, setCcSwitchSync] = useState<CcSwitchSync | null>(null);
-  const [apiSyncMessage, setApiSyncMessage] = useState("可同步 CC Switch，也可继续使用本机 Agent CLI。");
+  const [apiSyncMessage, setApiSyncMessage] = useState("CC Switch ile eşitleyebilir veya yerel Agent CLI ayarlarını kullanabilirsiniz.");
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [storeMigration, setStoreMigration] = useState<AppStoreMigrationStatus | null>(null);
   const [persistenceWarning, setPersistenceWarning] = useState<string | null>(null);
@@ -896,7 +896,7 @@ function App() {
   const [chatLoaded, setChatLoaded] = useState(false);
   const [agentInput, setAgentInput] = useState("");
   const [manualReviewDrafts, setManualReviewDrafts] = useState<Record<string, ManualReviewDraft>>({});
-  const [workerStatus, setWorkerStatus] = useState<WorkerStatus>({ running: false, message: "桌面端可启动" });
+  const [workerStatus, setWorkerStatus] = useState<WorkerStatus>({ running: false, message: "Masaüstü sürümü başlatabilir" });
   const [workerAction, setWorkerAction] = useState<"start" | "stop" | "restart" | null>(null);
   const [retryingJobId, setRetryingJobId] = useState<string | null>(null);
   const [submissionKind, setSubmissionKind] = useState<SubmissionKind>(null);
@@ -906,10 +906,10 @@ function App() {
   const [selectedPreviewArtifactPath, setSelectedPreviewArtifactPath] = useState<string | undefined>();
   const [activeHelpTopic, setActiveHelpTopic] = useState<HelpTopicId>("start");
   const [runtimeHealth, setRuntimeHealth] = useState<RuntimeHealth | null>(null);
-  const [runtimeMessage, setRuntimeMessage] = useState("正在检测 Agent、skills 与 CAD 环境...");
-  const [windowHint, setWindowHint] = useState("窗口控制就绪");
+  const [runtimeMessage, setRuntimeMessage] = useState("Agent, skill ve CAD ortamı algılanıyor...");
+  const [windowHint, setWindowHint] = useState("Pencere kontrolü hazır");
   const [codexConfig, setCodexConfig] = useState<CodexConfig>({
-    objective: "根据用户输入自动判断最佳 CAD 任务类型、制造方式、材料和交付格式，生成可制造结果并解释选择理由。",
+    objective: "Kullanıcı girdisine göre CAD görev türünü, üretim yöntemini, malzemeyi ve teslim biçimini seçin. Üretilebilir sonuç oluşturup seçimlerinizi açıklayın.",
     cadApplication: "auto",
     target: "auto",
     expectedOutput: "auto",
@@ -959,17 +959,17 @@ function App() {
     const reviewRequired = activeProjectJobs.filter((job) => job.status === "review_required").length;
     const running = activeProjectJobs.filter((job) => job.status === "running").length;
     const queued = activeProjectJobs.filter((job) => job.status === "queued").length;
-    if (approvalRequired > 0) return `${approvalRequired} 个待审批`;
-    if (reviewRequired > 0) return `${reviewRequired} 个待复核`;
-    if (running > 0) return `${running} 个执行中`;
-    if (queued > 0) return `${queued} 个排队`;
-    return activeProjectJobs.length > 0 ? "队列就绪" : "暂无任务";
+    if (approvalRequired > 0) return `${approvalRequired}  onay bekliyor`;
+    if (reviewRequired > 0) return `${reviewRequired}  inceleme bekliyor`;
+    if (running > 0) return `${running}  çalışıyor`;
+    if (queued > 0) return `${queued}  sırada`;
+    return activeProjectJobs.length > 0 ? "Kuyruk hazır" : "Görev yok";
   }, [activeProjectJobs]);
 
   const workerLabel = useMemo(() => {
     const health = workerStatus.health?.status;
     if (workerStatus.running) return health ? `Worker ${health}` : `Worker ${workerStatus.pid ?? ""}`;
-    if (health) return `上次 ${health}`;
+    if (health) return `Önceki ${health}`;
     return workerStatus.message;
   }, [workerStatus]);
 
@@ -1045,7 +1045,7 @@ function App() {
       ...config,
       agentProvider: providerId,
       providerName: ccSwitchRoute?.name || metadata.name,
-      endpoint: ccSwitchRoute?.endpoint || health?.entry || "本机 CLI",
+      endpoint: ccSwitchRoute?.endpoint || health?.entry || "Yerel CLI",
       model,
       keyStatus: ccSwitchRoute ? "synced" : health?.verified ? "configured" : "missing",
     }));
@@ -1062,7 +1062,7 @@ function App() {
     const conversation: AgentConversation = {
       id: newConversationId(),
       projectId: activeProject.id,
-      title: title || `新对话 ${projectConversations.length + 1}`,
+      title: title || `Yeni konuşma ${projectConversations.length + 1}`,
       provider: apiConfig.agentProvider,
       model: apiConfig.model,
       createdAt: now,
@@ -1094,7 +1094,7 @@ function App() {
       ...config,
       agentProvider: conversation.provider,
       providerName: ccSwitchRoute?.name || metadata.name,
-      endpoint: ccSwitchRoute?.endpoint || health?.entry || "本机 CLI",
+      endpoint: ccSwitchRoute?.endpoint || health?.entry || "Yerel CLI",
       model: conversation.model,
       keyStatus: ccSwitchRoute ? "synced" : health?.verified ? "configured" : "missing",
     }));
@@ -1132,20 +1132,20 @@ function App() {
 
   async function refreshWorkerStatus() {
     if (!isTauriRuntime()) {
-      setWorkerStatus({ running: false, message: "浏览器预览不启动 worker" });
+      setWorkerStatus({ running: false, message: "Tarayıcı önizlemesi worker başlatmaz" });
       return;
     }
     try {
       const status = await invoke<WorkerStatus>("worker_status");
       setWorkerStatus(status);
     } catch (error) {
-      setWorkerStatus({ running: false, message: `worker 状态读取失败: ${String(error)}` });
+      setWorkerStatus({ running: false, message: `worker Durum okunamadı: ${String(error)}` });
     }
   }
 
   async function startLocalWorker() {
     if (!isTauriRuntime()) {
-      setWorkerStatus({ running: false, message: "请在桌面端启动 worker" });
+      setWorkerStatus({ running: false, message: "Worker'ı masaüstü sürümünden başlatın" });
       return;
     }
     setWorkerAction("start");
@@ -1157,7 +1157,7 @@ function App() {
       });
       setWorkerStatus(status);
     } catch (error) {
-      setWorkerStatus({ running: false, message: `worker 启动失败: ${String(error)}` });
+      setWorkerStatus({ running: false, message: `worker Başlatma başarısız: ${String(error)}` });
     } finally {
       setWorkerAction(null);
     }
@@ -1170,7 +1170,7 @@ function App() {
       const status = await invoke<WorkerStatus>("stop_worker");
       setWorkerStatus(status);
     } catch (error) {
-      setWorkerStatus({ running: false, message: `worker 停止失败: ${String(error)}` });
+      setWorkerStatus({ running: false, message: `worker Durdurma başarısız: ${String(error)}` });
     } finally {
       setWorkerAction(null);
     }
@@ -1178,7 +1178,7 @@ function App() {
 
   async function restartLocalWorker() {
     if (!isTauriRuntime()) {
-      setWorkerStatus({ running: false, message: "请在桌面端重启 worker" });
+      setWorkerStatus({ running: false, message: "Worker'ı masaüstü sürümünden yeniden başlatın" });
       return;
     }
     setWorkerAction("restart");
@@ -1192,10 +1192,10 @@ function App() {
       const recovered = stopped.recoveredJobs ?? 0;
       setWorkerStatus({
         ...status,
-        message: recovered > 0 ? `worker 已重启，恢复任务 ${recovered} 个` : "worker 已重启",
+        message: recovered > 0 ? `worker Yeniden başlatıldı; kurtarılan görev:  ${recovered}  adet` : "worker Yeniden başlatıldı",
       });
     } catch (error) {
-      setWorkerStatus({ running: false, message: `worker 重启失败: ${String(error)}` });
+      setWorkerStatus({ running: false, message: `worker Yeniden başlatma başarısız: ${String(error)}` });
     } finally {
       setWorkerAction(null);
     }
@@ -1203,10 +1203,10 @@ function App() {
 
   async function syncCcSwitchConfig() {
     if (!isTauriRuntime()) {
-      setApiSyncMessage("浏览器预览不能读取本机 CC Switch 配置，请在桌面版中同步。");
+      setApiSyncMessage("Tarayıcı önizlemesi yerel CC Switch ayarlarını okuyamaz; masaüstü sürümünden eşitleyin.");
       return;
     }
-    setApiSyncMessage("正在读取 CC Switch 配置...");
+    setApiSyncMessage("CC Switch ayarları okunuyor...");
     try {
       const sync = await invoke<CcSwitchSync>("sync_cc_switch_config");
       const agentProvider = apiConfig.agentProvider;
@@ -1216,8 +1216,8 @@ function App() {
         mode: "cc_switch",
         agentProvider,
         providerName: provider?.name || provider?.id || agentProviderCatalog[agentProvider].name,
-        endpoint: provider?.endpoint || "由 CC Switch 配置决定",
-        model: provider?.model || "由 CC Switch 配置决定",
+        endpoint: provider?.endpoint || " by  CC Switch Ayarlar belirler",
+        model: provider?.model || " by  CC Switch Ayarlar belirler",
         keyStatus: provider ? "synced" : selectedProvider?.ready ? "configured" : "missing",
         lastSyncAt: sync.syncedAt,
         sourcePath: sync.databasePath || sync.configPath,
@@ -1226,10 +1226,10 @@ function App() {
       setApiConfig(nextConfig);
       updateConversationRuntime(agentProvider, nextConfig.model);
       setApiSyncMessage(providerCount > 0
-        ? `已读取 ${providerCount} 个 ${agentProviderCatalog[agentProvider].name} 路由，凭据由 CC Switch 管理。`
-        : `CC Switch 中暂未配置 ${agentProviderCatalog[agentProvider].name} 路由，继续使用当前 CLI 登录态。`);
+        ? `${providerCount} adet ${agentProviderCatalog[agentProvider].name} yönlendirmesi okundu; kimlik bilgileri CC Switch tarafından yönetilir.`
+        : `CC Switch içinde ${agentProviderCatalog[agentProvider].name} yönlendirmesi yapılandırılmadı; mevcut CLI oturumu kullanılacak.`);
     } catch (error) {
-      setApiSyncMessage(`同步失败: ${String(error)}`);
+      setApiSyncMessage(`Eşitleme başarısız: ${String(error)}`);
     }
   }
 
@@ -1241,73 +1241,73 @@ function App() {
   async function ensureRuntimeHealth(): Promise<RuntimeHealth> {
     let health = runtimeHealth;
     if (!health?.skillRoot) {
-      setRuntimeMessage("正在检测 Agent、skills 与 CAD 环境...");
+      setRuntimeMessage("Agent, skill ve CAD ortamı algılanıyor...");
       health = await invoke<RuntimeHealth>("runtime_health");
     }
     setRuntimeHealth(health);
     const provider = health.agentProviders?.find((item) => item.id === apiConfig.agentProvider);
     if (!provider?.installed || !provider.ready) {
-      throw new Error(provider?.auth?.message || provider?.version?.message || `${agentProviderCatalog[apiConfig.agentProvider].name} CLI 未就绪`);
+      throw new Error(provider?.auth?.message || provider?.version?.message || `${agentProviderCatalog[apiConfig.agentProvider].name} CLI Hazır değil`);
     }
     setRuntimeMessage(
       provider.verified
-        ? `${provider.name} 真实任务已验证，skills 与本地 CAD 路由已就绪`
-        : `${provider.name} CLI 已安装，将在首个真实任务完成后记录验证状态`,
+        ? `${provider.name} Gerçek görev doğrulandı; skills  ve yerel  CAD Yönlendirme hazır`
+        : `${provider.name} CLI Yüklü; ilk gerçek görev tamamlandığında doğrulama durumu kaydedilecek`,
     );
     return health;
   }
 
-  /** @brief 复制 doctor 提供的受控安装命令，并把结果反馈到当前界面。 */
+  /** @brief Copy the controlled installation command provided by doctor and show the result in the current UI. */
   async function copyRuntimeCommand(command: string) {
     try {
       await navigator.clipboard.writeText(command);
-      setRuntimeMessage("安装命令已复制，可在 PowerShell 中执行后重新检测环境。");
+      setRuntimeMessage("Kurulum komutu kopyalandı. PowerShell içinde çalıştırdıktan sonra ortamı yeniden denetleyin.");
     } catch (error) {
-      setRuntimeMessage(`复制失败，请手动选择命令文本：${String(error)}`);
+      setRuntimeMessage(`Kopyalanamadı; komut metnini elle seçin: ${String(error)}`);
     }
   }
 
-  /** @brief 在桌面端通过白名单命令打开官方地址，浏览器预览使用新标签页。 */
+  /** @brief Open official URLs through allowlisted desktop commands; use a new tab in the browser preview. */
   async function openRuntimeDownload(url: string) {
     try {
       if (isTauriRuntime()) await invoke("open_external_download", { url });
       else window.open(url, "_blank", "noopener,noreferrer");
-      setRuntimeMessage("已打开官方下载页。安装完成后请重新检测环境。");
+      setRuntimeMessage("Resmî indirme sayfası açıldı. Kurulumdan sonra ortamı yeniden denetleyin.");
     } catch (error) {
-      setRuntimeMessage(`无法打开下载页：${String(error)}`);
+      setRuntimeMessage(`İndirme sayfası açılamıyor: ${String(error)}`);
     }
   }
 
   async function enqueueCodexTaskWithConfig(config: CodexConfig) {
     if (!isTauriRuntime()) {
-      setAgentMessages((messages) => [...messages, createChatMessage("system", "浏览器仅用于界面预览，不会模拟任务成功。请启动 CAD Studio 桌面版执行真实任务。")].slice(-40));
+      setAgentMessages((messages) => [...messages, createChatMessage("system", "Tarayıcı yalnızca arayüz önizlemesidir. Gerçek görevleri yürütmek için CAD Studio masaüstü sürümünü başlatın.")].slice(-40));
       return;
     }
     setSubmissionKind("task");
-    setWindowHint("正在准备任务...");
+    setWindowHint("Görev hazırlanıyor...");
     await nextPaint();
     let activeRuntime: RuntimeHealth;
     try {
       activeRuntime = await ensureRuntimeHealth();
     } catch (error) {
-      setAgentMessages((messages) => [...messages, createChatMessage("system", `本地运行环境未就绪：${String(error)}`)].slice(-40));
-      setWindowHint("任务未创建 · 请检查本地环境");
+      setAgentMessages((messages) => [...messages, createChatMessage("system", `Yerel çalışma ortamı hazır değil: ${String(error)}`)].slice(-40));
+      setWindowHint("Görev oluşturulmadı · Yerel ortamı kontrol edin");
       setSubmissionKind(null);
       return;
     }
     const strictRules = [
-      config.realCutouts ? "孔槽、接口、沉头和螺纹必须是真实几何切除" : "明确说明孔槽实现状态",
-      config.strictGbDrawing ? "必须按中国机械制图常用格式复核 CAD 图纸" : "说明当前图纸规范覆盖范围",
+      config.realCutouts ? "Delik, kanal, arayüz, havşa ve dişler gerçek geometrik kesim olmalıdır" : "Delik/kanal uygulama durumunu açıkça belirtin",
+      config.strictGbDrawing ? "CAD çizimlerini GB/T mekanik çizim kurallarına göre inceleyin" : "Çizim standardının mevcut kapsamını açıklayın",
       `${cadApplicationLabels[config.cadApplication]}: ${cadApplicationRoutes[config.cadApplication]}`,
-      config.localCadAutomation ? "允许经审批后调用本机 SolidWorks / AutoCAD 桌面自动化能力。" : "不直接调用本机 CAD 软件，仅生成计划、脚本或说明。",
-      `所有交付物只保存到本地输出目录: ${config.outputDir}`,
+      config.localCadAutomation ? "Onaydan sonra yerel SolidWorks/AutoCAD masaüstü otomasyonu kullanılabilir." : "Yerel CAD uygulamasını doğrudan çağırmayın; yalnızca plan, betik veya açıklama üretin.",
+      `Tüm teslim dosyaları yalnızca yerel çıktı klasörüne kaydedilir: ${config.outputDir}`,
     ];
     const capabilities = capabilityIdsForConfig(config);
     const providerMeta = agentProviderCatalog[apiConfig.agentProvider];
     const job = createJob("agent_task", recentProjectPath, {
       projectId: activeProjectId,
       executor: "agent",
-      title: conciseTaskTitle(config.objective, `${codexTargets[config.target]}任务`),
+      title: conciseTaskTitle(config.objective, `${codexTargets[config.target]}Görev`),
       detail: `${cadApplicationLabels[config.cadApplication]} · ${codexTargets[config.target]} · ${resolvedExpectedOutput(config)}`,
       objective: config.objective,
       targetSoftware: cadApplicationLabels[config.cadApplication],
@@ -1333,7 +1333,7 @@ function App() {
           provider: apiConfig.agentProvider,
           providerName: providerMeta.name,
           protocol: providerMeta.protocol,
-          model: apiConfig.model.includes("跟随") || apiConfig.model.includes("配置决定") ? "" : apiConfig.model,
+          model: apiConfig.model.endsWith("ayarlarını kullan") ? "" : apiConfig.model,
         },
         cadRuntime: {
           application: config.cadApplication,
@@ -1357,13 +1357,13 @@ function App() {
           autoOutput: config.expectedOutput === "auto",
           autoProcess: config.process === "auto",
           autoMaterial: config.material === "auto",
-          instruction: "未指定字段由 AI 自动选择最佳工程方案、目标 CAD 软件和执行路线，并说明理由。",
+          instruction: "Belirtilmeyen alanlar için AI uygun mühendislik yaklaşımını, hedef CAD uygulamasını ve yürütme yolunu seçip gerekçesini açıklamalıdır.",
         },
         engineeringOrchestration: {
           mode: "plan_guided_dag",
-          trigger: "检测到跨零件、孔槽、装配、Motion、图纸或交付的综合任务时自动启用",
-          stages: ["需求", "零件", "孔槽与倒角", "装配 Mate", "Motion", "工程图 BOM", "导出", "综合复核"],
-          retry: "对话追改时只重规划受影响阶段，并使其下游结果失效",
+          trigger: "Parça, delik/kanal, montaj, Motion,  çizim veya teslim içeren birleşik görevlerde otomatik etkinleşir",
+          stages: ["Gereksinimler", "Parça", "Delik/kanal ve chamfer", "Montaj Mate", "Motion", "Mühendislik çizimi BOM", "Dışa aktar", "Birleşik inceleme"],
+          retry: "Follow-up edits replan only affected stages and invalidate their downstream results",
           cadConcurrency: 1,
         },
         geometry: {
@@ -1382,19 +1382,19 @@ function App() {
       },
     });
     try {
-      setWindowHint("正在写入本地队列...");
+      setWindowHint("Yerel kuyruğa yazılıyor...");
       await persistJob(job);
       upsertJob(job);
       setActiveAgentJobId(job.id);
       setExpandedJobId(job.id);
-      setWindowHint("任务已进入本地队列");
+      setWindowHint("Görev yerel kuyruğa alındı");
       if (!workerStatus.running) void startLocalWorker();
     } catch (error) {
       setAgentMessages((messages) => [
         ...messages,
-        createChatMessage("system", `任务写入失败，没有进入执行队列：${String(error)}`),
+        createChatMessage("system", `Görev yazılamadı ve yürütme kuyruğuna alınmadı: ${String(error)}`),
       ].slice(-40));
-      setWindowHint("任务写入失败");
+      setWindowHint("Görev yazılamadı");
     } finally {
       setSubmissionKind(null);
     }
@@ -1404,32 +1404,32 @@ function App() {
     const text = agentInput.trim();
     if (!text || submissionKind) return;
 
-    const conversation = activeConversation ?? createAgentConversation(conciseTaskTitle(text, "新对话"));
+    const conversation = activeConversation ?? createAgentConversation(conciseTaskTitle(text, "Yeni konuşma"));
     const userMessage = createChatMessage("user", text, undefined, conversation.id, activeProject.id);
     setAgentConversations((items) => items.map((item) => item.id === conversation.id
       ? {
           ...item,
-          title: item.title.startsWith("新对话") ? conciseTaskTitle(text, "新对话") : item.title,
+          title: item.title.startsWith("Yeni konuşma") ? conciseTaskTitle(text, "Yeni konuşma") : item.title,
           provider: apiConfig.agentProvider,
           model: apiConfig.model,
           updatedAt: new Date().toISOString(),
         }
       : item));
     if (!isTauriRuntime()) {
-      setAgentMessages((messages) => [...messages, userMessage, createChatMessage("system", "浏览器预览不会创建模拟任务。请打开桌面版后继续。", undefined, conversation.id, activeProject.id)].slice(-200));
+      setAgentMessages((messages) => [...messages, userMessage, createChatMessage("system", "Tarayıcı önizlemesi sahte görev oluşturmaz. Devam etmek için masaüstü sürümünü açın.", undefined, conversation.id, activeProject.id)].slice(-200));
       setAgentInput("");
       return;
     }
     setSubmissionKind("chat");
-    setWindowHint("正在准备对话任务...");
+    setWindowHint("Konuşma görevi hazırlanıyor...");
     await nextPaint();
     let activeRuntime: RuntimeHealth;
     try {
       activeRuntime = await ensureRuntimeHealth();
     } catch (error) {
-      setAgentMessages((messages) => [...messages, userMessage, createChatMessage("system", `本地环境未就绪：${String(error)}`, undefined, conversation.id, activeProject.id)].slice(-200));
+      setAgentMessages((messages) => [...messages, userMessage, createChatMessage("system", `Yerel ortam hazır değil: ${String(error)}`, undefined, conversation.id, activeProject.id)].slice(-200));
       setAgentInput("");
-      setWindowHint("对话任务未创建 · 请检查本地环境");
+      setWindowHint("Konuşma görevi oluşturulmadı · Yerel ortamı kontrol edin");
       setSubmissionKind(null);
       return;
     }
@@ -1439,17 +1439,17 @@ function App() {
       projectId: activeProjectId,
       conversationId: conversation.id,
       executor: "agent",
-      title: conciseTaskTitle(text, "AI CAD 对话任务"),
-      detail: `${cadApplicationLabels[codexConfig.cadApplication]} · ${codexTargets[codexConfig.target]} · 可继续追问修改`,
+      title: conciseTaskTitle(text, "AI CAD Konuşma görevi"),
+      detail: `${cadApplicationLabels[codexConfig.cadApplication]} · ${codexTargets[codexConfig.target]} · Değişiklik istemeye devam edebilirsiniz`,
       objective: text,
       targetSoftware: cadApplicationLabels[codexConfig.cadApplication],
       target: codexTargets[codexConfig.target],
       expectedOutput: resolvedExpectedOutput(codexConfig),
       strictRules: [
-        "以软件内 AI 对话形式响应用户，输出可公开的步骤摘要、执行结果和文件位置。",
-        codexConfig.realCutouts ? "涉及孔槽时必须是真实几何开孔/切除。" : "涉及孔槽时必须说明实现状态。",
-        codexConfig.strictGbDrawing ? "涉及图纸时必须遵循中国常用机械制图规范并复核尺寸链。" : "涉及图纸时说明规范覆盖范围。",
-        "所有交付物只保存到用户指定的本地输出目录。",
+        "Uygulama içindeki  AI  konuşma biçiminde yanıt verin; paylaşılabilir adım özeti, yürütme sonuçları ve dosya konumlarını gösterin.",
+        codexConfig.realCutouts ? "Delik ve kanallar gerçek geometrik kesim (cut) olmalıdır." : "Delik/kanal varsa uygulama durumunu açıklayın.",
+        codexConfig.strictGbDrawing ? "Çizimlerde GB/T mekanik çizim kurallarına uyun ve boyut zincirlerini inceleyin." : "Çizim görevlerinde standart kapsamını açıklayın.",
+        "Tüm teslim dosyalarını yalnızca kullanıcının belirttiği yerel çıktı klasörüne kaydedin.",
       ],
       capabilities: capabilityIdsForConfig(codexConfig),
       capabilitySnapshot: capabilitySnapshot(activeRuntime, capabilityIdsForConfig(codexConfig)),
@@ -1471,15 +1471,15 @@ function App() {
           provider: apiConfig.agentProvider,
           providerName: providerMeta.name,
           protocol: providerMeta.protocol,
-          model: apiConfig.model.includes("跟随") || apiConfig.model.includes("配置决定") ? "" : apiConfig.model,
+          model: apiConfig.model.endsWith("ayarlarını kullan") ? "" : apiConfig.model,
         },
         outputDir: codexConfig.outputDir,
         knowledgeBase,
         engineeringOrchestration: {
           mode: "plan_guided_dag",
-          trigger: "复杂机械工程自动拆解；简单任务保持最小执行路径",
-          stages: ["需求", "零件", "孔槽与倒角", "装配 Mate", "Motion", "工程图 BOM", "导出", "综合复核"],
-          retry: "局部修改只重规划受影响阶段及其下游",
+          trigger: "Karmaşık mekanik işleri aşamalara ayırır; basit görevlerde en kısa yürütme yolu korunur",
+          stages: ["Gereksinimler", "Parça", "Delik/kanal ve chamfer", "Montaj Mate", "Motion", "Mühendislik çizimi BOM", "Dışa aktar", "Birleşik inceleme"],
+          retry: "Yerel düzenlemeler yalnızca etkilenen aşamayı ve devamını yeniden planlar",
           cadConcurrency: 1,
         },
         sourceJobId: activeAgentJob?.id,
@@ -1497,25 +1497,25 @@ function App() {
 
     setAgentInput("");
     try {
-      setWindowHint("正在写入对话任务...");
+      setWindowHint("Konuşma görevi yazılıyor...");
       await persistJob(job);
       setActiveAgentJobId(job.id);
       setExpandedJobId(job.id);
       setAgentMessages((messages) => [
         ...messages,
         userMessage,
-        createChatMessage("assistant", `收到，我已经把这句话转成一条本地 ${providerMeta.name} 执行任务。你可以在下方看到公开步骤、审批、日志和结果；不满意就继续补充要求。`, job.id, conversation.id, activeProject.id),
+        createChatMessage("assistant", `İsteğiniz yerel bir ${providerMeta.name} görevi olarak kuyruğa alındı. Aşağıda adımları, onayları, günlükleri ve sonuçları görebilirsiniz. Değişiklik için yeni gereksinim yazabilirsiniz.`, job.id, conversation.id, activeProject.id),
       ].slice(-200));
       upsertJob(job);
-      setWindowHint("对话任务已进入本地队列");
+      setWindowHint("Konuşma görevi yerel kuyruğa alındı");
       if (!workerStatus.running) void startLocalWorker();
     } catch (error) {
       setAgentMessages((messages) => [
         ...messages,
         userMessage,
-        createChatMessage("system", `任务写入失败，没有进入执行队列：${String(error)}`, undefined, conversation.id, activeProject.id),
+        createChatMessage("system", `Görev yazılamadı ve yürütme kuyruğuna alınmadı: ${String(error)}`, undefined, conversation.id, activeProject.id),
       ].slice(-200));
-      setWindowHint("对话任务写入失败");
+      setWindowHint("Konuşma görevi yazılamadı");
     } finally {
       setSubmissionKind(null);
     }
@@ -1526,11 +1526,11 @@ function App() {
       ...codexConfig,
       target: template.target,
       expectedOutput: template.output,
-      objective: `${template.title}: ${template.detail}。请根据用户导入的资料或当前配置生成可制造 CAD 结果，并输出必要的复核记录。`,
+      objective: `${template.title}: ${template.detail}.İçe aktarılan kaynaklara veya mevcut ayarlara göre üretilebilir  CAD  sonuçları ve gerekli inceleme kayıtlarını üretin.`,
     } satisfies CodexConfig;
     setCodexConfig(nextConfig);
     setSelectedTemplateKey(template.key);
-    setWindowHint(`已载入“${template.title}”配置 · 确认后再执行`);
+    setWindowHint(`«${template.title}» ayarları yüklendi · Kontrol edip yürütün`);
     requestAnimationFrame(() => bridgeRef.current?.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "start" }));
   }
 
@@ -1542,7 +1542,7 @@ function App() {
       ? { ...item, name: nextName, updatedAt: new Date().toISOString() }
       : item));
     setEditingProjectName(false);
-    setWindowHint(`项目已命名为“${nextName}”`);
+    setWindowHint(`Proje adı: «${nextName}»`);
   }
 
   function selectProject(project: ProjectRecord) {
@@ -1558,7 +1558,7 @@ function App() {
         ...config,
         agentProvider: nextConversation.provider,
         providerName: ccSwitchRoute?.name || metadata.name,
-        endpoint: ccSwitchRoute?.endpoint || health?.entry || "本机 CLI",
+        endpoint: ccSwitchRoute?.endpoint || health?.entry || "Yerel CLI",
         model: nextConversation.model,
         keyStatus: ccSwitchRoute ? "synced" : health?.verified ? "configured" : "missing",
       }));
@@ -1574,7 +1574,7 @@ function App() {
     setExpandedJobId(null);
     setSelectedTemplateKey(null);
     setActiveTab("project");
-    setWindowHint(`已切换到“${project.name}”`);
+    setWindowHint(`Geçiş yapıldı: «${project.name}»`);
     requestAnimationFrame(() => performance.measure("cad-studio.project-switch", { start: switchStartedAt }));
   }
 
@@ -1582,7 +1582,7 @@ function App() {
     const now = new Date().toISOString();
     const project: ProjectRecord = {
       id: newProjectId(),
-      name: `新项目 ${projects.length + 1}`,
+      name: `Yeni proje ${projects.length + 1}`,
       createdAt: now,
       updatedAt: now,
     };
@@ -1590,7 +1590,7 @@ function App() {
     selectProject(project);
     setActiveConversationId(null);
     setEditingProjectName(true);
-    setWindowHint("新项目已创建，请输入项目名称");
+    setWindowHint("Yeni proje oluşturuldu; proje adını girin");
   }
 
   function duplicateProject(project: ProjectRecord) {
@@ -1599,12 +1599,12 @@ function App() {
     selectProject(duplicate);
     setActiveConversationId(null);
     setEditingProjectName(true);
-    setWindowHint("项目结构已复制；任务、对话和 CAD 文件未复制");
+    setWindowHint("Proje yapısı kopyalandı; görevler, konuşmalar ve  CAD Dosyalar kopyalanmadı");
   }
 
   function toggleProjectArchive(project: ProjectRecord) {
     if (project.id === activeProjectId) {
-      setWindowHint("请先切换到其他项目，再归档当前项目");
+      setWindowHint("Bu projeyi arşivlemeden önce başka bir projeye geçin");
       return;
     }
     const archivedAt = project.archivedAt ? undefined : new Date().toISOString();
@@ -1612,25 +1612,25 @@ function App() {
       ? { ...item, archivedAt, updatedAt: new Date().toISOString() }
       : item));
     setDeleteCandidateProjectId(null);
-    setWindowHint(`项目“${project.name}”已${archivedAt ? "归档" : "恢复"}`);
+    setWindowHint(`«${project.name}» projesi ${archivedAt ? "arşivlendi" : "geri yüklendi"}`);
   }
 
   async function deleteProject(project: ProjectRecord) {
     if (!project.archivedAt && projects.filter((item) => !item.archivedAt).length <= 1) {
-      setWindowHint("至少需要保留一个未归档项目");
+      setWindowHint("En az bir arşivlenmemiş proje kalmalıdır");
       return;
     }
     const projectJobs = jobs.filter((job) => jobProjectId(job) === project.id);
     if (hasActiveProjectJobs(jobs, project.id)) {
       setDeleteCandidateProjectId(null);
-      setWindowHint("该项目仍有排队、执行中或待审批任务，请先取消这些任务");
+      setWindowHint("Projede sırada, çalışıyor veya onay bekliyor durumunda görevler var; önce bunları iptal edin");
       return;
     }
     if (deleteCandidateProjectId !== project.id) {
       setDeleteCandidateProjectId(project.id);
       setWindowHint(projectJobs.length
-        ? `再次点击确认删除“${project.name}”及其 ${projectJobs.length} 条任务记录；CAD 交付文件会保留`
-        : `再次点击确认删除空项目“${project.name}”`);
+        ? `Silmek için tekrar seçin: «${project.name}» ve  ${projectJobs.length}  görev kaydı; CAD Teslim dosyaları korunacak`
+        : `Boş projeyi silmeyi onaylamak için tekrar seçin: «${project.name}»`);
       return;
     }
 
@@ -1672,7 +1672,7 @@ function App() {
             ...config,
             agentProvider: fallbackConversation.provider,
             providerName: ccSwitchRoute?.name || metadata.name,
-            endpoint: ccSwitchRoute?.endpoint || health?.entry || "本机 CLI",
+            endpoint: ccSwitchRoute?.endpoint || health?.entry || "Yerel CLI",
             model: fallbackConversation.model,
             keyStatus: ccSwitchRoute ? "synced" : health?.verified ? "configured" : "missing",
           }));
@@ -1686,9 +1686,9 @@ function App() {
         if (expandedJobId && deletedJobIds.has(expandedJobId)) setExpandedJobId(null);
       }
       setProjectMenuOpen(false);
-      setWindowHint(`项目“${project.name}”已删除，CAD 交付文件保持不变`);
+      setWindowHint(`«${project.name}» projesi silindi; CAD teslim dosyaları korundu`);
     } catch (error) {
-      setWindowHint(`项目删除失败：${String(error)}`);
+      setWindowHint(`Proje silinemedi: ${String(error)}`);
     } finally {
       setDeletingProjectId(null);
       setDeleteCandidateProjectId(null);
@@ -1715,7 +1715,7 @@ function App() {
   async function deleteJob(job: AutomationJob) {
     if (deleteCandidateJobId !== job.id) {
       setDeleteCandidateJobId(job.id);
-      setWindowHint("再次点击删除图标确认；CAD 交付文件不会被删除");
+      setWindowHint("Onaylamak için silme simgesini tekrar seçin; CAD Teslim dosyaları silinmeyecek");
       return;
     }
     setDeletingJobId(job.id);
@@ -1726,7 +1726,7 @@ function App() {
           current = await invoke<AutomationJob>("cancel_queue_job", { id: job.id });
           upsertJob(current);
           if (current.status === "running") {
-            setWindowHint("已请求停止任务；状态变为已取消后可删除");
+            setWindowHint("Durdurma istendi; İptal edildi durumundan sonra görev silinebilir");
             setDeleteCandidateJobId(null);
             return;
           }
@@ -1734,10 +1734,10 @@ function App() {
         await invoke("delete_queue_job", { id: job.id });
       }
       removeJobFromUi(job.id);
-      setWindowHint("任务记录已删除，CAD 交付文件保持不变");
+      setWindowHint("Görev kaydı silindi; CAD Teslim dosyaları değişmeden kalır");
     } catch (error) {
-      updateJob(job.id, (item) => ({ ...item, lastMessage: `删除失败: ${String(error)}` }));
-      setWindowHint("任务记录删除失败");
+      updateJob(job.id, (item) => ({ ...item, lastMessage: `Silme başarısız: ${String(error)}` }));
+      setWindowHint("Görev kaydı silinemedi");
     } finally {
       setDeletingJobId(null);
       setDeleteCandidateJobId(null);
@@ -1765,10 +1765,10 @@ function App() {
     if (deletedIds.size) removeJobsFromUi(deletedIds);
     setDeleteCandidateJobId(null);
     if (failure) {
-      setWindowHint(`已清理 ${deletedIds.size} 条记录，剩余记录失败：${String(failure)}`);
+      setWindowHint(`Temizlendi ${deletedIds.size}  kayıt; diğer kayıtlar başarısız: ${String(failure)}`);
       throw failure;
     }
-    setWindowHint(`已清理 ${targets.length} 条终态任务记录，CAD 交付文件保持不变`);
+    setWindowHint(`Temizlendi ${targets.length}  terminal görev kaydı; CAD Teslim dosyaları değişmeden kalır`);
   }
 
   function enqueueDeliveryTask() {
@@ -1776,7 +1776,7 @@ function App() {
       ...codexConfig,
       target: "package",
       expectedOutput: "auto",
-      objective: "整理当前项目的真实 CAD 产物，验证文件存在性和格式，生成本地交付清单；缺失文件必须明确报错，不能用占位文件代替。",
+      objective: "Mevcut projenin gerçek CAD çıktılarını düzenleyin: dosyaların varlığını ve biçimini doğrulayıp yerel teslim listesi oluşturun. Eksik dosyalarda açık hata verin; yer tutucu dosya oluşturmayın.",
     } satisfies CodexConfig;
     setCodexConfig(nextConfig);
     void enqueueCodexTaskWithConfig(nextConfig);
@@ -1785,22 +1785,22 @@ function App() {
   async function enqueueDfmReviewTask() {
     if (submissionKind) return;
     if (!isTauriRuntime()) {
-      setWindowHint("浏览器预览不会创建 DFM 任务，请启动桌面版");
+      setWindowHint("DFM görevi oluşturmak için masaüstü sürümünü başlatın");
       return;
     }
     setSubmissionKind("task");
-    setWindowHint("正在准备 DFM 复核...");
+    setWindowHint("DFM incelemesi hazırlanıyor...");
     await nextPaint();
     try {
       const activeRuntime = await ensureRuntimeHealth();
       const capabilityIds = ["dfm_checks"];
       const job = createJob("dfm_review", recentProjectPath, {
         projectId: activeProjectId,
-        title: "DFM 制造风险复核",
-        detail: `${processLabels[codexConfig.process]} · ${materialLabels[codexConfig.material]} · 配置包络`,
+        title: "DFM Üretim riski incelemesi",
+        detail: `${processLabels[codexConfig.process]} · ${materialLabels[codexConfig.material]} · Dış ölçüleri ayarla`,
         target: "DFM",
         expectedOutput: "DFM report",
-        objective: "基于当前制造配置检查材料、壁厚、包络、孔径、工艺参数和打印/切割风险。",
+        objective: "Mevcut üretim ayarlarına göre malzemeyi, duvar kalınlığını, dış ölçüleri, delik çapını, işlem parametrelerini ve baskı/kesim risklerini inceleyin.",
         capabilities: capabilityIds,
         capabilitySnapshot: capabilitySnapshot(activeRuntime, capabilityIds),
         requiredArtifacts: ["dfm_report"],
@@ -1838,10 +1838,10 @@ function App() {
       upsertJob(job);
       setActiveAgentJobId(job.id);
       setExpandedJobId(job.id);
-      setWindowHint("DFM 任务已进入本地队列");
+      setWindowHint("DFM Görev yerel kuyruğa alındı");
       if (!workerStatus.running) void startLocalWorker();
     } catch (error) {
-      setWindowHint(`DFM 任务未创建：${String(error)}`);
+      setWindowHint(`DFM Görev oluşturulmadı: ${String(error)}`);
     } finally {
       setSubmissionKind(null);
     }
@@ -1854,7 +1854,7 @@ function App() {
         upsertJob(cancelled);
         return;
       } catch (error) {
-        updateJob(id, (item) => ({ ...item, lastMessage: `取消失败: ${String(error)}`, updatedAt: new Date().toISOString() }));
+        updateJob(id, (item) => ({ ...item, lastMessage: `İptal başarısız: ${String(error)}`, updatedAt: new Date().toISOString() }));
         return;
       }
     }
@@ -1884,7 +1884,7 @@ function App() {
           status: "queued",
           progress: 0,
           updatedAt: new Date().toISOString(),
-          lastMessage: "用户已重新执行失败任务，等待 Worker 接单。",
+          lastMessage: "Kullanıcı başarısız görevi yeniden başlattı; worker'ın görevi alması bekleniyor.",
           result: undefined,
           artifacts: [],
           artifactLedgerPath: undefined,
@@ -1912,7 +1912,7 @@ function App() {
     } catch (error) {
       updateJob(id, (item) => ({
         ...item,
-        lastMessage: `重新执行失败: ${String(error)}`,
+        lastMessage: `Yeniden yürütme başarısız: ${String(error)}`,
         updatedAt: new Date().toISOString(),
       }));
     } finally {
@@ -1928,7 +1928,7 @@ function App() {
       } catch (error) {
         updateJob(id, (item) => ({
           ...item,
-          lastMessage: `审批失败: ${String(error)}`,
+          lastMessage: `Onay başarısız: ${String(error)}`,
           updatedAt: new Date().toISOString(),
         }));
       }
@@ -1941,7 +1941,7 @@ function App() {
       approvedAt: new Date().toISOString(),
       approvedBy: "local-user",
       approvedPolicyReasons: item.approvalReasons ?? [],
-      lastMessage: "人工审批已通过，任务重新进入队列。",
+      lastMessage: "İnsan onayı verildi; görev yeniden kuyruğa alındı.",
       updatedAt: new Date().toISOString(),
     }));
   }
@@ -1953,12 +1953,12 @@ function App() {
     if (draft.note.trim().length < (approved ? 8 : 4)) {
       updateJob(id, (item) => ({
         ...item,
-        lastMessage: approved ? "通过复核前请填写至少 8 个字的具体复核说明。" : "驳回前请填写具体问题。",
+        lastMessage: approved ? "İncelemeyi onaylamak için en az 8 karakterlik somut bir inceleme açıklaması yazın." : "Reddetmeden önce somut sorunları yazın.",
       }));
       return;
     }
     if (approved && requiredChecks.some((key) => !draft.checks.includes(key))) {
-      updateJob(id, (item) => ({ ...item, lastMessage: "请完成当前任务要求的全部人工复核项。" }));
+      updateJob(id, (item) => ({ ...item, lastMessage: "Mevcut görevin tüm gerekli insan inceleme öğelerini tamamlayın." }));
       return;
     }
     if (isTauriRuntime()) {
@@ -1976,7 +1976,7 @@ function App() {
       } catch (error) {
         updateJob(id, (item) => ({
           ...item,
-          lastMessage: `人工复核失败: ${String(error)}`,
+          lastMessage: `İnsan incelemesi başarısız: ${String(error)}`,
           updatedAt: new Date().toISOString(),
         }));
       }
@@ -1990,7 +1990,7 @@ function App() {
       reviewedAt: new Date().toISOString(),
       reviewedBy: "local-user",
       reviewNote: draft.note.trim(),
-      lastMessage: approved ? "人工复核已通过，任务可以交付。" : "人工复核未通过，任务已驳回。",
+      lastMessage: approved ? "İnsan incelemesi geçti; görev teslim edilebilir." : "İnsan incelemesi başarısız; görev reddedildi.",
       updatedAt: new Date().toISOString(),
     }));
   }
@@ -2031,7 +2031,7 @@ function App() {
   }
 
   async function applyWallpaperPath(path: string, options: { remember?: boolean; open?: boolean } = {}) {
-    setWindowHint("正在导入本地壁纸...");
+    setWindowHint("Yerel duvar kâğıdı içe aktarılıyor...");
     try {
       const imported = isTauriRuntime()
         ? await invoke<ImportedWallpaper>("import_wallpaper", { sourcePath: path })
@@ -2045,11 +2045,11 @@ function App() {
       if (options.remember !== false) rememberWallpaper(imported.path, imported.name, imported.kind);
       setActiveWallpaper("custom");
       if (options.open !== false) setAppearanceOpen(true);
-      setWindowHint(`壁纸“${imported.name}”已应用`);
+      setWindowHint(`«${imported.name}» duvar kâğıdı uygulandı`);
       return true;
     } catch (error) {
       setActiveWallpaper((current) => current === "custom" ? "blossom" : current);
-      setWindowHint(`壁纸导入失败：${String(error)}`);
+      setWindowHint(`Duvar kâğıdı içe aktarılamadı: ${String(error)}`);
       return false;
     }
   }
@@ -2077,7 +2077,7 @@ function App() {
 
   async function chooseProjectFile() {
     if (!isTauriRuntime()) {
-      setAgentMessages((messages) => [...messages, createChatMessage("system", "浏览器预览不能访问本机 CAD 文件。请在桌面版中导入 STEP、STL、SLDPRT、SLDASM、DWG、DXF、PDF 或图片。")].slice(-40));
+      setAgentMessages((messages) => [...messages, createChatMessage("system", "Tarayıcı önizlemesi yerel CAD dosyalarına erişemez. STEP, STL, SLDPRT, SLDASM, DWG, DXF, PDF veya resimleri masaüstü sürümünden içe aktarın.")].slice(-40));
       return;
     }
 
@@ -2094,7 +2094,7 @@ function App() {
     if (!selected || Array.isArray(selected)) return;
     setRecentProjectPath(selected);
     const importedName = displayNameFromPath(selected);
-    const nextName = projectName === "未命名项目" || /^新项目 \d+$/.test(projectName) ? importedName : projectName;
+    const nextName = projectName === "Adsız proje" || /^Yeni proje \d+$/.test(projectName) ? importedName : projectName;
     setProjectName(nextName);
     setProjectNameDraft(nextName);
     setProjects((items) => items.map((item) => item.id === activeProjectId
@@ -2105,7 +2105,7 @@ function App() {
         ...messages,
         createChatMessage(
           "system",
-          `已把 ${displayNameFromPath(selected)} 加入当前任务上下文。请在对话中说明要新建、修改、出图还是检查。`,
+          `${displayNameFromPath(selected)} mevcut görev bağlamına eklendi. Yeni model, değişiklik, çizim veya kontrol isteğinizi konuşmada belirtin.`,
           undefined,
           activeConversation.id,
           activeProject.id,
@@ -2162,14 +2162,14 @@ function App() {
   }
 
   async function controlWindow(action: "close" | "minimize" | "maximize") {
-    const labels = { close: "关闭", minimize: "最小化", maximize: "最大化/还原" };
+    const labels = { close: "Kapat", minimize: "Küçült", maximize: "Büyüt/Geri yükle" };
     if (!isTauriRuntime()) {
-      setWindowHint("浏览器预览不控制窗口，桌面版可用");
+      setWindowHint("Pencere kontrolü tarayıcı önizlemesinde yoktur; masaüstünde kullanılabilir");
       return;
     }
     try {
       const appWindow = getCurrentWindow();
-      setWindowHint(`正在${labels[action]}`);
+      setWindowHint(`İşleniyor${labels[action]}`);
       if (action === "close") {
         await invoke("close_app");
         return;
@@ -2178,21 +2178,21 @@ function App() {
       if (action === "maximize") {
         if (await appWindow.isMaximized()) {
           await appWindow.unmaximize();
-          setWindowHint("窗口已还原");
+          setWindowHint("Pencere geri yüklendi");
           return;
         }
         await appWindow.maximize();
       }
-      setWindowHint(`窗口已${labels[action]}`);
+      setWindowHint(`Pencere ${labels[action]}`);
     } catch (error) {
       console.error(error);
-      setWindowHint("窗口控制失败，请重启桌面版后再试");
+      setWindowHint("Pencere kontrolü başarısız; masaüstü uygulamasını yeniden başlatın");
     }
   }
 
   useEffect(() => {
     if (!isTauriRuntime()) {
-      setRuntimeMessage("浏览器预览模式：真实 Agent、skills 与 CAD 检测仅在桌面版运行。 ");
+      setRuntimeMessage("Tarayıcı önizleme modu: Agent, skill ve CAD ortamının gerçek denetimi yalnızca masaüstünde çalışır.");
       return;
     }
     let disposed = false;
@@ -2214,12 +2214,12 @@ function App() {
         });
         setRuntimeMessage(
           installedProviders.length
-            ? `已安装 ${installedProviders.map((provider) => provider.name).join("、")}；真实任务已验证 ${verifiedProviders.length ? verifiedProviders.map((provider) => provider.name).join("、") : "无"}。SolidWorks ${health.solidworks?.ok ? "可用" : "待检查"}，AutoCAD ${health.autocad?.ok ? "可用" : "未检测到"}。`
-            : "未检测到 Agent Provider，请在设置中检查 CLI 安装状态。",
+            ? `Yüklü ${installedProviders.map((provider) => provider.name).join(", ")}; Gerçek görev doğrulandı ${verifiedProviders.length ? verifiedProviders.map((provider) => provider.name).join(", ") : "Yok"}.SolidWorks ${health.solidworks?.ok ? "Kullanılabilir" : "Kontrol bekliyor"}, AutoCAD ${health.autocad?.ok ? "Kullanılabilir" : "Algılanmadı"}.`
+            : "Agent sağlayıcısı algılanmadı. Ayarlardan CLI kurulum durumunu kontrol edin.",
         );
       })
       .catch((error) => {
-        if (!disposed) setRuntimeMessage(`环境检测失败：${String(error)}`);
+        if (!disposed) setRuntimeMessage(`Ortam algılama başarısız: ${String(error)}`);
       });
     return () => {
       disposed = true;
@@ -2265,8 +2265,8 @@ function App() {
     async function restoreSettings() {
       const persisted = await readPersistedState("settings", SETTINGS_KEY);
       if (persisted.degraded) setPersistenceWarning(persisted.value === null
-        ? "SQLite 暂时不可用，当前未读取到设置回退副本；软件会在后续保存时自动重试。"
-        : "SQLite 暂时不可用，设置已从本地回退副本恢复；软件会在后续保存时自动重试。");
+        ? "SQLite  geçici olarak kullanılamıyor. Ayar yedeği bulunamadı; sonraki kayıtta yeniden denenecek."
+        : "SQLite  geçici olarak kullanılamıyor. Ayarlar yerel yedekten kurtarıldı; sonraki kayıtta yeniden denenecek.");
       const settings = loadSettings(persisted.value ?? undefined);
       if (!settings) {
         setSettingsLoaded(true);
@@ -2282,8 +2282,8 @@ function App() {
       setRecentWallpapers(settings.recentWallpapers);
       setProjects(settings.projects ?? [DEFAULT_PROJECT]);
       setActiveProjectId(settings.activeProjectId ?? LEGACY_PROJECT_ID);
-      setProjectName(settings.projectName ?? "未命名项目");
-      setProjectNameDraft(settings.projectName ?? "未命名项目");
+      setProjectName(settings.projectName ?? "Adsız proje");
+      setProjectNameDraft(settings.projectName ?? "Adsız proje");
       setRecentProjectPath(settings.recentProjectPath);
       setApiConfig(settings.apiConfig ?? defaultApiConfig);
       setKnowledgeBase(settings.knowledgeBase ?? defaultKnowledgeBase);
@@ -2294,7 +2294,7 @@ function App() {
       setSettingsLoaded(true);
     }
     void restoreSettings().catch((error) => {
-      setPersistenceWarning(`设置恢复失败：${error instanceof Error ? error.message : String(error)}`);
+      setPersistenceWarning(`Ayarlar kurtarılamadı: ${error instanceof Error ? error.message : String(error)}`);
       setSettingsLoaded(true);
     });
   }, []);
@@ -2307,8 +2307,8 @@ function App() {
       ]);
       if (messagePayload.degraded || conversationPayload.degraded) {
         setPersistenceWarning(messagePayload.value === null && conversationPayload.value === null
-          ? "SQLite 暂时不可用，当前未读取到对话回退副本；软件会在后续保存时自动重试。"
-          : "SQLite 暂时不可用，对话已从本地回退副本恢复；软件会在后续保存时自动重试。");
+          ? "SQLite  geçici olarak kullanılamıyor. Konuşma yedeği bulunamadı; sonraki kayıtta yeniden denenecek."
+          : "SQLite  geçici olarak kullanılamıyor. Konuşma yerel yedekten kurtarıldı; sonraki kayıtta yeniden denenecek.");
       }
       const savedMessages = loadAgentChat(messagePayload.value ?? undefined);
       let savedConversations = loadAgentConversations(conversationPayload.value ?? undefined);
@@ -2318,7 +2318,7 @@ function App() {
         savedConversations = [{
           id: LEGACY_CONVERSATION_ID,
           projectId: LEGACY_PROJECT_ID,
-          title: "历史对话",
+          title: "Konuşma geçmişi",
           provider: "codex",
           model: defaultApiConfig.model,
           createdAt: legacyAt,
@@ -2334,7 +2334,7 @@ function App() {
       setChatLoaded(true);
     }
     void restoreChat().catch((error) => {
-      setPersistenceWarning(`对话恢复失败：${error instanceof Error ? error.message : String(error)}`);
+      setPersistenceWarning(`Konuşma kurtarılamadı: ${error instanceof Error ? error.message : String(error)}`);
       setChatLoaded(true);
     });
   }, []);
@@ -2342,11 +2342,11 @@ function App() {
   useEffect(() => {
     if (!chatLoaded) return;
     void writePersistedState("messages", CHAT_KEY, agentMessages.slice(-200))
-      .then((result) => result.degraded && setPersistenceWarning("SQLite 写入失败，对话已安全保存到本地回退副本。"))
-      .catch((error) => setPersistenceWarning(`对话保存失败：${error instanceof Error ? error.message : String(error)}`));
+      .then((result) => result.degraded && setPersistenceWarning("SQLite Yazma başarısız; konuşma yerel yedeğe güvenle kaydedildi."))
+      .catch((error) => setPersistenceWarning(`Konuşma kaydedilemedi: ${error instanceof Error ? error.message : String(error)}`));
     void writePersistedState("conversations", CONVERSATIONS_KEY, agentConversations.slice(0, 100))
-      .then((result) => result.degraded && setPersistenceWarning("SQLite 写入失败，对话索引已安全保存到本地回退副本。"))
-      .catch((error) => setPersistenceWarning(`对话索引保存失败：${error instanceof Error ? error.message : String(error)}`));
+      .then((result) => result.degraded && setPersistenceWarning("SQLite  yazılamadı; konuşma dizini yerel yedeğe güvenle kaydedildi."))
+      .catch((error) => setPersistenceWarning(`Konuşma dizini kaydedilemedi: ${error instanceof Error ? error.message : String(error)}`));
   }, [agentConversations, agentMessages, chatLoaded]);
 
   useEffect(() => {
@@ -2375,7 +2375,7 @@ function App() {
       ...config,
       agentProvider: nextConversation.provider,
       providerName: ccSwitchRoute?.name || metadata.name,
-      endpoint: ccSwitchRoute?.endpoint || health?.entry || "本机 CLI",
+      endpoint: ccSwitchRoute?.endpoint || health?.entry || "Yerel CLI",
       model: nextConversation.model,
       keyStatus: ccSwitchRoute ? "synced" : health?.verified ? "configured" : "missing",
     }));
@@ -2419,7 +2419,7 @@ function App() {
           });
         }
       } catch (error) {
-        if (!disposed) setQueueLoadError(`任务队列读取失败：${error instanceof Error ? error.message : String(error)}`);
+        if (!disposed) setQueueLoadError(`Görev kuyruğu okuma hatası: ${error instanceof Error ? error.message : String(error)}`);
       } finally {
         if (!disposed) setQueueLoaded(true);
       }
@@ -2442,7 +2442,7 @@ function App() {
       if (disposed) dispose();
       else unlisten = dispose;
     }).catch((error) => {
-      if (!disposed) setQueueLoadError(`任务队列监听失败：${error instanceof Error ? error.message : String(error)}`);
+      if (!disposed) setQueueLoadError(`Görev kuyruğu dinleme hatası: ${error instanceof Error ? error.message : String(error)}`);
     });
     return () => {
       disposed = true;
@@ -2467,22 +2467,22 @@ function App() {
 
       if (job.status === "passed") {
         const lines = [
-          "这轮执行已完成。",
+          "Bu yürütme tamamlandı.",
           job.result?.message,
-          job.result?.outputPath ? `输出位置: ${job.result.outputPath}` : undefined,
-          job.reviewGate?.status ? `复核结果: ${job.reviewGate.status}` : undefined,
+          job.result?.outputPath ? `Çıktı konumu: ${job.result.outputPath}` : undefined,
+          job.reviewGate?.status ? `İnceleme sonucu: ${job.reviewGate.status}` : undefined,
         ].filter(Boolean);
         updates.push(createChatMessage("assistant", lines.join("\n"), job.id, job.conversationId, jobProjectId(job)));
       } else if (job.status === "review_required") {
-        updates.push(createChatMessage("assistant", `这轮执行已结束，但尚不能作为最终交付：${job.lastMessage || "仍需 CAD 原生或人工复核。"}`, job.id, job.conversationId, jobProjectId(job)));
+        updates.push(createChatMessage("assistant", `Bu yürütme bitti ancak henüz son teslim sayılamaz: ${job.lastMessage || "Hedef CAD uygulamasında kontrol veya insan incelemesi gerekiyor."}`, job.id, job.conversationId, jobProjectId(job)));
       } else if (job.status === "approval_required") {
-        updates.push(createChatMessage("assistant", `这轮需要你先批准本机自动化权限：${job.approvalReasons?.join("；") || "需要人工确认后继续执行。"}`, job.id, job.conversationId, jobProjectId(job)));
+        updates.push(createChatMessage("assistant", `Bu işlem için yerel otomasyon yetkisini onaylamanız gerekiyor: ${job.approvalReasons?.join("; ") || "Devam etmek için insan onayı gerekiyor."}`, job.id, job.conversationId, jobProjectId(job)));
       } else if (job.status === "failed") {
-        updates.push(createChatMessage("assistant", `这轮执行失败了：${job.error || job.lastMessage || "未知错误"}\n你可以直接补充一句“继续修复这个错误”。`, job.id, job.conversationId, jobProjectId(job)));
+        updates.push(createChatMessage("assistant", `Bu yürütme başarısız: ${job.error || job.lastMessage || "Bilinmeyen hata"}\nDoğrudan «Bu hatayı düzeltmeye devam et» diyebilirsiniz.`, job.id, job.conversationId, jobProjectId(job)));
       } else if (job.status === "cancelled") {
-        updates.push(createChatMessage("assistant", "这轮任务已经取消。你可以换一种要求重新发起。", job.id, job.conversationId, jobProjectId(job)));
+        updates.push(createChatMessage("assistant", "Bu görev iptal edildi. Farklı gereksinimlerle yeni görev başlatabilirsiniz.", job.id, job.conversationId, jobProjectId(job)));
       } else if (job.status === "blocked") {
-        updates.push(createChatMessage("assistant", `这轮任务被环境或能力门禁阻止：${job.blockedReasons?.join("；") || job.lastMessage || "当前能力尚未验证。"}`, job.id, job.conversationId, jobProjectId(job)));
+        updates.push(createChatMessage("assistant", `Bu görev ortam veya yetenek kontrolünde engellendi: ${job.blockedReasons?.join("; ") || job.lastMessage || "Bu yetenek henüz doğrulanmadı."}`, job.id, job.conversationId, jobProjectId(job)));
       }
     }
     if (updates.length > 0) {
@@ -2516,8 +2516,8 @@ function App() {
       knowledgeBase,
     };
     void writePersistedState("settings", SETTINGS_KEY, settings)
-      .then((result) => result.degraded && setPersistenceWarning("SQLite 写入失败，设置已安全保存到本地回退副本。"))
-      .catch((error) => setPersistenceWarning(`设置保存失败：${error instanceof Error ? error.message : String(error)}`));
+      .then((result) => result.degraded && setPersistenceWarning("SQLite Yazma başarısız; ayarlar yerel yedeğe güvenle kaydedildi."))
+      .catch((error) => setPersistenceWarning(`Ayarlar kaydedilemedi: ${error instanceof Error ? error.message : String(error)}`));
   }, [activeProjectId, activeWallpaper, apiConfig, customWallpaper?.sourcePath, knowledgeBase, projectName, projects, recentProjectPath, recentWallpapers, settingsLoaded, wallpaperBlur, wallpaperBrightness, wallpaperMotionMode, wallpaperMotionStrength, wallpaperVignette, workspaceOpacity]);
 
   function renderTemplatePanel() {
@@ -2537,7 +2537,7 @@ function App() {
               whileTap={{ scale: 0.985 }}
             >
               <Icon size={22} weight="duotone" />
-              <span>{selectedTemplateKey === template.key ? "已载入配置" : codexTargets[template.target]}</span>
+              <span>{selectedTemplateKey === template.key ? "Ayarlar yüklendi" : codexTargets[template.target]}</span>
               <strong>{template.title}</strong>
               <p>{template.detail}</p>
             </motion.button>
@@ -2559,23 +2559,23 @@ function App() {
               <p className="eyebrow">PROJECT</p>
               <h2>{projectName}</h2>
             </div>
-            <span className="status-pill">{workerStatus.running ? "可执行" : "待启动"}</span>
+            <span className="status-pill">{workerStatus.running ? "Çalıştırılabilir" : "Başlatma bekliyor"}</span>
           </div>
           <div className="project-quick-grid">
             <button type="button" onClick={() => setActiveTab("model")}>
               <CubeFocus size={19} weight="duotone" />
-              <strong>从零建模</strong>
-              <span>不需要先导入文件</span>
+              <strong>Sıfırdan modelle</strong>
+              <span>Önce dosya içe aktarmak gerekmez</span>
             </button>
             <button type="button" onClick={chooseProjectFile}>
               <FolderOpen size={19} weight="duotone" />
-              <strong>导入已有文件</strong>
-              <span>STEP / STL / DWG / PDF / 图片</span>
+              <strong>Mevcut dosyayı içe aktar</strong>
+              <span>STEP / STL / DWG / PDF / Resim</span>
             </button>
             <button type="button" onClick={() => setActiveTab("drawing")}>
               <FilePlus size={19} weight="duotone" />
-              <strong>出工程图</strong>
-              <span>GB/T 图框、尺寸、孔表</span>
+              <strong>Mühendislik çizimi oluştur</strong>
+              <span>GB/T Çerçeve, ölçüler, delik tablosu</span>
             </button>
           </div>
         </article>
@@ -2584,21 +2584,21 @@ function App() {
           <div className="panel-heading compact">
             <div>
               <p className="eyebrow">CONTEXT</p>
-              <h2>当前上下文</h2>
+              <h2>Mevcut bağlam</h2>
             </div>
           </div>
           <div className="context-summary">
-            <span>参考文件</span>
-            <strong>{recentProjectPath ? displayNameFromPath(recentProjectPath) : "未导入，可直接从零建模"}</strong>
-            <span>执行环境</span>
+            <span>Referans dosyaları</span>
+            <strong>{recentProjectPath ? displayNameFromPath(recentProjectPath) : "İçe aktarılmadı; sıfırdan modelleme yapılabilir"}</strong>
+            <span>Yürütme ortamı</span>
             <strong>{runtimeMessage}</strong>
-            <span>默认决策</span>
-            <strong>未指定项由 AI 选择；关键尺寸与安全参数必须确认</strong>
+            <span>Varsayılan karar</span>
+            <strong>Belirtilmeyen öğeleri AI seçer; kritik ölçüler ve güvenlik parametreleri doğrulanmalıdır</strong>
           </div>
           {capabilityAlerts.length > 0 ? (
             <div className="capability-alert" role="status">
-              <strong>当前配置包含未验证能力</strong>
-              <span>{capabilityAlerts.map((item) => `${item.id} · ${item.level}`).join("；")}，提交后会进入阻断或人工复核。</span>
+              <strong>Mevcut ayarlar doğrulanmamış yetenek içeriyor</strong>
+              <span>{capabilityAlerts.map((item) => `${item.id} · ${item.level}`).join("; ")}, Gönderim engellenir veya insan incelemesine alınır.</span>
             </div>
           ) : null}
         </aside>
@@ -2613,7 +2613,7 @@ function App() {
           <div className="panel-heading compact">
             <div>
               <p className="eyebrow">REVIEW</p>
-              <h2>{resultJob ? jobDisplayTitle(resultJob) : "等待任务完成"}</h2>
+              <h2>{resultJob ? jobDisplayTitle(resultJob) : "Görevin tamamlanması bekleniyor"}</h2>
             </div>
             <span className="status-pill">{jobReviewStatusLabel(resultJob)}</span>
           </div>
@@ -2623,13 +2623,13 @@ function App() {
                 <div className={`review-row ${check.status || "pending"}`} key={check.id || index}>
                   <span>{check.severity || "CHECK"}</span>
                   <strong>{reviewStatusLabel(check.status)}</strong>
-                  <small>{check.message || "复核项已返回，但没有说明。"}</small>
+                  <small>{check.message || "İnceleme öğeleri döndürüldü ancak açıklama yok."}</small>
                 </div>
               ))
             ) : (
               <div className="inspector-empty">
-                <strong>没有真实复核数据</strong>
-                <p>任务完成后会在这里显示文件存在性、格式、孔槽、图纸规范和制造风险。</p>
+                <strong>Gerçek inceleme verisi yok</strong>
+                <p>Görev tamamlandığında dosya varlığı, biçim, delik/kanal, çizim standardı ve üretim riskleri burada gösterilir.</p>
               </div>
             )}
           </div>
@@ -2639,23 +2639,23 @@ function App() {
           <div className="panel-heading compact">
             <div>
               <p className="eyebrow">FEATURES</p>
-              <h2>几何特征</h2>
+              <h2>Geometrik özellikler</h2>
             </div>
           </div>
           <div className="hole-list">
             {resultFeatures.length > 0 ? (
               resultFeatures.map((feature, index) => (
                 <div className="hole-row" key={index}>
-                  <span>{recordText(feature, ["name", "type", "label"], `特征 ${index + 1}`)}</span>
+                  <span>{recordText(feature, ["name", "type", "label"], `Özellik (feature) ${index + 1}`)}</span>
                   <strong>{recordText(feature, ["spec", "size", "dimension", "value"], "")}</strong>
-                  <small>{recordText(feature, ["position", "pos", "location", "note"], "已由任务结果返回")}</small>
-                  <em>{recordText(feature, ["status"], "待复核")}</em>
+                  <small>{recordText(feature, ["position", "pos", "location", "note"], "Görev sonucu tarafından döndürüldü")}</small>
+                  <em>{recordText(feature, ["status"], "İnceleme bekliyor")}</em>
                 </div>
               ))
             ) : (
               <div className="inspector-empty">
-                <strong>暂无特征表</strong>
-                <p>AI 返回真实孔、槽、螺纹或装配特征后会自动列出。</p>
+                <strong>Henüz özellik tablosu yok</strong>
+                <p>AI gerçek delik, kanal, diş veya montaj özelliklerini döndürdüğünde bunlar otomatik listelenir.</p>
               </div>
             )}
           </div>
@@ -2674,12 +2674,12 @@ function App() {
     const relations = resultJob?.artifactRelations ?? [];
     const canRetry = Boolean(resultJob && ["failed", "blocked", "cancelled", "review_required"].includes(resultJob.status));
     const groupLabels: Array<[keyof typeof grouped, string]> = [
-      ["model", "模型"],
-      ["drawing", "工程图"],
+      ["model", "Model"],
+      ["drawing", "Mühendislik çizimi"],
       ["bom", "BOM"],
-      ["preview", "预览"],
-      ["report", "复核报告"],
-      ["other", "其它"],
+      ["preview", "Önizleme"],
+      ["report", "İnceleme raporu"],
+      ["other", "Diğer"],
     ];
     return (
       <section className="delivery-console">
@@ -2687,18 +2687,18 @@ function App() {
           <div className="panel-heading compact">
             <div>
               <p className="eyebrow">DELIVERY</p>
-              <h2>本地交付清单</h2>
+              <h2>Yerel teslim listesi</h2>
             </div>
             <div className="delivery-heading-actions">
               {canRetry && resultJob ? (
                 <motion.button className="ghost-button compact-action" type="button" disabled={retryingJobId !== null} onClick={() => void retryJob(resultJob.id)} whileTap={{ scale: 0.975 }}>
                   <ArrowClockwise className={retryingJobId === resultJob.id ? "spin" : undefined} size={17} weight="bold" />
-                  {retryingJobId === resultJob.id ? "正在排队" : `从${retryStageLabel(retryStage)}重新生成`}
+                  {retryingJobId === resultJob.id ? "Sıraya alınıyor" : `${retryStageLabel(retryStage)} aşamasından yeniden üret`}
                 </motion.button>
               ) : null}
               <motion.button className="primary-button compact-action shine" type="button" onClick={enqueueDeliveryTask} whileHover={reducedMotion ? undefined : { y: -2 }} whileTap={{ scale: 0.975 }}>
                 <Archive size={17} weight="duotone" />
-                生成交付包
+                Teslim paketi oluştur
               </motion.button>
             </div>
           </div>
@@ -2709,9 +2709,9 @@ function App() {
               <p>{assessment.summary}</p>
             </div>
             <div className="delivery-gate-metrics">
-              <span><strong>{assessment.readyArtifacts}</strong> 本轮有效产物</span>
-              <span><strong>{history.length + (resultJob ? 1 : 0)}</strong> 保留版本</span>
-              <span><strong>{resultJob?.reviewGate?.checks?.length ?? resultJob?.result?.checks?.length ?? 0}</strong> 机器检查</span>
+              <span><strong>{assessment.readyArtifacts}</strong> Bu yürütmenin geçerli çıktıları</span>
+              <span><strong>{history.length + (resultJob ? 1 : 0)}</strong> Sürümü koru</span>
+              <span><strong>{resultJob?.reviewGate?.checks?.length ?? resultJob?.result?.checks?.length ?? 0}</strong> Makine kontrolleri</span>
             </div>
             {assessment.issues.length ? (
               <div className="delivery-issue-list">
@@ -2721,14 +2721,14 @@ function App() {
           </div>
           {selectedPreviewArtifact ? (
             <section className="delivery-preview-stage">
-              <div className="delivery-section-heading"><strong>当前预览</strong><span>{selectedPreviewArtifact.path?.split(/[\\/]/).pop()}</span></div>
+              <div className="delivery-section-heading"><strong>Mevcut önizleme</strong><span>{selectedPreviewArtifact.path?.split(/[\\/]/).pop()}</span></div>
               <ArtifactBrowser artifacts={[]} selected={selectedPreviewArtifact} onSelect={setSelectedPreviewArtifactPath} />
             </section>
           ) : null}
           <div className="delivery-groups">
             {groupLabels.map(([group, label]) => grouped[group].length > 0 ? (
               <section className="delivery-group" key={group}>
-                <div className="delivery-group-heading"><strong>{label}</strong><span>{grouped[group].length} 项</span></div>
+                <div className="delivery-group-heading"><strong>{label}</strong><span>{grouped[group].length}  öğe</span></div>
                 <ArtifactBrowser artifacts={grouped[group]} selected={selectedPreviewArtifact} onSelect={setSelectedPreviewArtifactPath} showPreview={false} />
               </section>
             ) : null)}
@@ -2736,12 +2736,12 @@ function App() {
           </div>
           {relations.length ? (
             <section className="delivery-trace">
-              <div className="delivery-section-heading"><strong>产物追溯</strong><span>{relations.length} 条关系</span></div>
+              <div className="delivery-section-heading"><strong>Çıktı izlenebilirliği</strong><span>{relations.length}  ilişki</span></div>
               {relations.slice(0, 8).map((relation, index) => (
                 <div className="delivery-trace-row" key={`${relation.from}-${relation.to}-${index}`}>
-                  <span title={relation.from}>{relation.from?.split(/[\\/]/).pop() || "来源产物"}</span>
-                  <strong>{relation.type || relation.relation || "生成"}</strong>
-                  <span title={relation.to}>{relation.to?.split(/[\\/]/).pop() || "目标产物"}</span>
+                  <span title={relation.from}>{relation.from?.split(/[\\/]/).pop() || "Kaynak çıktı"}</span>
+                  <strong>{relation.type || relation.relation || "Oluştur"}</strong>
+                  <span title={relation.to}>{relation.to?.split(/[\\/]/).pop() || "Hedef çıktı"}</span>
                 </div>
               ))}
             </section>
@@ -2750,33 +2750,33 @@ function App() {
 
         <aside className="delivery-side">
           <div className="delivery-path">
-            <span>输出目录</span>
+            <span>Çıktı klasörü</span>
             <strong>{codexConfig.outputDir}</strong>
-            <button type="button" onClick={chooseOutputDir}>更改目录</button>
+            <button type="button" onClick={chooseOutputDir}>Klasörü değiştir</button>
           </div>
           <div className="format-strip">
             {deliveryFormats.map((format) => {
               const status = deliveryFormatStatus(format, resultJob, resultArtifacts);
               return (
                 <span className={status} key={format}>
-                  {format} · {status === "ready" ? "已生成" : status === "missing" ? "缺失" : "未要求"}
+                  {format} · {status === "ready" ? "Üretildi" : status === "missing" ? "Eksik" : "İstenmedi"}
                 </span>
               );
             })}
           </div>
           <div className="review-mini">
-            <span>复核状态</span>
-            <strong>{resultJob ? jobReviewStatusLabel(resultJob) : "等待生成后复核"}</strong>
+            <span>İnceleme durumu</span>
+            <strong>{resultJob ? jobReviewStatusLabel(resultJob) : "Üretim sonrası inceleme bekleniyor"}</strong>
           </div>
-          {resultJob?.drawingEvidence ? <div className="review-mini"><span>工程图证据</span><strong>{reviewStatusLabel(resultJob.drawingEvidence.status)}</strong><small>{resultJob.drawingEvidence.error_code || retryStageLabel(resultJob.drawingEvidence.stage)}</small></div> : null}
-          {resultJob?.bomEvidence ? <div className="review-mini"><span>BOM 证据</span><strong>{reviewStatusLabel(resultJob.bomEvidence.status)}</strong><small>{resultJob.bomEvidence.error_code || retryStageLabel(resultJob.bomEvidence.stage)}</small></div> : null}
-          {resultJob?.dfmEvidence ? <div className="review-mini"><span>DFM 证据</span><strong>{reviewStatusLabel(resultJob.dfmEvidence.status)}</strong><small>{resultJob.dfmEvidence.error_code || retryStageLabel(resultJob.dfmEvidence.stage)}</small></div> : null}
+          {resultJob?.drawingEvidence ? <div className="review-mini"><span>Çizim kanıtı</span><strong>{reviewStatusLabel(resultJob.drawingEvidence.status)}</strong><small>{resultJob.drawingEvidence.error_code || retryStageLabel(resultJob.drawingEvidence.stage)}</small></div> : null}
+          {resultJob?.bomEvidence ? <div className="review-mini"><span>BOM Kanıt</span><strong>{reviewStatusLabel(resultJob.bomEvidence.status)}</strong><small>{resultJob.bomEvidence.error_code || retryStageLabel(resultJob.bomEvidence.stage)}</small></div> : null}
+          {resultJob?.dfmEvidence ? <div className="review-mini"><span>DFM Kanıt</span><strong>{reviewStatusLabel(resultJob.dfmEvidence.status)}</strong><small>{resultJob.dfmEvidence.error_code || retryStageLabel(resultJob.dfmEvidence.stage)}</small></div> : null}
           {diagnostics.length ? (
             <div className="delivery-diagnostics">
-              <div className="delivery-section-heading"><strong>后端诊断</strong><span>{diagnostics.length} 项</span></div>
+              <div className="delivery-section-heading"><strong>Backend tanılama</strong><span>{diagnostics.length}  öğe</span></div>
               {diagnostics.map((diagnostic, index) => (
                 <div className={`delivery-diagnostic-row ${diagnostic.status ?? "unknown"}`} key={`${diagnostic.backend}-${index}`}>
-                  <span>{diagnostic.backend || "CAD 后端"}</span>
+                  <span>{diagnostic.backend || "CAD Backend"}</span>
                   <strong>{diagnostic.status || "unknown"}</strong>
                   <small>{diagnostic.error_code || diagnostic.limitations?.[0] || retryStageLabel(diagnostic.stage)}</small>
                 </div>
@@ -2785,16 +2785,16 @@ function App() {
           ) : null}
           {resultJob ? (
             <div className="delivery-versions">
-              <div className="delivery-section-heading"><strong>版本记录</strong><span>{history.length + 1} 轮</span></div>
+              <div className="delivery-section-heading"><strong>Sürüm geçmişi</strong><span>{history.length + 1}  yürütme</span></div>
               <div className="delivery-version-row current">
-                <span>当前</span><strong>{resultJob.runId}</strong><small>{jobStatusLabel(resultJob.status)} · {resultArtifacts.length} 项</small>
+                <span>Mevcut</span><strong>{resultJob.runId}</strong><small>{jobStatusLabel(resultJob.status)} · {resultArtifacts.length}  öğe</small>
               </div>
               {[...history].reverse().slice(0, 5).map((run, index) => (
                 <div className="delivery-version-row" key={`${run.runId}-${index}`}>
-                  <span>V{history.length - index}</span><strong>{run.runId || "旧版本"}</strong><small>{run.status ? jobStatusLabel(run.status) : "已归档"} · {run.artifacts?.length ?? 0} 项</small>
+                  <span>V{history.length - index}</span><strong>{run.runId || "Önceki sürüm"}</strong><small>{run.status ? jobStatusLabel(run.status) : "Arşivlendi"} · {run.artifacts?.length ?? 0}  öğe</small>
                 </div>
               ))}
-              {history.length ? <p className="version-diff">与上一轮：新增 {versionComparison.added} · 删除 {versionComparison.removed} · 变化 {versionComparison.changed} · 未变 {versionComparison.unchanged}</p> : null}
+              {history.length ? <p className="version-diff">Önceki yürütmeye göre: eklenen  {versionComparison.added} · Sil {versionComparison.removed} · Değişiklik {versionComparison.changed} · Değişmedi {versionComparison.unchanged}</p> : null}
             </div>
           ) : null}
         </aside>
@@ -2810,15 +2810,15 @@ function App() {
           <div className="persistence-warning" role="status">
             <WarningCircle size={18} weight="duotone" />
             <span>{persistenceWarning}</span>
-            <button type="button" onClick={() => setPersistenceWarning(null)}>知道了</button>
+            <button type="button" onClick={() => setPersistenceWarning(null)}>Anladım</button>
           </div>
         ) : null}
         <div className="settings-studio">
           <article className="setting-card api-card primary-setting">
             <div className="setting-title">
-              <span>执行核心</span>
+              <span>Yürütme çekirdeği</span>
               <strong>{agentProviderCatalog[apiConfig.agentProvider].name}</strong>
-              <p>自动检测本机 Agent CLI，任务协议、审批、RAG、CAD 工具与交付复核保持一致；本软件不保存 API Key。</p>
+              <p>Yerel Agent CLI otomatik algılanır. Görev protokolü, onay, RAG, CAD araçları ve teslim incelemesi birlikte yönetilir. Bu uygulama API anahtarı saklamaz.</p>
             </div>
             <div className="agent-provider-grid" role="radiogroup" aria-label="Agent Provider">
               {(Object.keys(agentProviderCatalog) as AgentProviderId[]).map((providerId) => {
@@ -2836,20 +2836,20 @@ function App() {
                     onClick={() => selectAgentProvider(providerId)}
                   >
                     <strong>{metadata.company} · {metadata.name}</strong>
-                    <span>{health?.installed ? `已安装 · ${health.version?.message || "版本未知"}` : runtimeHealth ? "未安装" : "等待检测"}</span>
-                    <small>{health?.verified ? "真实任务已验证" : health?.auth?.ok === false ? "认证失败，暂不可执行" : health?.installed ? "等待首个真实任务验证" : "需要先安装 CLI"}</small>
+                    <span>{health?.installed ? `Yüklü · ${health.version?.message || "Sürüm bilinmiyor"}` : runtimeHealth ? "Yüklü değil" : "Algılama bekleniyor"}</span>
+                    <small>{health?.verified ? "Gerçek görev doğrulandı" : health?.auth?.ok === false ? "Kimlik doğrulama başarısız; yürütülemiyor" : health?.installed ? "İlk gerçek görev doğrulaması bekleniyor" : "Önce CLI kurulmalıdır"}</small>
                   </button>
                 );
               })}
             </div>
             <label className="agent-model-select">
-              <span>当前模型 · {agentProviderCatalog[apiConfig.agentProvider].company}</span>
-              <select aria-label="选择 AI 模型" value={apiConfig.model} onChange={(event) => selectAgentModel(event.target.value)}>
+              <span>Mevcut model · {agentProviderCatalog[apiConfig.agentProvider].company}</span>
+              <select aria-label="AI modelini seç" value={apiConfig.model} onChange={(event) => selectAgentModel(event.target.value)}>
                 {providerModelOptions.map((model) => (
                   <option value={model.value} key={model.value}>{agentProviderCatalog[apiConfig.agentProvider].company} · {model.label}</option>
                 ))}
               </select>
-              <small>CC Switch 配置的模型会自动加入此列表；未显式选择时跟随本机 CLI。</small>
+              <small>CC Switch ayarlarındaki modeller listeye otomatik eklenir. Model seçmezseniz yerel CLI ayarları kullanılır.</small>
             </label>
             <div className="api-mode-grid">
               {(["codex_cli", "cc_switch"] as ApiIntegrationMode[]).map((mode) => (
@@ -2860,31 +2860,31 @@ function App() {
             </div>
             <div className="api-sync-row">
               <button type="button" onClick={() => void syncCcSwitchConfig()}>
-                读取 CC Switch 状态
+                CC Switch durumunu oku
               </button>
               <span>{apiSyncMessage}</span>
             </div>
             <div className="api-status-strip">
-              <span>{selectedProvider?.name || agentProviderCatalog[apiConfig.agentProvider].name}: {selectedProvider?.ready ? "可执行" : "待确认"}</span>
-              <span>CLI: {selectedProvider?.version?.message || "检测中"}</span>
-              <span className="settings-path">入口: {selectedProvider?.entry || "检测中"}</span>
-              <span>Skill: {runtimeHealth?.solidworksSkillPath || "检测中"}</span>
-              <span>SQLite 索引: {storeMigration ? storeMigration.countsMatch ? "数量一致" : "待修复" : "检测中"}</span>
+              <span>{selectedProvider?.name || agentProviderCatalog[apiConfig.agentProvider].name}: {selectedProvider?.ready ? "Çalıştırılabilir" : "Doğrulama bekliyor"}</span>
+              <span>CLI: {selectedProvider?.version?.message || "Algılanıyor"}</span>
+              <span className="settings-path">Giriş: {selectedProvider?.entry || "Algılanıyor"}</span>
+              <span>Skill: {runtimeHealth?.solidworksSkillPath || "Algılanıyor"}</span>
+              <span>SQLite Dizin: {storeMigration ? storeMigration.countsMatch ? "Adet tutarlı" : "Düzeltme bekliyor" : "Algılanıyor"}</span>
             </div>
             {selectedCcSwitchProviders.length ? (
               <div className="provider-list">
                 <div className="provider-list-head">
-                  <strong>{agentProviderCatalog[apiConfig.agentProvider].name} 模型路由</strong>
-                  <span>{selectedCcSwitchProviders.length} 个 · 当前项由 CC Switch 决定</span>
+                  <strong>{agentProviderCatalog[apiConfig.agentProvider].name} Model yönlendirmesi</strong>
+                  <span>{selectedCcSwitchProviders.length}  adet · Mevcut öğeyi seçer:  CC Switch Belirle</span>
                 </div>
                 {selectedCcSwitchProviders.map((provider) => (
                   <div className={provider.active ? "provider-row active" : "provider-row"} key={provider.id || provider.name}>
                     <div className="provider-main">
                       <strong>{provider.name || provider.id}</strong>
-                      <small>{provider.endpoint || "端点由 CC Switch 管理"}</small>
+                      <small>{provider.endpoint || "Endpoint, CC Switch tarafından yönetilir"}</small>
                     </div>
-                    <span>{provider.model || "模型跟随 CC Switch"}</span>
-                    <small>{provider.authLabel || "配置由 CC Switch 管理"}</small>
+                    <span>{provider.model || "Modeli izle CC Switch"}</span>
+                    <small>{provider.authLabel || "Yapılandırma, CC Switch tarafından yönetilir"}</small>
                   </div>
                 ))}
               </div>
@@ -2892,47 +2892,47 @@ function App() {
           </article>
 
           <article className="setting-card status-setting">
-            <span>本地执行</span>
-            <strong>{workerStatus.running ? `运行中 · PID ${workerStatus.pid ?? "-"}` : "未启动"}</strong>
-            <p>{workerStatus.health?.heartbeatAt ? `最近心跳 ${workerStatus.health.heartbeatAt}` : runtimeMessage}</p>
+            <span>Yerel yürütme</span>
+            <strong>{workerStatus.running ? `Çalışıyor · PID ${workerStatus.pid ?? "-"}` : "Başlatılmadı"}</strong>
+            <p>{workerStatus.health?.heartbeatAt ? `Son heartbeat ${workerStatus.health.heartbeatAt}` : runtimeMessage}</p>
             <button type="button" onClick={() => void (workerStatus.running ? stopLocalWorker() : startLocalWorker())}>
-              {workerStatus.running ? "停止本地执行器" : "启动本地执行器"}
+              {workerStatus.running ? "Yerel yürütücüyü durdur" : "Yerel yürütücüyü başlat"}
             </button>
           </article>
           <article className="setting-card status-setting amber">
-            <span>本地输出</span>
-            <strong>只保存到本机</strong>
+            <span>Yerel çıktı</span>
+            <strong>Yalnızca yerelde sakla</strong>
             <p>{codexConfig.outputDir}</p>
-            <button type="button" onClick={chooseOutputDir}>选择输出文件夹</button>
+            <button type="button" onClick={chooseOutputDir}>Çıktı klasörünü seç</button>
           </article>
           <article className="setting-card status-setting dark">
-            <span>外观</span>
+            <span>Görünüm</span>
             <strong>{activeWallpaperName}</strong>
-            <p>支持本地图片、GIF 和视频壁纸。建议用低饱和背景，避免影响 CAD 信息阅读。</p>
-            <button type="button" onClick={() => setAppearanceOpen(true)}>打开外观设置</button>
+            <p>Yerel resim, GIF ve video duvar kâğıtları desteklenir. CAD bilgilerinin okunabilirliği için düşük doygunluklu arka plan kullanın.</p>
+            <button type="button" onClick={() => setAppearanceOpen(true)}>Görünüm ayarlarını aç</button>
           </article>
           <article className="setting-card knowledge-setting">
-            <span>专业知识库</span>
-            <strong>{knowledgeBase.cloudEnabled ? "本地 + 云端" : "本地优先"}</strong>
-            <div className="knowledge-mode" role="group" aria-label="知识库模式">
-              <button type="button" className={!knowledgeBase.cloudEnabled ? "active" : ""} onClick={() => setKnowledgeBase((config) => ({ ...config, cloudEnabled: false }))}>本地</button>
-              <button type="button" className={knowledgeBase.cloudEnabled ? "active" : ""} onClick={() => setKnowledgeBase((config) => ({ ...config, cloudEnabled: true }))}>云端增强</button>
+            <span>Uzmanlık bilgi tabanı</span>
+            <strong>{knowledgeBase.cloudEnabled ? "Yerel + Bulut" : "Yerel öncelikli"}</strong>
+            <div className="knowledge-mode" role="group" aria-label="Bilgi tabanı modu">
+              <button type="button" className={!knowledgeBase.cloudEnabled ? "active" : ""} onClick={() => setKnowledgeBase((config) => ({ ...config, cloudEnabled: false }))}>Yerel</button>
+              <button type="button" className={knowledgeBase.cloudEnabled ? "active" : ""} onClick={() => setKnowledgeBase((config) => ({ ...config, cloudEnabled: true }))}>Bulut desteği</button>
             </div>
             {knowledgeBase.cloudEnabled ? (
               <div className="knowledge-fields">
                 <label>
-                  <span>HTTPS 检索地址</span>
+                  <span>HTTPS Arama adresi</span>
                   <input value={knowledgeBase.endpoint} placeholder="https://rag.example.com/retrieve" onChange={(event) => setKnowledgeBase((config) => ({ ...config, endpoint: event.target.value }))} />
                 </label>
                 <label>
-                  <span>命名空间</span>
+                  <span>Namespace</span>
                   <input value={knowledgeBase.namespace} onChange={(event) => setKnowledgeBase((config) => ({ ...config, namespace: event.target.value }))} />
                 </label>
               </div>
             ) : (
-              <p>{knowledgeBase.localRoots[0] || "使用内置 SolidWorks、制造和图纸规范知识。"}</p>
+              <p>{knowledgeBase.localRoots[0] || "Yerleşik SolidWorks, üretim ve çizim standartları bilgisi kullanılır."}</p>
             )}
-            <button type="button" onClick={() => void chooseKnowledgeRoot()}>添加本地标准库</button>
+            <button type="button" onClick={() => void chooseKnowledgeRoot()}>Yerel standart kitaplığı ekle</button>
           </article>
         </div>
       </section>
@@ -2949,21 +2949,21 @@ function App() {
           <div className="help-intro-title">
             <Question size={22} weight="duotone" />
             <div>
-              <span>使用手册</span>
-              <strong>CAD Studio 操作与排障</strong>
+              <span>Kullanım kılavuzu</span>
+              <strong>CAD Studio İşlemler ve sorun giderme</strong>
             </div>
           </div>
-          <p>根据当前环境状态整理的本机帮助。先选择左侧主题，再按步骤检查。</p>
+          <p>Mevcut ortam durumuna göre yerel yardım. Soldan bir konu seçip denetim adımlarını izleyin.</p>
         </div>
         <div className="help-status-grid">
-          <div><span>AI</span><strong>{installedProviders.length ? installedProviders.join("、") : "尚未检测到可用 CLI"}</strong></div>
-          <div><span>Python</span><strong>{runtimeHealth?.python?.ok ? "已就绪" : "需要安装 Python 3"}</strong></div>
-          <div><span>SolidWorks</span><strong>{runtimeHealth?.solidworks?.ok ? "可用" : "未检测到或待检查"}</strong></div>
-          <div><span>AutoCAD</span><strong>{runtimeHealth?.autocad?.ok ? "可用" : "未检测到"}</strong></div>
+          <div><span>AI</span><strong>{installedProviders.length ? installedProviders.join(", ") : "Kullanılabilir CLI henüz algılanmadı"}</strong></div>
+          <div><span>Python</span><strong>{runtimeHealth?.python?.ok ? "Hazır" : "Python 3 kurulmalıdır"}</strong></div>
+          <div><span>SolidWorks</span><strong>{runtimeHealth?.solidworks?.ok ? "Kullanılabilir" : "Algılanmadı veya kontrol bekliyor"}</strong></div>
+          <div><span>AutoCAD</span><strong>{runtimeHealth?.autocad?.ok ? "Kullanılabilir" : "Algılanmadı"}</strong></div>
         </div>
         <EnvironmentRemediationPanel remediations={runtimeHealth?.remediations ?? []} onCopyCommand={copyRuntimeCommand} onOpenDownload={openRuntimeDownload} />
         <div className="help-guide">
-          <nav className="help-topic-list" aria-label="帮助主题">
+          <nav className="help-topic-list" aria-label="Yardım konuları">
             {helpTopics.map((item) => (
               <button
                 type="button"
@@ -2997,7 +2997,7 @@ function App() {
         <PreviewShowcase />
         <div className="help-note">
           <ShieldCheck size={19} weight="duotone" />
-          <p>任务记录、审批和复核保存在本机。删除左侧任务只清理历史元数据，不会删除你已经导出的 CAD 文件。</p>
+          <p>Görev kayıtları, onaylar ve incelemeler yerelde saklanır. Soldaki görevi silmek yalnızca geçmiş meta verisini temizler; dışa aktarılan CAD dosyalarını silmez.</p>
         </div>
       </section>
     );
@@ -3013,7 +3013,7 @@ function App() {
   }
 
   const activeWallpaperName =
-    activeWallpaper === "custom" ? customWallpaper?.name ?? "我的壁纸" : wallpapers.find((item) => item.id === activeWallpaper)?.name ?? "Aurora";
+    activeWallpaper === "custom" ? customWallpaper?.name ?? "Duvar kâğıtlarım" : wallpapers.find((item) => item.id === activeWallpaper)?.name ?? "Aurora";
   const activePresetWallpaper = activeWallpaper === "custom" ? undefined : wallpapers.find((item) => item.id === activeWallpaper);
   const effectiveWallpaperMotion: WallpaperMotionMode = reducedMotion ? "still" : wallpaperMotionMode;
   const shot = wallpaperShots[wallpaperShot % wallpaperShots.length];
@@ -3112,12 +3112,12 @@ function App() {
             </div>
             <div>
               <strong>CAD Studio</strong>
-              <span>本地自动化工作台</span>
+              <span>Yerel otomasyon çalışma alanı</span>
             </div>
           </div>
 
           <div className="sidebar-project-head">
-            <span>当前项目</span>
+            <span>Mevcut proje</span>
             <ProjectSwitcher
               activeProjectId={activeProjectId}
               projectName={projectName}
@@ -3147,14 +3147,14 @@ function App() {
               onToggleArchive={toggleProjectArchive}
               onDelete={(project) => void deleteProject(project)}
             />
-            <small className="project-task-count">{activeProjectJobs.length ? `${activeProjectJobs.length} 条任务 · ${queueSummary}` : "尚无任务"}</small>
+            <small className="project-task-count">{activeProjectJobs.length ? `${activeProjectJobs.length}  görev · ${queueSummary}` : "Henüz görev yok"}</small>
             <button className="new-task-button" type="button" onClick={() => {
               setSelectedTemplateKey(null);
               setActiveTab("model");
-              setWindowHint("选择模板或填写需求；确认后再执行");
+              setWindowHint("Şablon seçin veya gereksinimleri girin; onayladıktan sonra yürütün");
             }}>
               <FilePlus size={16} weight="bold" />
-              新建任务
+              Yeni görev
             </button>
           </div>
 
@@ -3177,7 +3177,7 @@ function App() {
 
           <div className="local-chip">
             <ShieldCheck size={18} weight="duotone" />
-            <span>产物默认保存到本机</span>
+            <span>Çıktılar varsayılan olarak yerelde saklanır: </span>
           </div>
         </aside>
 
@@ -3185,13 +3185,13 @@ function App() {
           <header className="window-bar app-toolbar">
             <div className="project-title">
               <strong>{currentPage.title}</strong>
-              <span>{projectName} · 规范库 GB/T</span>
+              <span>{projectName} · Standart kitaplığı GB/T</span>
               <small>{windowHint}</small>
             </div>
-            <div className="top-menu" role="toolbar" aria-label="工作区导航">
-              <button type="button" onClick={chooseProjectFile} title="导入 CAD、图纸或草图文件">
+            <div className="top-menu" role="toolbar" aria-label="Çalışma alanı gezintisi">
+              <button type="button" onClick={chooseProjectFile} title="CAD, çizim veya eskiz dosyası içe aktar">
                 <FilePlus size={15} weight="bold" />
-                导入
+                İçe aktar
               </button>
               {navItems.map(([key, label]) => (
                 <button type="button" aria-pressed={activeTab === key} className={activeTab === key ? "active" : ""} key={key} onClick={() => setActiveTab(key)}>
@@ -3202,48 +3202,48 @@ function App() {
             <div className="toolbar-actions">
               <motion.button className="icon-button" onClick={() => setAppearanceOpen((value) => !value)} whileHover={reducedMotion ? undefined : { y: -2 }} whileTap={{ scale: 0.96 }}>
                 <Aperture size={18} weight="duotone" />
-                <span>外观</span>
+                <span>Görünüm</span>
               </motion.button>
-              <motion.button className="icon-button" aria-label="打开设置" title="设置" onClick={() => setActiveTab("settings")} whileHover={reducedMotion ? undefined : { y: -2 }} whileTap={{ scale: 0.96 }}>
+              <motion.button className="icon-button" aria-label="Ayarları aç" title="Ayarlar" onClick={() => setActiveTab("settings")} whileHover={reducedMotion ? undefined : { y: -2 }} whileTap={{ scale: 0.96 }}>
                 <GearSix size={18} weight="duotone" />
               </motion.button>
             </div>
-            <div className="window-controls" role="group" aria-label="窗口控制">
+            <div className="window-controls" role="group" aria-label="Pencere kontrolü">
               <motion.button
                 className="window-control minimize"
                 type="button"
-                title="最小化窗口"
-                aria-label="最小化窗口"
+                title="Pencereyi küçült"
+                aria-label="Pencereyi küçült"
                 onClick={() => controlWindow("minimize")}
                 whileHover={reducedMotion ? undefined : { y: -1 }}
                 whileTap={{ scale: 0.96 }}
               >
                 <Minus size={14} weight="bold" />
-                <span>最小化</span>
+                <span>Küçült</span>
               </motion.button>
               <motion.button
                 className="window-control maximize"
                 type="button"
-                title="最大化或还原窗口"
-                aria-label="最大化或还原窗口"
+                title="Pencereyi büyüt veya geri yükle"
+                aria-label="Pencereyi büyüt veya geri yükle"
                 onClick={() => controlWindow("maximize")}
                 whileHover={reducedMotion ? undefined : { y: -1 }}
                 whileTap={{ scale: 0.96 }}
               >
                 <Square size={12} weight="bold" />
-                <span>最大化</span>
+                <span>Büyüt</span>
               </motion.button>
               <motion.button
                 className="window-control close"
                 type="button"
-                title="关闭窗口"
-                aria-label="关闭窗口"
+                title="Pencereyi kapat"
+                aria-label="Pencereyi kapat"
                 onClick={() => controlWindow("close")}
                 whileHover={reducedMotion ? undefined : { y: -1 }}
                 whileTap={{ scale: 0.96 }}
               >
                 <X size={13} weight="bold" />
-                <span>关闭</span>
+                <span>Kapat</span>
               </motion.button>
             </div>
 
@@ -3257,7 +3257,7 @@ function App() {
                   transition={{ duration: 0.22 }}
                 >
                   <div className="switcher-head">
-                    <span>外观</span>
+                    <span>Görünüm</span>
                     <small>{activeWallpaperName}</small>
                   </div>
                   <input ref={wallpaperInputRef} className="wallpaper-input" type="file" accept="image/*,video/*" onChange={importWallpaper} />
@@ -3268,8 +3268,8 @@ function App() {
                     onDrop={dropWallpaper}
                   >
                     <UploadSimple size={22} weight="duotone" />
-                    <strong>导入本地壁纸</strong>
-                    <span>支持图片、GIF、视频，拖入这里即可预览</span>
+                    <strong>Yerel duvar kâğıdını içe aktar</strong>
+                    <span>Resim, GIF veya videoyu önizlemek için buraya sürükleyin</span>
                   </button>
                   <div className="wallpaper-grid compact">
                     {wallpapers.map((wallpaper) => (
@@ -3298,13 +3298,13 @@ function App() {
                         >
                           {customWallpaper.kind === "video" ? <Play size={18} weight="fill" /> : null}
                         </span>
-                        <strong>我的壁纸</strong>
+                        <strong>Duvar kâğıtlarım</strong>
                       </motion.button>
                     ) : null}
                   </div>
                   {recentWallpapers.length > 0 ? (
                     <div className="recent-wallpapers">
-                      <span>最近使用</span>
+                      <span>Son kullanılan</span>
                       {recentWallpapers.map((wallpaper) => (
                         <button key={wallpaper.path} type="button" onClick={() => applyWallpaperPath(wallpaper.path)}>
                           <ImageSquare size={15} weight="duotone" />
@@ -3313,7 +3313,7 @@ function App() {
                       ))}
                     </div>
                   ) : null}
-                  <div className="wallpaper-motion-grid" role="radiogroup" aria-label="壁纸动态方式">
+                  <div className="wallpaper-motion-grid" role="radiogroup" aria-label="Duvar kâğıdı hareketi">
                     {(Object.keys(wallpaperMotionLabels) as WallpaperMotionMode[]).map((mode) => (
                       <button
                         type="button"
@@ -3328,33 +3328,33 @@ function App() {
                     ))}
                     <button type="button" className="wallpaper-shot-button" onClick={() => setWallpaperShot((shotIndex) => (shotIndex + 1) % wallpaperShots.length)}>
                       <Aperture size={15} weight="duotone" />
-                      换个特写
+                      Yakın görünüşü değiştir
                     </button>
                   </div>
                   <div className="wallpaper-controls">
-                    <div className="panel-opacity-presets" role="group" aria-label="界面遮罩预设">
-                      <button type="button" className={workspaceOpacity <= 30 ? "active" : ""} onClick={() => setWorkspaceOpacity(24)}>穿透</button>
-                      <button type="button" className={workspaceOpacity > 30 && workspaceOpacity < 66 ? "active" : ""} onClick={() => setWorkspaceOpacity(46)}>平衡</button>
-                      <button type="button" className={workspaceOpacity >= 66 ? "active" : ""} onClick={() => setWorkspaceOpacity(78)}>专注</button>
+                    <div className="panel-opacity-presets" role="group" aria-label="Arayüz kaplama ön ayarı">
+                      <button type="button" className={workspaceOpacity <= 30 ? "active" : ""} onClick={() => setWorkspaceOpacity(24)}>Geçişli</button>
+                      <button type="button" className={workspaceOpacity > 30 && workspaceOpacity < 66 ? "active" : ""} onClick={() => setWorkspaceOpacity(46)}>Dengeli</button>
+                      <button type="button" className={workspaceOpacity >= 66 ? "active" : ""} onClick={() => setWorkspaceOpacity(78)}>Odak</button>
                     </div>
                     <label>
-                      <span>动态幅度</span>
+                      <span>Hareket miktarı</span>
                       <input type="range" min="0" max="100" value={wallpaperMotionStrength} onChange={(event) => setWallpaperMotionStrength(Number(event.target.value))} />
                     </label>
                     <label>
-                      <span>亮度</span>
+                      <span>Parlaklık</span>
                       <input type="range" min="72" max="112" value={wallpaperBrightness} onChange={(event) => setWallpaperBrightness(Number(event.target.value))} />
                     </label>
                     <label>
-                      <span>模糊</span>
+                      <span>Bulanıklık</span>
                       <input type="range" min="0" max="14" value={wallpaperBlur} onChange={(event) => setWallpaperBlur(Number(event.target.value))} />
                     </label>
                     <label>
-                      <span>暗角</span>
+                      <span>Vinyet</span>
                       <input type="range" min="0" max="42" value={wallpaperVignette} onChange={(event) => setWallpaperVignette(Number(event.target.value))} />
                     </label>
                     <label>
-                      <span>界面遮罩 <output>{workspaceOpacity}%</output></span>
+                      <span>Arayüz kaplaması <output>{workspaceOpacity}%</output></span>
                       <input type="range" min="18" max="92" value={workspaceOpacity} onChange={(event) => setWorkspaceOpacity(Number(event.target.value))} />
                     </label>
                   </div>
@@ -3372,8 +3372,8 @@ function App() {
           <section className="codex-bridge" ref={bridgeRef}>
             <div className="bridge-copy">
               <p className="eyebrow">AGENT BRIDGE</p>
-              <h2>创建 CAD 任务</h2>
-              <p>按步骤填写目标、保存位置和执行偏好。软件会把它转换成本机 CAD Agent 任务，输出文件只保存到本地。</p>
+              <h2>CAD görevi oluştur</h2>
+              <p>Hedefi, kayıt konumunu ve yürütme tercihlerini adım adım doldurun. Uygulama bunları yerel bir CAD Agent görevine dönüştürür; dosyalar yerelde saklanır.</p>
             </div>
 
             <div className="bridge-controls">
@@ -3381,16 +3381,16 @@ function App() {
                 <div className="workflow-card-head">
                   <span>01</span>
                   <div>
-                    <strong>任务内容</strong>
-                    <small>描述你要得到的模型或图纸</small>
+                    <strong>Görev içeriği</strong>
+                    <small>İstediğiniz modeli veya çizimi açıklayın</small>
                   </div>
                 </div>
                 <label className="bridge-field wide">
-                  <span>需求描述</span>
+                  <span>Gereksinim açıklaması</span>
                   <textarea value={codexConfig.objective} onChange={(event) => updateCodexConfig({ objective: event.target.value })} />
                 </label>
                 <div className="bridge-field">
-                  <span>目标模块</span>
+                  <span>Hedef modül</span>
                   <div className="segmented-control">
                     {(Object.keys(codexTargets) as Array<CodexConfig["target"]>).map((target) => (
                       <button
@@ -3410,12 +3410,12 @@ function App() {
                 <div className="workflow-card-head">
                   <span>02</span>
                   <div>
-                    <strong>保存到本地</strong>
-                    <small>选择输出物和目标文件夹</small>
+                    <strong>Yerelde kaydet</strong>
+                    <small>Çıktıları ve hedef klasörü seçin</small>
                   </div>
                 </div>
                 <div className="bridge-field">
-                  <span>输出物</span>
+                  <span>Çıktı</span>
                   <div className="segmented-control output-control">
                     {(Object.keys(codexOutputs) as Array<CodexConfig["expectedOutput"]>).map((output) => (
                       <button
@@ -3430,10 +3430,10 @@ function App() {
                   </div>
                 </div>
                 <label className="bridge-field wide">
-                  <span>输出目录</span>
+                  <span>Çıktı klasörü</span>
                   <div className="output-path-row">
                     <input value={codexConfig.outputDir} onChange={(event) => updateCodexConfig({ outputDir: event.target.value })} />
-                    <button type="button" onClick={chooseOutputDir}>选择</button>
+                    <button type="button" onClick={chooseOutputDir}>Seç</button>
                   </div>
                 </label>
               </section>
@@ -3442,12 +3442,12 @@ function App() {
                 <div className="workflow-card-head">
                   <span>03</span>
                   <div>
-                    <strong>执行设置</strong>
-                    <small>默认自动选择，必要时再手动指定</small>
+                    <strong>Yürütme ayarları</strong>
+                    <small>Varsayılan otomatik seçimdir; gerekirse elle belirtin</small>
                   </div>
                 </div>
                 <div className="bridge-field wide">
-                  <span>目标软件</span>
+                  <span>Hedef uygulama</span>
                   <div className="segmented-control software-control">
                     {(Object.keys(cadApplicationLabels) as Array<CodexConfig["cadApplication"]>).map((application) => (
                       <button
@@ -3463,7 +3463,7 @@ function App() {
                 </div>
                 <div className="execution-grid">
                   <div className="bridge-field">
-                    <span>制造方式</span>
+                    <span>Üretim yöntemi</span>
                     <div className="segmented-control">
                       {(Object.keys(processLabels) as Array<CodexConfig["process"]>).map((process) => (
                         <button
@@ -3479,7 +3479,7 @@ function App() {
                   </div>
 
                   <div className="bridge-field">
-                    <span>材料</span>
+                    <span>Malzeme</span>
                     <div className="segmented-control">
                       {(Object.keys(materialLabels) as Array<CodexConfig["material"]>).map((material) => (
                         <button
@@ -3495,13 +3495,13 @@ function App() {
                   </div>
                 </div>
                 <div className="bridge-field compact-inputs">
-                  <span>参考尺寸</span>
+                  <span>Referans ölçüler</span>
                   <div className="number-grid">
                     {[
-                      ["length", "长"],
-                      ["width", "宽"],
-                      ["height", "高"],
-                      ["wallThickness", "壁厚"],
+                      ["length", "Uzunluk"],
+                      ["width", "Genişlik"],
+                      ["height", "Yükseklik"],
+                      ["wallThickness", "Duvar kalınlığı"],
                     ].map(([key, label]) => (
                       <label key={key}>
                         <em>{label}</em>
@@ -3519,13 +3519,13 @@ function App() {
 
                 <div className="bridge-toggles">
                   <button type="button" aria-pressed={codexConfig.realCutouts} className={codexConfig.realCutouts ? "toggle-pill active" : "toggle-pill"} onClick={() => updateCodexConfig({ realCutouts: !codexConfig.realCutouts })}>
-                    真实开孔
+                    Gerçek delik kesimi
                   </button>
                   <button type="button" aria-pressed={codexConfig.strictGbDrawing} className={codexConfig.strictGbDrawing ? "toggle-pill active" : "toggle-pill"} onClick={() => updateCodexConfig({ strictGbDrawing: !codexConfig.strictGbDrawing })}>
-                    严格图纸规范
+                    Sıkı çizim standardı
                   </button>
                   <button type="button" aria-pressed={codexConfig.localCadAutomation} className={codexConfig.localCadAutomation ? "toggle-pill active" : "toggle-pill"} onClick={() => updateCodexConfig({ localCadAutomation: !codexConfig.localCadAutomation })}>
-                    本机 CAD 自动化
+                    Yerel CAD Otomasyon
                   </button>
                 </div>
               </section>
@@ -3537,7 +3537,7 @@ function App() {
                 <strong>{agentProviderCatalog[apiConfig.agentProvider].name}</strong>
               </div>
               <div className="runtime-line">
-                <span>目标软件</span>
+                <span>Hedef uygulama</span>
                 <strong>{cadApplicationLabels[codexConfig.cadApplication]}</strong>
               </div>
               <div className="runtime-line">
@@ -3545,19 +3545,19 @@ function App() {
                 <strong>{codexConfig.cadApplication === "autocad" ? "autocad-automation" : codexConfig.cadApplication === "both" ? "SW + AutoCAD skills" : "solidworks-automation"}</strong>
               </div>
               <div className="runtime-line">
-                <span>权限</span>
-                <strong>{codexConfig.localCadAutomation ? "需审批后控制本机 CAD" : "仅生成计划/脚本"}</strong>
+                <span>Yetkiler</span>
+                <strong>{codexConfig.localCadAutomation ? "Onaydan sonra yerel CAD uygulamasını kontrol et" : "Yalnızca plan/betik oluştur"}</strong>
               </div>
               <div className="runtime-line">
-                <span>制造输入</span>
+                <span>Üretim girdileri</span>
                 <strong>{`${processLabels[codexConfig.process]} · ${materialLabels[codexConfig.material]} · ${codexConfig.length}x${codexConfig.width}x${codexConfig.height}`}</strong>
               </div>
               <div className="runtime-line orchestration-line">
-                <span>工程编排</span>
-                <strong>AI 自动选路 · 阶段复核</strong>
+                <span>Mühendislik orkestrasyonu</span>
+                <strong>AI Otomatik yönlendir · Aşama incelemesi</strong>
               </div>
               <div className="prompt-preview">
-                <span>执行计划预览</span>
+                <span>Yürütme planı önizlemesi</span>
                 <p>{codexPrompt}</p>
               </div>
               <motion.button
@@ -3570,7 +3570,7 @@ function App() {
                 whileTap={submissionKind ? undefined : { scale: 0.975 }}
               >
                 {submissionKind === "task" ? <SpinnerGap className="spin" size={18} /> : <Lightning size={18} weight="duotone" />}
-                {submissionKind === "task" ? "正在创建任务" : `交给 ${agentProviderCatalog[apiConfig.agentProvider].name} 执行`}
+                {submissionKind === "task" ? "Görev oluşturuluyor" : `${agentProviderCatalog[apiConfig.agentProvider].name} ile yürüt`}
               </motion.button>
               <motion.button
                 className="ghost-button bridge-run"
@@ -3582,7 +3582,7 @@ function App() {
                 whileTap={submissionKind ? undefined : { scale: 0.975 }}
               >
                 {submissionKind === "task" ? <SpinnerGap className="spin" size={18} /> : <ShieldCheck size={18} weight="duotone" />}
-                {submissionKind === "task" ? "正在创建 DFM 任务" : "运行 DFM 检查"}
+                {submissionKind === "task" ? "DFM görevi oluşturuluyor" : "DFM kontrolünü çalıştır"}
               </motion.button>
             </div>
           </section>
@@ -3590,18 +3590,18 @@ function App() {
 
           <footer className="status-strip">
             <div className="desktop-statusbar" aria-live="polite">
-              <span className={selectedProvider?.ready ? "ready" : "warning"}>{agentProviderCatalog[apiConfig.agentProvider].name} {selectedProvider?.ready ? "已连接" : "未确认"}</span>
-              <span>Worker {workerStatus.running ? `运行中 · ${workerStatus.pid ?? "-"}` : "未启动"}</span>
-              <span>SolidWorks {runtimeHealth?.solidworks?.ok ? "可用" : "待检查"}</span>
-              <span>AutoCAD {runtimeHealth?.autocad?.ok ? "可用" : "未检测到"}</span>
-              <span>{queueLoaded ? queueSummary : "队列加载中"}</span>
+              <span className={selectedProvider?.ready ? "ready" : "warning"}>{agentProviderCatalog[apiConfig.agentProvider].name} {selectedProvider?.ready ? "Bağlandı" : "Doğrulanmadı"}</span>
+              <span>Worker {workerStatus.running ? `Çalışıyor · ${workerStatus.pid ?? "-"}` : "Başlatılmadı"}</span>
+              <span>SolidWorks {runtimeHealth?.solidworks?.ok ? "Kullanılabilir" : "Kontrol bekliyor"}</span>
+              <span>AutoCAD {runtimeHealth?.autocad?.ok ? "Kullanılabilir" : "Algılanmadı"}</span>
+              <span>{queueLoaded ? queueSummary : "Kuyruk yükleniyor"}</span>
             </div>
 
             <section className="agent-console" aria-live="polite">
               <div className="agent-head">
                 <div>
                   <p className="eyebrow">AI EXECUTION CHAT</p>
-                  <h2>AI 执行对话</h2>
+                  <h2>AI Yürütme konuşması</h2>
                 </div>
                 <ConversationControls
                   conversations={projectConversations}
@@ -3622,15 +3622,15 @@ function App() {
                   onSelectProvider={selectAgentProvider}
                   onSelectModel={selectAgentModel}
                 />
-                <span>{activeAgentJob ? `${jobStatusLabel(activeAgentJob.status)} · ${activeAgentJob.progress}%` : activeConversation ? "等待指令" : "新建对话后开始"}</span>
+                <span>{activeAgentJob ? `${jobStatusLabel(activeAgentJob.status)} · ${activeAgentJob.progress}%` : activeConversation ? "Talimat bekleniyor" : "Yeni konuşma oluşturarak başlayın"}</span>
               </div>
 
               <div className={activeAgentJob ? "agent-body" : "agent-body single"}>
-                <div className="chat-thread" aria-label="AI 执行对话记录">
+                <div className="chat-thread" aria-label="AI Yürütme konuşma kaydı">
                   {activeConversationMessages.length === 0 ? (
                     <div className="chat-empty">
                       <ChatCircleText size={20} weight="duotone" />
-                      <strong>{activeConversation ? "这段对话还没有消息" : "新建独立对话后开始"}</strong>
+                      <strong>{activeConversation ? "Bu konuşmada henüz mesaj yok" : "Yeni bağımsız konuşma oluşturarak başlayın"}</strong>
                     </div>
                   ) : activeConversationMessages.map((message) => (
                     <motion.div
@@ -3639,7 +3639,7 @@ function App() {
                       initial={reducedMotion ? false : { y: 8, opacity: 0 }}
                       animate={{ y: 0, opacity: 1 }}
                     >
-                      <span>{message.role === "user" ? "你" : message.role === "system" ? "系统" : "CAD Agent"}</span>
+                      <span>{message.role === "user" ? "Siz" : message.role === "system" ? "Sistem" : "CAD Agent"}</span>
                       <p>{message.content}</p>
                       <small>{formatTimeLabel(message.at)}</small>
                     </motion.div>
@@ -3649,18 +3649,18 @@ function App() {
                 {activeAgentJob ? <div className="agent-live-panel">
                   <div className="live-head">
                     <ChatCircleText size={18} weight="duotone" />
-                    <strong>{activeAgentJob ? jobDisplayTitle(activeAgentJob) : "等待第一条任务"}</strong>
-                    <span>{activeAgentJob ? jobStatusLabel(activeAgentJob.status) : "待命"}</span>
+                    <strong>{activeAgentJob ? jobDisplayTitle(activeAgentJob) : "İlk görev bekleniyor"}</strong>
+                    <span>{activeAgentJob ? jobStatusLabel(activeAgentJob.status) : "Hazır"}</span>
                   </div>
                   <div className="live-progress">
                     <i style={{ width: `${activeAgentJob?.progress ?? 0}%` }} />
                   </div>
                   <div className="live-summary">
-                    <p>{activeAgentJob ? compactJobMessage(activeAgentJob, activeAgentEvents) : "输入你的要求后，这里会显示 AI 的公开执行过程、工具结果和输出文件。"}</p>
+                    <p>{activeAgentJob ? compactJobMessage(activeAgentJob, activeAgentEvents) : "Gereksinimlerinizi girdikten sonra AI yürütme adımları, araç sonuçları ve çıktı dosyaları burada görünür."}</p>
                   </div>
                   {activeAgentJob.result?.engineeringPlan?.phases?.length ? (
                     <div className="engineering-plan-view">
-                      <strong>AI 工程路径</strong>
+                      <strong>AI Mühendislik yolu</strong>
                       <div>
                         {activeAgentJob.result.engineeringPlan.phases.map((phase, index) => (
                           <span className={phase.human_gate ? "human-gate" : ""} key={phase.id || `${phase.name}-${index}`}>
@@ -3673,7 +3673,7 @@ function App() {
                   ) : null}
                   {activeAgentJob?.status === "approval_required" ? (
                     <button className="approval-button" type="button" onClick={() => void approveJob(activeAgentJob.id)}>
-                      批准本机执行
+                      Yerel yürütmeyi onayla
                     </button>
                   ) : null}
                   {activeAgentJob?.status === "review_required" ? (
@@ -3686,12 +3686,12 @@ function App() {
                   ) : null}
                   <div className="live-timeline">
                     {activeAgentEvents.length === 0 ? (
-                      <div className="timeline-empty">任务开始后会显示：接单、审批、AI 启动、复核、输出路径和错误。</div>
+                      <div className="timeline-empty">Görev başladıktan sonra görevin alınması, onay, AI başlangıcı, inceleme, çıktı yolları ve hatalar burada gösterilir.</div>
                     ) : (
                       activeAgentEvents.slice(-6).map((event, index) => (
                         <div className="timeline-item" key={`${event.at}-${event.type}-${index}`}>
                           <span>{eventTypeLabel(event.type)}</span>
-                          <p>{event.message || "状态已更新"}</p>
+                          <p>{event.message || "Durum güncellendi"}</p>
                           <small>{formatTimeLabel(event.at)}</small>
                         </div>
                       ))
@@ -3699,7 +3699,7 @@ function App() {
                   </div>
                   {(activeAgentLogs.stdout || activeAgentLogs.stderr) && (
                     <div className="agent-log-preview">
-                      <strong>AI 输出</strong>
+                      <strong>AI Çıktı</strong>
                       {activeAgentLogs.stdout ? <pre>{activeAgentLogs.stdout}</pre> : null}
                       {activeAgentLogs.stderr ? <pre className="error-log">{activeAgentLogs.stderr}</pre> : null}
                     </div>
@@ -3714,11 +3714,11 @@ function App() {
                   onKeyDown={(event) => {
                     if ((event.ctrlKey || event.metaKey) && event.key === "Enter") void submitAgentMessage();
                   }}
-                  placeholder="例如：把这个外壳的 USB 口改大 1mm，并重新导出 STL 和国标 PDF 图纸"
+                  placeholder="Örnek: bu muhafazanın USB açıklığını 1 mm büyüt; STL ve GB/T PDF çizimini yeniden dışa aktar"
                 />
                 <button type="button" disabled={submissionKind !== null} aria-busy={submissionKind === "chat"} onClick={() => void submitAgentMessage()}>
                   {submissionKind === "chat" ? <SpinnerGap className="spin" size={18} /> : <PaperPlaneTilt size={18} weight="fill" />}
-                  {submissionKind === "chat" ? "正在发送" : "发送执行"}
+                  {submissionKind === "chat" ? "Gönderiliyor" : "Gönder ve yürüt"}
                 </button>
               </div>
             </section>
@@ -3727,22 +3727,22 @@ function App() {
               <div className="queue-head">
                 <div>
                   <p className="eyebrow">AUTOMATION QUEUE</p>
-                  <h2>本地任务监视器</h2>
+                  <h2>Yerel görev izleyici</h2>
                 </div>
                 <div className="queue-actions">
                   <span className={workerStatus.running ? "worker-pill running" : "worker-pill"}>
                     {workerLabel}
                   </span>
                   {workerStatus.running ? (
-                    <button type="button" disabled={workerAction !== null} onClick={() => void restartLocalWorker()} title="停止并重新启动本地执行器">
+                    <button type="button" disabled={workerAction !== null} onClick={() => void restartLocalWorker()} title="Yerel yürütücüyü durdurup yeniden başlatın">
                       <ArrowClockwise className={workerAction === "restart" ? "spin" : undefined} size={15} weight="bold" />
-                      {workerAction === "restart" ? "重启中" : "重启执行器"}
+                      {workerAction === "restart" ? "Yeniden başlatılıyor" : "Yürütücüyü yeniden başlat"}
                     </button>
                   ) : null}
                   <button type="button" disabled={workerAction !== null} onClick={() => void (workerStatus.running ? stopLocalWorker() : startLocalWorker())}>
-                    {workerAction === "start" ? "启动中" : workerAction === "stop" ? "停止中" : workerStatus.running ? "停止" : "启动"}
+                    {workerAction === "start" ? "Başlatılıyor" : workerAction === "stop" ? "Durduruluyor" : workerStatus.running ? "Durdur" : "Başlat"}
                   </button>
-                  <span>{queueLoaded ? queueSummary : "加载中"}</span>
+                  <span>{queueLoaded ? queueSummary : "Yükleniyor"}</span>
                 </div>
               </div>
               {queueLoadError ? <div className="queue-error" role="alert">{queueLoadError}</div> : null}
@@ -3750,7 +3750,7 @@ function App() {
                 {activeProjectJobs.length === 0 ? (
                   <div className="queue-empty">
                     <Sparkle size={19} weight="duotone" />
-                    <span>发送 AI 对话或点击任务模板后，执行任务会出现在这里。</span>
+                    <span>AI konuşması veya görev şablonu üzerinden başlatılan görevler burada görünür.</span>
                   </div>
                 ) : (
                   activeProjectJobs.slice(0, 4).map((job) => {
@@ -3767,22 +3767,22 @@ function App() {
                           </div>
                           <span>{jobStatusLabel(job.status)}</span>
                         </div>
-                        <div className="job-progress" aria-label={`${jobDisplayTitle(job)} 进度 ${job.progress}%`}>
+                        <div className="job-progress" aria-label={`${jobDisplayTitle(job)} İlerleme ${job.progress}%`}>
                           <i style={{ width: `${job.progress}%` }} />
                         </div>
                         <div className="job-controls">
                           <button className="expand-button" type="button" onClick={() => setExpandedJobId(expanded ? null : job.id)}>
                             <CaretDown size={15} weight="bold" />
-                            {expanded ? "收起过程" : "查看过程"}
+                            {expanded ? "Adımları daralt" : "Adımları görüntüle"}
                           </button>
                           {job.uiConfig?.agentChat === true ? (
                             <button type="button" onClick={() => setActiveAgentJobId(job.id)}>
-                              对话跟随
+                              Konuşmayı izle
                             </button>
                           ) : null}
                           {job.status === "approval_required" ? (
                             <button type="button" onClick={() => void approveJob(job.id)}>
-                              批准
+                              Onayla
                             </button>
                           ) : null}
                           {job.status === "review_required" ? (
@@ -3790,18 +3790,18 @@ function App() {
                               setActiveAgentJobId(job.id);
                               setExpandedJobId(job.id);
                             }}>
-                              填写复核
+                              İnceleme yaz
                             </button>
                           ) : null}
                           {job.status === "failed" ? (
                             <button type="button" disabled={retryingJobId !== null} onClick={() => void retryJob(job.id)}>
                               <ArrowClockwise className={retryingJobId === job.id ? "spin" : undefined} size={15} weight="bold" />
-                              {retryingJobId === job.id ? "重新排队中" : "重新执行"}
+                              {retryingJobId === job.id ? "Yeniden sıraya alınıyor" : "Yeniden yürüt"}
                             </button>
                           ) : null}
                           {job.status === "queued" || job.status === "running" || job.status === "approval_required" ? (
                             <button type="button" onClick={() => void cancelJob(job.id)}>
-                              取消
+                              İptal
                             </button>
                           ) : null}
                         </div>
@@ -3815,15 +3815,15 @@ function App() {
                             >
                               <div className="process-grid">
                                 <div>
-                                  <span>当前任务</span>
+                                  <span>Mevcut görev</span>
                                   <strong>{job.detail}</strong>
                                 </div>
                                 <div>
-                                  <span>执行软件</span>
-                                  <strong>{job.targetSoftware || "AI 自动判断"}</strong>
+                                  <span>Yürütme uygulaması</span>
+                                  <strong>{job.targetSoftware || "AI otomatik belirlesin"}</strong>
                                 </div>
                                 <div>
-                                  <span>最近心跳</span>
+                                  <span>Son heartbeat</span>
                                   <strong>{formatTimeLabel(job.heartbeatAt || workerStatus.health?.heartbeatAt)}</strong>
                                 </div>
                                 <div>
@@ -3834,38 +3834,38 @@ function App() {
 
                               {job.approvalReasons?.length ? (
                                 <div className="process-note warning">
-                                  <strong>需要审批</strong>
-                                  <p>{job.approvalReasons.join("；")}</p>
+                                  <strong>Onay gerekiyor</strong>
+                                  <p>{job.approvalReasons.join("; ")}</p>
                                 </div>
                               ) : null}
                               {job.error ? (
                                 <div className="process-note error">
-                                  <strong>错误</strong>
+                                  <strong>Hata</strong>
                                   <p>{job.error}</p>
                                 </div>
                               ) : null}
                               {job.result?.outputPath || job.artifactLedgerPath || job.reviewGatePath ? (
                                 <div className="process-paths">
-                                  {job.result?.outputPath ? <span>输出: {job.result.outputPath}</span> : null}
-                                  {job.artifactLedgerPath ? <span>交付账本: {job.artifactLedgerPath}</span> : null}
-                                  {job.reviewGatePath ? <span>复核记录: {job.reviewGatePath}</span> : null}
+                                  {job.result?.outputPath ? <span>Çıktı: {job.result.outputPath}</span> : null}
+                                  {job.artifactLedgerPath ? <span>Çıktı kayıt defteri: {job.artifactLedgerPath}</span> : null}
+                                  {job.reviewGatePath ? <span>İnceleme kaydı: {job.reviewGatePath}</span> : null}
                                 </div>
                               ) : null}
 
                               <div className="process-columns">
                                 <div className="process-timeline">
-                                  <strong>执行过程</strong>
-                                  {(events.length ? events : [{ message: job.lastMessage || "等待 worker 接单", at: job.updatedAt, type: job.status }]).slice(-8).map((event, index) => (
+                                  <strong>Yürütme adımları</strong>
+                                  {(events.length ? events : [{ message: job.lastMessage || "Worker'ın görevi alması bekleniyor", at: job.updatedAt, type: job.status }]).slice(-8).map((event, index) => (
                                     <div className="timeline-item" key={`${event.at}-${event.type}-${index}`}>
                                       <span>{eventTypeLabel(event.type)}</span>
-                                      <p>{event.message || "状态已更新"}</p>
+                                      <p>{event.message || "Durum güncellendi"}</p>
                                       <small>{formatTimeLabel(event.at)}</small>
                                     </div>
                                   ))}
                                 </div>
                                 <div className="process-timeline">
-                                  <strong>Worker 日志</strong>
-                                  {(workerLogs.length ? workerLogs : [{ message: "暂无 worker 日志，任务启动后会自动刷新。", at: job.updatedAt }]).map((entry, index) => (
+                                  <strong>Worker Günlük</strong>
+                                  {(workerLogs.length ? workerLogs : [{ message: "Henüz worker günlüğü yok; görev başladığında otomatik yenilenir.", at: job.updatedAt }]).map((entry, index) => (
                                     <div className="timeline-item" key={`${workerLogTime(entry)}-${index}`}>
                                       <span>{formatTimeLabel(workerLogTime(entry))}</span>
                                       <p>{workerLogMessage(entry)}</p>
@@ -3875,7 +3875,7 @@ function App() {
                               </div>
                               {(logs.stdout || logs.stderr) && (
                                 <div className="agent-log-preview full">
-                                  <strong>Agent 输出尾部</strong>
+                                  <strong>Agent Çıktı sonu</strong>
                                   {logs.stdout ? <pre>{logs.stdout}</pre> : null}
                                   {logs.stderr ? <pre className="error-log">{logs.stderr}</pre> : null}
                                 </div>

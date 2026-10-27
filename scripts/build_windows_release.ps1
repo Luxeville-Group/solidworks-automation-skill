@@ -83,7 +83,8 @@ New-Item -ItemType Directory -Path $portableRoot -Force | Out-Null
 Copy-Item -LiteralPath $binary -Destination (Join-Path $portableRoot "CAD Studio.exe")
 Copy-Item -LiteralPath $skill -Destination (Join-Path $portableRoot "skill") -Recurse
 Copy-Item -LiteralPath (Join-Path $repoRoot "LICENSE") -Destination $portableRoot
-Copy-Item -LiteralPath (Join-Path $repoRoot "docs\CAD_STUDIO_USER_MANUAL.md") -Destination (Join-Path $portableRoot "USER_MANUAL.zh-CN.md")
+Copy-Item -LiteralPath (Join-Path $repoRoot "docs\CAD_STUDIO_USER_MANUAL.md") -Destination (Join-Path $portableRoot "USER_MANUAL.en.md")
+Copy-Item -LiteralPath (Join-Path $repoRoot "README.tr.md") -Destination (Join-Path $portableRoot "USER_MANUAL.tr.md")
 
 $portableZip = Join-Path $releaseRoot "$portableName-Portable.zip"
 Compress-Archive -Path (Join-Path $portableRoot "*") -DestinationPath $portableZip -CompressionLevel Optimal
@@ -99,7 +100,7 @@ $latest = [ordered]@{
     platforms = [ordered]@{
         "windows-x86_64" = [ordered]@{
             signature = (Get-Content -LiteralPath $signaturePath -Raw).Trim()
-            url = "https://github.com/wzyn20051216/solidworks-automation-skill/releases/download/v$Version/CAD-Studio-$Version-Setup-x64.exe"
+            url = "https://github.com/Luxeville-Group/solidworks-automation-skill/releases/download/v$Version/CAD-Studio-$Version-Setup-x64.exe"
         }
     }
 }

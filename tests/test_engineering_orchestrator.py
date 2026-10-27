@@ -1,4 +1,4 @@
-"""@brief 复杂机械工程 DAG 编排器回归测试。"""
+"""Complex mechanical engineering DAG orchestrator regression tests."""
 
 from __future__ import annotations
 
@@ -18,11 +18,11 @@ from apps.desktop.cad_workbench.engineering_orchestrator import (
 )
 
 
-BRIEF = "带倒角、沉孔、四零件装配、旋转马达、GB/T工程图和STEP/PDF交付的减速机构"
+BRIEF = "Pah, silindirik havşa, dört parçalı montaj, döner motor, GB/T çizimleri ve STEP/PDF teslimi içeren redüktör mekanizması"
 
 
 def test_complex_reducer_is_split_into_complete_engineering_dag() -> None:
-    """@brief 给定综合减速机构需求必须拆成八个可验收阶段。"""
+    """The combined gearbox request splits into eight independently acceptable stages."""
     plan = build_engineering_plan(BRIEF)
 
     assert [phase.id for phase in plan.phases] == [
@@ -44,15 +44,15 @@ def test_complex_reducer_is_split_into_complete_engineering_dag() -> None:
 
 
 def test_complex_classifier_does_not_force_simple_part_into_full_dag() -> None:
-    """@brief 简单拉伸零件不应被强行加入装配、Motion 和图纸阶段。"""
+    """Simple extruded parts must not gain assembly, Motion, or drawing stages automatically."""
     assert requires_engineering_orchestration(BRIEF) is True
-    assert requires_engineering_orchestration("拉伸一个 50x30x10 mm 的矩形块") is False
-    assert requires_engineering_orchestration("设计一个四零件装配体并输出 STEP") is True
+    assert requires_engineering_orchestration("50x30x10 mm dikdörtgen blok oluştur") is False
+    assert requires_engineering_orchestration("Dört parçalı bir montaj tasarla ve STEP çıktısı oluştur") is True
 
 
 def test_dynamic_dag_omits_unrequested_motion_and_drawing() -> None:
-    """@brief 装配加 STEP 不能自动扩张为 Motion 和工程图项目。"""
-    plan = build_engineering_plan("设计一个四零件装配体并输出 STEP")
+    """Assembly plus STEP must not expand automatically into Motion or drawing work."""
+    plan = build_engineering_plan("Dört parçalı bir montaj tasarla ve STEP çıktısı oluştur")
     phase_ids = [phase.id for phase in plan.phases]
 
     assert phase_ids == ["requirements", "part-modeling", "assembly-mates", "export-delivery", "final-review"]
@@ -63,7 +63,7 @@ def test_dynamic_dag_omits_unrequested_motion_and_drawing() -> None:
 
 
 def test_routes_select_existing_skills_and_mcp_tools() -> None:
-    """@brief 倒角、沉孔、装配和 Motion 必须路由到现有真实能力。"""
+    """Chamfers, counterbores, assemblies, and Motion route to actual existing capabilities."""
     plan = build_engineering_plan(BRIEF)
 
     feature_phase = plan.phase("holes-fillet-chamfer")
@@ -82,7 +82,7 @@ def test_routes_select_existing_skills_and_mcp_tools() -> None:
 
 
 def test_every_phase_has_artifacts_acceptance_risks_and_retry_policy() -> None:
-    """@brief 每阶段必须能独立交付证据、验收和局部重试。"""
+    """Each stage independently delivers evidence, acceptance, and partial retry."""
     plan = build_engineering_plan(BRIEF)
 
     for phase in plan.phases:
@@ -94,7 +94,7 @@ def test_every_phase_has_artifacts_acceptance_risks_and_retry_policy() -> None:
 
 
 def test_plan_never_claims_unexecuted_or_pilot_work_is_complete() -> None:
-    """@brief 规划成功不能被误解为 CAD、BOM 或图纸已经完成。"""
+    """Successful planning must not imply completed CAD, BOM, or drawings."""
     plan = build_engineering_plan(BRIEF)
     drawing = plan.phase("drawing-bom")
 
@@ -107,11 +107,11 @@ def test_plan_never_claims_unexecuted_or_pilot_work_is_complete() -> None:
         "solidworks_review_drawing",
         "solidworks_inspect_drawing",
     }
-    assert any("不能无人值守" in risk for risk in drawing.risks)
+    assert any("Gözetimsiz" in risk for risk in drawing.risks)
 
 
 def test_capability_report_can_block_unimplemented_motion() -> None:
-    """@brief 本机报告声明未实现时不得继续把 Motion 当作可自动执行。"""
+    """A local not-implemented report must prevent automatic Motion execution."""
     plan = build_engineering_plan(
         BRIEF,
         capability_report={
@@ -131,12 +131,12 @@ def test_capability_report_can_block_unimplemented_motion() -> None:
 
     invalid = replace(motion, status=PhaseStatus.COMPLETED)
     invalid_plan = replace(plan, phases=tuple(invalid if item.id == motion.id else item for item in plan.phases))
-    with pytest.raises(ValueError, match="未实现能力"):
+    with pytest.raises(ValueError, match="Uygulanmamış yetenek"):
         invalid_plan.validate()
 
 
 def test_probe_capability_alias_downgrades_pilot_drawing_route() -> None:
-    """@brief 编排器必须识别真实能力探测器的 drawings 键。"""
+    """The orchestrator recognizes the real capability probe's drawings key."""
     plan = build_engineering_plan(
         BRIEF,
         capability_report={
@@ -155,7 +155,7 @@ def test_probe_capability_alias_downgrades_pilot_drawing_route() -> None:
 
 
 def test_critical_cad_phases_share_single_serial_lane() -> None:
-    """@brief 关键 SolidWorks COM 阶段不得被调度为并发写操作。"""
+    """Critical SolidWorks COM stages must not be scheduled as concurrent writes."""
     plan = build_engineering_plan(BRIEF)
     critical = [phase for phase in plan.phases if phase.serial_required]
 
@@ -166,7 +166,7 @@ def test_critical_cad_phases_share_single_serial_lane() -> None:
 
 
 def test_local_hole_change_replans_only_affected_phase_and_descendants() -> None:
-    """@brief 修改沉孔后保留已确认需求和零件，失效孔特征及所有下游结果。"""
+    """Changing a counterbore preserves accepted requirements and parts while invalidating hole features and all successors."""
     plan = build_engineering_plan(BRIEF)
     completed_phases = tuple(
         replace(phase, status=PhaseStatus.COMPLETED) if phase.id in {"requirements", "part-modeling"} else phase
@@ -174,9 +174,9 @@ def test_local_hole_change_replans_only_affected_phase_and_descendants() -> None
     )
     progressed = replace(plan, phases=completed_phases)
 
-    replanned = replan_for_local_change(progressed, "把沉孔直径改为 12 mm")
+    replanned = replan_for_local_change(progressed, "Silindirik havşa çapını 12 mm yap")
 
-    assert infer_affected_phases("把沉孔直径改为 12 mm") == ("holes-fillet-chamfer",)
+    assert infer_affected_phases("Silindirik havşa çapını 12 mm yap") == ("holes-fillet-chamfer",)
     assert replanned.revision == 2
     assert replanned.phase("requirements").status == PhaseStatus.COMPLETED
     assert replanned.phase("part-modeling").status == PhaseStatus.COMPLETED
@@ -184,11 +184,11 @@ def test_local_hole_change_replans_only_affected_phase_and_descendants() -> None
     assert replanned.phase("assembly-mates").status == PhaseStatus.PLANNED
     assert replanned.phase("drawing-bom").status == PhaseStatus.PLANNED
     assert replanned.phase("final-review").status == PhaseStatus.PLANNED
-    assert "沉孔直径" in (replanned.change_request or "")
+    assert "Silindirik havşa çapı" in (replanned.change_request or "")
 
 
 def test_plan_serializes_to_provider_friendly_values() -> None:
-    """@brief 计划应可直接写入统一 Agent 任务 JSON。"""
+    """Plans serialize directly into unified Agent job JSON."""
     payload = build_engineering_plan(BRIEF).to_dict()
 
     assert payload["schema_version"] == "1.0"
@@ -198,11 +198,11 @@ def test_plan_serializes_to_provider_friendly_values() -> None:
 
 
 def test_persisted_plan_round_trip_supports_follow_up_replanning() -> None:
-    """@brief 队列中的上一轮 DAG 必须可恢复并继续做局部修改。"""
+    """Restore the previous queued DAG and continue local edits."""
     original = build_engineering_plan(BRIEF)
 
     restored = engineering_plan_from_dict(original.to_dict())
-    replanned = replan_for_local_change(restored, "把沉孔直径改为 12 mm")
+    replanned = replan_for_local_change(restored, "Silindirik havşa çapını 12 mm yap")
 
     assert restored.to_dict() == original.to_dict()
     assert replanned.revision == original.revision + 1

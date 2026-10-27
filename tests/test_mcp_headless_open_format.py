@@ -1,4 +1,4 @@
-"""MCP 无头开放格式工具回归。"""
+"""MCP headless open-format tool regressions."""
 from __future__ import annotations
 
 import json
@@ -19,7 +19,7 @@ import server  # noqa: E402
 
 
 def test_mcp_headless_open_format_tool_writes_without_com(tmp_path: Path):
-    """@brief 验证 MCP 开放格式工具不加载 SolidWorks COM 也能产出证据。"""
+    """@brief MCP open-format tools produce evidence without loading SOLIDWORKS COM."""
     input_path = write_json_contract(
         tmp_path / "mcp_plate.cadstudio.json",
         NeutralCadDocument(
@@ -42,7 +42,7 @@ def test_mcp_headless_open_format_tool_writes_without_com(tmp_path: Path):
 
 
 def test_mcp_builds_safe_dxf_preview_scene_and_refuses_overwrite(tmp_path: Path):
-    """@brief 验证 MCP 只读转换和不覆盖门禁。"""
+    """@brief Verify read-only MCP conversion and non-overwrite gates."""
     source = tmp_path / "drawing.dxf"
     document = ezdxf.new("R2018")
     document.modelspace().add_line((0, 0), (50, 20), dxfattribs={"layer": "OUTLINE"})
@@ -61,7 +61,7 @@ def test_mcp_builds_safe_dxf_preview_scene_and_refuses_overwrite(tmp_path: Path)
 
 
 def _fea_request() -> dict:
-    """@brief 返回 MCP prepare_fea 使用的最小静力请求。"""
+    """@brief Return the minimal static request for MCP prepare_fea."""
     return {
         "schemaVersion": "1.0",
         "analysisId": "mcp_static",
@@ -86,7 +86,7 @@ def _fea_request() -> dict:
 
 
 def test_mcp_prepare_fea_writes_without_loading_solidworks_automation(tmp_path: Path):
-    """@brief FEA MCP 工具只生成白名单输入，不加载 SolidWorks COM 自动化模块。"""
+    """@brief FEA preparation generates allowlisted input without loading SOLIDWORKS COM."""
     source = tmp_path / "fea.json"
     source.write_text(json.dumps(_fea_request()), encoding="utf-8")
     params = server.CadStudioFeaPrepareInput(input_path=str(source), output_dir=str(tmp_path / "fea-out"))
@@ -99,7 +99,7 @@ def test_mcp_prepare_fea_writes_without_loading_solidworks_automation(tmp_path: 
 
 
 def test_mcp_run_fea_uses_structured_runner_without_loading_solidworks(tmp_path: Path, monkeypatch):
-    """@brief FEA 执行工具只调用结构化求解器封装，不加载 SolidWorks 自动化。"""
+    """@brief FEA execution calls structured solver wrappers without SOLIDWORKS automation."""
     source = tmp_path / "fea.json"
     source.write_text(json.dumps(_fea_request()), encoding="utf-8")
     expected = {"status": "review_required", "stage": "review", "artifacts": []}
@@ -113,7 +113,7 @@ def test_mcp_run_fea_uses_structured_runner_without_loading_solidworks(tmp_path:
 
 
 def test_mcp_run_fea_convergence_uses_whitelisted_sequence_runner(tmp_path: Path, monkeypatch):
-    """@brief 收敛工具只调用结构化序列执行器，不暴露任意求解器命令。"""
+    """@brief Convergence calls the structured sequence runner without arbitrary solver commands."""
     source = tmp_path / "convergence.json"
     source.write_text("{}", encoding="utf-8")
     expected = {"status": "review_required", "converged": False, "artifacts": []}
@@ -129,7 +129,7 @@ def test_mcp_run_fea_convergence_uses_whitelisted_sequence_runner(tmp_path: Path
 
 
 def test_mcp_create_ocp_loft_uses_restricted_backend(tmp_path: Path, monkeypatch):
-    """@brief OCP Loft MCP 只调用结构化几何封装，不加载 SolidWorks。"""
+    """@brief OCP Loft calls the structured geometry wrapper without loading SOLIDWORKS."""
     source = tmp_path / "loft.json"
     source.write_text("{}", encoding="utf-8")
     expected = {"status": "review_required", "geometryProduced": True, "artifacts": []}
@@ -141,7 +141,7 @@ def test_mcp_create_ocp_loft_uses_restricted_backend(tmp_path: Path, monkeypatch
 
 
 def test_mcp_create_ocp_surface_uses_restricted_backend(tmp_path: Path, monkeypatch):
-    """@brief 高级曲面 MCP 工具只调用结构化 OCP 后端。"""
+    """@brief Advanced-surface MCP tools call only the structured OCP backend."""
     source = tmp_path / "surface.json"
     source.write_text("{}", encoding="utf-8")
     expected = {"status": "review_required", "geometryProduced": True, "artifacts": []}
@@ -153,7 +153,7 @@ def test_mcp_create_ocp_surface_uses_restricted_backend(tmp_path: Path, monkeypa
 
 
 def test_mcp_routing_review_reports_neutral_evidence(tmp_path: Path):
-    """@brief Routing MCP 工具必须输出中性证据和报告文件。"""
+    """@brief Routing tools return neutral evidence and report files."""
     source = tmp_path / "route.json"
     source.write_text(
         json.dumps(

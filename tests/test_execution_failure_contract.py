@@ -1,4 +1,4 @@
-"""@brief 对失败事实与最终完成状态做独立断言，不依赖真实 CAD。"""
+'Assert failure facts and final completion independently without native CAD.'
 import json
 import sys
 from pathlib import Path
@@ -19,7 +19,7 @@ from core.execution import execute_with_core, normalize_tool_payload
     {"success": False}, {"status": "error"}, None, False,
 ])
 def test_failed_tool_cannot_complete_even_if_reviewer_passes(payload):
-    """@brief 独立失败事实不能被随后 PASS 掩盖。"""
+    'A later PASS must not hide an independent failure.'
     result = execute_with_core(handler=lambda _: payload, run_id="failed",
         requires_review=True, reviewer_result={"status": "pass"})
     assert result.execution_result.success is False
@@ -32,27 +32,27 @@ def test_failed_tool_cannot_complete_even_if_reviewer_passes(payload):
     {"status": "pass", "checks": [{"status": "fail", "required": True}]},
 ])
 def test_review_not_approved_cannot_complete(review):
-    """@brief 待复核和关键失败都不等于最终任务成功。"""
+    'Pending review and critical failures are not final task success.'
     result = execute_with_core(handler=lambda _: {"status": "ok"}, run_id="review",
         requires_review=True, reviewer_result=review)
     assert result.run_context.status.value != "completed"
 
 
 def test_dry_run_and_optional_unsaved_result_keep_compatibility():
-    """@brief 预览不创建特征、未要求保存，均不得误报执行失败。"""
+    'Preview-only operations and tasks without a save request must not be falsely reported as failed.'
     payload = {"status": "ok", "dry_run": True, "feature_created": False, "saved": None}
     assert normalize_tool_payload(payload) == payload
 
 
 def test_handler_manual_review_cannot_be_bypassed_by_caller():
-    """@brief Tool 声明的人工复核不会因 requires_review 默认值而消失。"""
+    "A tool's manual-review declaration survives the default requires_review value."
     result = execute_with_core(handler=lambda _: {"status": "review_required", "manualReviewRequired": True},
         run_id="manual", reviewer_result={"status": "pass"})
     assert result.run_context.status.value == "blocked"
 
 
 def test_registry_review_cannot_be_disabled_by_caller():
-    """@brief 能力真源要求复核时，默认参数不能绕过门禁。"""
+    'Default parameters cannot bypass a capability-registry review gate.'
     result = execute_with_core(handler=lambda _: {"status": "ok"}, run_id="registry",
         operation_id="solidworks_standard_automation", requires_review=False)
     assert result.run_context.status.value == "blocked"
@@ -63,7 +63,7 @@ def test_invalid_boolean_is_unverified_instead_of_truthy():
 
 
 def test_mcp_json_and_markdown_expose_failure():
-    """@brief 不同格式都从同一个事实判定产生失败状态。"""
+    'All formats derive failure status from the same facts.'
     import server
     raw = {"status": "ok", "feature_created": False}
     assert json.loads(server._result(raw, server.ResponseFormat.JSON))["status"] == "error"
@@ -71,7 +71,7 @@ def test_mcp_json_and_markdown_expose_failure():
 
 
 def test_worker_records_review_failure_as_core_failure(tmp_path):
-    """@brief 交付物缺失的任务，Queue 和 Core 都不得留有完成态。"""
+    'Missing artifacts must prevent completed states in both Queue and Core.'
     from cad_workbench.queue_worker import process_job
     path = tmp_path / "job.json"
     path.write_text(json.dumps({"id": "review-fail", "kind": "create_shell",
@@ -82,7 +82,7 @@ def test_worker_records_review_failure_as_core_failure(tmp_path):
 
 
 def test_worker_rejects_structured_handler_failure(tmp_path):
-    """@brief 不抛异常的失败 Handler 也必须阻断交付。"""
+    'A failed handler must block delivery even without an exception.'
     from cad_workbench.queue_worker import process_job
     path = tmp_path / "job.json"
     path.write_text(json.dumps({"id": "tool-fail", "kind": "create_shell", "status": "queued"}), encoding="utf-8")

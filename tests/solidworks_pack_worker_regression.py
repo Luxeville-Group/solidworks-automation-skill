@@ -1,4 +1,4 @@
-"""@brief SW2026 强制 comtypes 回退、引用重开和用户文档保护真机验收。"""
+"""@brief SW2026 real acceptance: forced comtypes fallback, reference reopening, and user-document protection."""
 import argparse
 import json
 from pathlib import Path
@@ -17,7 +17,7 @@ from scripts.sw_process import solidworks_processes
 
 
 def close_test_files(sw, root):
-    """@brief 每次刷新清单，避免对已随装配体卸载的零件代理重复操作。"""
+    """@brief Refresh inventory each time to avoid reusing part proxies unloaded with the assembly."""
     for _ in range(12):
         candidates = []
         for doc in get_com_member(sw, "GetDocuments") or []:
@@ -28,13 +28,13 @@ def close_test_files(sw, root):
             return
         candidates.sort(key=lambda item: int(get_com_member(item, "GetType")) != 2)
         sw.CloseDoc(str(get_com_member(candidates[0], "GetTitle")))
-    raise RuntimeError("测试文档未清理完毕")
+    raise RuntimeError("Test documents were not fully cleaned up")
 
 
 def main(output, source=None):
-    """@brief 使用私有测试实例和新输出目录，验证真实父/子进程链路。"""
+    """@brief Verify the real parent/child process chain using a private test instance and new output directory."""
     if solidworks_processes() != {}:
-        raise RuntimeError("此真机测试需要没有正在使用的 CAD 实例")
+        raise RuntimeError("This real-machine test requires no CAD instance currently in use")
     output.mkdir(parents=True, exist_ok=False)
     report = {"status": "failed"}
     sw = None
@@ -43,7 +43,7 @@ def main(output, source=None):
     try:
         sw, _, meta = connect_solidworks(version=2026, wait_seconds=60, visible=False, return_metadata=True)
         if not meta["started_by_cad_studio"]:
-            raise RuntimeError("测试实例所有权未确认")
+            raise RuntimeError("Test-instance ownership not confirmed")
         pid = int(get_com_member(sw, "GetProcessID"))
         if source is None:
             paths = []
@@ -53,34 +53,34 @@ def main(output, source=None):
                     sketch_rectangle(part, 0, 0, .024 + index * .002, .014)
                     fully_define_sketch(part)
                 if extrude_boss(part, ref, .008) is None:
-                    raise RuntimeError("测试零件创建失败")
-                path = output / f"零件{index}.sldprt"
+                    raise RuntimeError("Test-part creation failed")
+                path = output / f"Part{index}.sldprt"
                 if not save_document(part, str(path)):
-                    raise RuntimeError("测试零件保存失败")
+                    raise RuntimeError("Test-part save failed")
                 paths.append(path)
                 sw.CloseDoc(str(get_com_member(part, "GetTitle")))
             asm = new_document(sw, "assembly")
             for index, path in enumerate(paths):
                 if add_component(asm, str(path), x=index * .04, sw=sw) is None:
-                    raise RuntimeError("测试组件插入失败")
-            source = output / "测试装配.sldasm"
+                    raise RuntimeError("Test-component insertion failed")
+            source = output / "TestAssembly.sldasm"
             if not save_document(asm, str(source)):
-                raise RuntimeError("测试装配保存失败")
+                raise RuntimeError("Test-assembly save failed")
         else:
             source = source.resolve()
             asm = open_document(sw, str(source), read_only=True, silent=True, raise_on_error=True)
         user = new_document(sw, "part")
         user_title = str(get_com_member(user, "GetTitle"))
         before = {str(get_com_member(item, "GetTitle")) for item in get_com_member(sw, "GetDocuments") or []}
-        with patch.object(sw_delivery, "_pywin32_pack_and_go", side_effect=RuntimeError("测试强制封送回退")):
+        with patch.object(sw_delivery, "_pywin32_pack_and_go", side_effect=RuntimeError("Test-forced marshaling fallback")):
             packed = sw_delivery.pack_and_go(asm, output / "package", include_drawings=False,
                 include_simulation_results=False, include_toolbox_components=False, flatten=True, fallback_policy="blocked")
         report["pack"] = packed
         if not packed["success"] or packed["backend"] != "comtypes":
-            raise RuntimeError(f"实际回退未完成原生打包: {packed['status']}; {packed.get('fallback_errors')}")
+            raise RuntimeError(f"Actual fallback did not complete native packaging: {packed['status']}; {packed.get('fallback_errors')}")
         after = {str(get_com_member(item, "GetTitle")) for item in get_com_member(sw, "GetDocuments") or []}
         if before != after or int(get_com_member(sw, "GetProcessID")) != pid or str(get_com_member(user, "GetTitle")) != user_title:
-            raise RuntimeError("回退改变了父实例或用户文档清单")
+            raise RuntimeError("Fallback changed the parent instance or user-document inventory")
         close_test_files(sw, output)
         if source.parent != output:
             close_test_files(sw, source.parent)
@@ -88,7 +88,7 @@ def main(output, source=None):
         components = get_components(reopened)
         component_paths = [str(item["path"]) for item in components]
         if len(component_paths) != 2 or not all(Path(path).resolve().is_relative_to(output / "package") for path in component_paths):
-            raise RuntimeError(f"打包后引用仍指向源目录: {component_paths}")
+            raise RuntimeError(f"Packaged references still point to the source directory: {component_paths}")
         report.update(status="pass", year=meta["actual_version"], revision=meta["actual_revision"],
             parent_proxy_alive=True, user_unsaved_document_preserved=True, document_list_unchanged=True,
             reopened_component_paths=component_paths)

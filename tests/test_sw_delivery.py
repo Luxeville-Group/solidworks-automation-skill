@@ -1,4 +1,4 @@
-"""BOM 与 Pack and Go 的无 COM 回归测试。"""
+'COM-free BOM and Pack and Go regressions.'
 from pathlib import Path
 from types import SimpleNamespace
 from contextlib import nullcontext
@@ -60,13 +60,13 @@ class FakeExtension:
 
 
 class FakePropertyPackAndGo(FakePackAndGo):
-    """@brief 模拟 SW2024 将无参 GetDocumentNamesCount 暴露为伪属性。"""
+    'Simulate SW2024 exposing parameterless GetDocumentNamesCount as a pseudo-property.'
 
     GetDocumentNamesCount = 2
 
 
 class FakePropertyExtension(FakeExtension):
-    """@brief 模拟 SW2024 将无参 GetPackAndGo 暴露为伪属性。"""
+    'Simulate SW2024 exposing parameterless GetPackAndGo as a pseudo-property.'
 
     def __init__(self, source):
         super().__init__(source)
@@ -78,7 +78,7 @@ class FakePropertyExtension(FakeExtension):
 
 
 class FakeByRefExtension(FakeExtension):
-    """@brief 模拟需要显式 by-ref 输出参数的 GetPackAndGo。"""
+    'Simulate GetPackAndGo requiring explicit by-ref output arguments.'
 
     def GetPackAndGo(self, output):
         output.value = self.package
@@ -86,13 +86,13 @@ class FakeByRefExtension(FakeExtension):
 
 
 class FakeFailingZeroArgByRefExtension(FakeByRefExtension):
-    """@brief 模拟零参数调用失败、by-ref 调用成功的 COM 包装。"""
+    'Simulate a COM wrapper rejecting zero arguments but accepting by-ref calls.'
 
     def __getattribute__(self, name):
         if name == "GetPackAndGo":
             def getter(*args):
                 if not args:
-                    raise TypeError("缺少必要的 by-ref 输出参数")
+                    raise TypeError('Missing required by-ref output argument')
                 return FakeByRefExtension.GetPackAndGo(self, *args)
 
             return getter
@@ -100,14 +100,14 @@ class FakeFailingZeroArgByRefExtension(FakeByRefExtension):
 
 
 class FakeVariant:
-    """@brief 测试专用 VARIANT，记录 by-ref 输出值。"""
+    'Test VARIANT recording by-ref output values.'
 
     def __init__(self, _variant_type, value):
         self.value = value
 
 
 class FakeRawOleObject:
-    """@brief 模拟官方 TLB 的无参数、直接返回 IDispatch 调用。"""
+    'Simulate the official parameterless TLB call returning IDispatch directly.'
 
     def __init__(self, package):
         self.package = package
@@ -126,14 +126,14 @@ class FakeRawOleObject:
 
 
 class FakeRawExtension(FakeExtension):
-    """@brief 模拟动态调用失败但底层官方签名可用的 pywin32 包装。"""
+    'Simulate dynamic dispatch failure with an available underlying official signature.'
 
     def __init__(self, source):
         super().__init__(source)
         self._oleobj_ = FakeRawOleObject(self.package)
 
     def GetPackAndGo(self):
-        raise TypeError("动态代理未正确封送直接返回接口")
+        raise TypeError('Dynamic proxy failed to marshal a directly returned interface')
 
 
 class FakeAssembly:
@@ -153,7 +153,7 @@ class FakeAssembly:
 
 
 class FakeDependencyAssembly(FakeAssembly):
-    """@brief 提供 GetDependencies2，用于验证 Pack and Go 漏包门禁。"""
+    'Provide GetDependencies2 to verify missing-file Pack and Go gates.'
 
     def __init__(self, source, components, dependencies):
         super().__init__(source, components)
@@ -167,7 +167,7 @@ class FakeDependencyAssembly(FakeAssembly):
 
 
 class FakeOleAssembly(FakeAssembly):
-    """@brief 提供 _oleobj_，用于验证强类型父文档包装。"""
+    'Provide _oleobj_ to verify strongly typed parent-document wrapping.'
 
     def __init__(self, source, components):
         super().__init__(source, components)
@@ -182,11 +182,11 @@ def fake_property_reader(model, name, configuration_name=""):
 def test_bom_groups_same_part_and_excludes_marked_component(tmp_path, monkeypatch):
     part = tmp_path / "part.sldprt"
     part.write_text("part", encoding="utf-8")
-    properties = {("默认", "PartNumber"): "PN-100", ("", "Description"): "安装块"}
+    properties = {('Varsayılan', "PartNumber"): "PN-100", ("", "Description"): 'Montaj bloğu'}
     components = [
-        FakeComponent(part, "默认", "part-1", properties),
-        FakeComponent(part, "默认", "part-2", properties),
-        FakeComponent(tmp_path / "hidden.sldprt", "默认", "hidden-1", {}, excluded=True),
+        FakeComponent(part, 'Varsayılan', "part-1", properties),
+        FakeComponent(part, 'Varsayılan', "part-2", properties),
+        FakeComponent(tmp_path / "hidden.sldprt", 'Varsayılan', "hidden-1", {}, excluded=True),
     ]
     assembly_path = tmp_path / "assembly.sldasm"
     assembly_path.write_text("assembly", encoding="utf-8")
@@ -242,7 +242,7 @@ def test_pack_and_go_accepts_byref_packandgo_output(tmp_path, monkeypatch):
 
 
 def test_pack_and_go_uses_official_noarg_invoketypes_signature(tmp_path):
-    """@brief 动态代理失败时按 TLB 的直接 IDispatch 返回值获取对象。"""
+    'When dynamic dispatch fails, obtain the object through TLB direct IDispatch return.'
     source = tmp_path / "assembly.sldasm"
     source.write_text("assembly", encoding="utf-8")
     model = FakeAssembly(source, [])
@@ -256,7 +256,7 @@ def test_pack_and_go_uses_official_noarg_invoketypes_signature(tmp_path):
 
 
 def test_comtypes_connection_does_not_own_active_instance(monkeypatch):
-    """@brief 已有实例必须只附着，不能误标为本次启动。"""
+    'Attach to an existing instance without marking it as created by this run.'
     active = SimpleNamespace(GetProcessID=lambda: 10, RevisionNumber=lambda: "34.1.1")
     monkeypatch.setattr(sw_delivery, "solidworks_processes", lambda: {10: 2026})
     monkeypatch.setattr(sw_delivery, "_LaunchGuard", nullcontext)
@@ -269,7 +269,7 @@ def test_comtypes_connection_does_not_own_active_instance(monkeypatch):
 
         @staticmethod
         def CreateObject(_progid):
-            raise AssertionError("已有活动实例时不得创建新实例")
+            raise AssertionError('Do not create a new instance when one is already active')
 
     app, started_here, error = sw_delivery._connect_comtypes_solidworks(
         FakeClient,
@@ -282,7 +282,7 @@ def test_comtypes_connection_does_not_own_active_instance(monkeypatch):
 
 
 def test_comtypes_connection_owns_only_fallback_created_instance(monkeypatch):
-    """@brief 无活动实例时才允许创建并取得退出所有权。"""
+    'Create and acquire shutdown ownership only if no instance is active.'
     created = SimpleNamespace(GetProcessID=lambda: 11, RevisionNumber=lambda: "34.1.1")
     monkeypatch.setattr(sw_delivery, "solidworks_processes", lambda: {})
     monkeypatch.setattr(sw_delivery, "_LaunchGuard", nullcontext)
@@ -394,7 +394,7 @@ def test_pack_and_go_rejects_staged_destination_name_collision(tmp_path):
     assert report["success"] is False
     assert report["status"] == "blocked"
     assert report["error_code"] == "SW_PACK_AND_GO_DEPENDENCY_ENUMERATION_INCOMPLETE"
-    assert any("重名冲突" in item for item in report["fallback_errors"])
+    assert any('dosya adı çakışması' in item for item in report["fallback_errors"])
 
 
 def test_model_doc_extension_wraps_parent_with_generated_interface(tmp_path, monkeypatch):
@@ -431,14 +431,14 @@ def test_pack_and_go_rejects_nonempty_target_by_default(tmp_path):
     try:
         sw_delivery.pack_and_go(model, target)
     except FileExistsError as error:
-        assert "目标目录非空" in str(error)
+        assert 'hedef dizini boş değil' in str(error)
     else:
         raise AssertionError("nonempty target must require overwrite")
     assert (target / "keep.txt").read_text(encoding="utf-8") == "keep"
 
 
 def test_pack_audit_matrix_records_external_toolbox_configuration_and_lightweight(tmp_path):
-    """@brief 审计矩阵必须保留外部、Toolbox、配置和轻化组件的独立证据。"""
+    'Audit matrices retain separate evidence for external, Toolbox, configuration and lightweight components.'
     project = tmp_path / "project"
     external = tmp_path / "vendor" / "toolbox" / "bolt.sldprt"
     source = project / "assembly.sldasm"
@@ -474,7 +474,7 @@ def test_pack_audit_matrix_records_external_toolbox_configuration_and_lightweigh
 
 
 def test_pack_audit_matrix_blocks_missing_associated_drawing(tmp_path):
-    """@brief include_drawings 为真时，同名真实工程图漏包必须阻断。"""
+    'With include_drawings=true, missing real same-name drawings must block packaging.'
     source = tmp_path / "assembly.sldasm"
     drawing = tmp_path / "assembly.slddrw"
     output = tmp_path / "package" / source.name
@@ -496,7 +496,7 @@ def test_pack_audit_matrix_blocks_missing_associated_drawing(tmp_path):
 
 
 def test_pack_audit_matrix_respects_toolbox_and_suppressed_options(tmp_path):
-    """@brief 未请求 Toolbox/压缩组件时，不得把对应缺文件误判为漏包。"""
+    'Unrequested Toolbox/suppressed components must not cause false missing-dependency failures.'
     source = tmp_path / "assembly.sldasm"
     toolbox = tmp_path / "toolbox" / "bolt.sldprt"
     suppressed = tmp_path / "hidden.sldprt"
@@ -509,7 +509,7 @@ def test_pack_audit_matrix_respects_toolbox_and_suppressed_options(tmp_path):
     output.write_text("assembly", encoding="utf-8")
     components = [
         FakeComponent(toolbox, "M6", "bolt", {}, suppression=2, toolbox_type=1),
-        FakeComponent(suppressed, "默认", "hidden", {}, suppression=0, toolbox_type=0),
+        FakeComponent(suppressed, 'Varsayılan', "hidden", {}, suppression=0, toolbox_type=0),
     ]
     records = sw_delivery._collect_component_audit_records(FakeAssembly(source, components), str(source))
 
@@ -524,17 +524,17 @@ def test_pack_audit_matrix_respects_toolbox_and_suppressed_options(tmp_path):
 
 
 def test_pack_and_go_report_exposes_stable_audit_matrix(tmp_path):
-    """@brief Pack and Go 公共结果必须附带原生与最终审计矩阵。"""
+    'Public Pack and Go results include native and final audit matrices.'
     source = tmp_path / "assembly.sldasm"
     part = tmp_path / "part.sldprt"
     source.write_text("assembly", encoding="utf-8")
     part.write_text("part", encoding="utf-8")
-    component = FakeComponent(part, "默认", "part-1", {})
+    component = FakeComponent(part, 'Varsayılan', "part-1", {})
     model = FakeDependencyAssembly(source, [component], [part])
 
     report = sw_delivery.pack_and_go(model, tmp_path / "package")
 
     assert report["audit_matrix"]["schema_version"] == "1.0"
     assert report["native_audit_matrix"]["summary"]["required_count"] == 2
-    assert report["component_audit"][0]["configuration"] == "默认"
+    assert report["component_audit"][0]["configuration"] == 'Varsayılan'
     assert report["associated_drawings"] == []

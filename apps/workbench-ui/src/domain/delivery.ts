@@ -12,27 +12,27 @@ export type DeliveryAssessment = {
 };
 
 const stageLabels: Record<string, string> = {
-  requirements: "需求确认",
-  "part-modeling": "零件建模",
-  "holes-fillet-chamfer": "孔槽与圆角",
-  "assembly-mates": "装配配合",
-  "motion-study": "运动算例",
-  "drawing-bom": "工程图与 BOM",
-  "dfm-review": "DFM 制造复核",
-  "export-delivery": "导出交付",
-  "final-review": "最终复核",
-  intake: "需求接收",
-  planning: "任务规划",
-  checking: "环境检查",
-  launching: "CAD 启动",
-  executing: "CAD 执行",
-  reviewing: "结果复核",
-  delivery: "交付整理",
-  blocked: "能力或环境检查",
+  requirements: "Gereksinim doğrulama",
+  "part-modeling": "Parça modelleme",
+  "holes-fillet-chamfer": "Delik/kanal ve fillet",
+  "assembly-mates": "Montaj ilişkileri (mates)",
+  "motion-study": "Hareket çalışması (Motion Study)",
+  "drawing-bom": "Mühendislik çizimi ve BOM",
+  "dfm-review": "DFM Üretim incelemesi",
+  "export-delivery": "Dışa aktar ve teslim et",
+  "final-review": "Son inceleme",
+  intake: "Gereksinim alımı",
+  planning: "Görev planlama",
+  checking: "Ortam kontrolü",
+  launching: "CAD Başlat",
+  executing: "CAD Yürüt",
+  reviewing: "Sonuç incelemesi",
+  delivery: "Teslim düzenleme",
+  blocked: "Yetenek veya ortam kontrolü",
 };
 
 export function retryStageLabel(stage?: string) {
-  if (!stage) return "失败阶段";
+  if (!stage) return "Başarısız aşama";
   return stageLabels[stage] ?? stage;
 }
 
@@ -52,7 +52,7 @@ export function retryStageForJob(job?: AutomationJob) {
 
 function requiresArtifacts(job: AutomationJob) {
   const descriptor = `${job.expectedOutput ?? ""} ${job.target ?? ""} ${(job.requiredArtifacts ?? []).join(" ")}`;
-  return job.kind === "delivery_package" || Boolean(job.requiredArtifacts?.length) || /CAD(?:_FILES)?|DRAWING(?:_PACKAGE)?|PACKAGE|SLDPRT|SLDASM|STEP|STL|DWG|DXF|PDF|PNG|BOM|模型|图纸|交付/i.test(descriptor);
+  return job.kind === "delivery_package" || Boolean(job.requiredArtifacts?.length) || /CAD(?:_FILES)?|DRAWING(?:_PACKAGE)?|PACKAGE|SLDPRT|SLDASM|STEP|STL|DWG|DXF|PDF|PNG|BOM|Model|Çizim|Teslim/i.test(descriptor);
 }
 
 function artifactMatchesRequirement(artifact: ArtifactRecord, requirement: string) {
@@ -61,24 +61,24 @@ function artifactMatchesRequirement(artifact: ArtifactRecord, requirement: strin
   const descriptor = `${artifact.kind ?? ""} ${artifact.path ?? ""}`.toLowerCase();
   if (descriptor.includes(token)) return true;
   const aliases: Record<string, string[]> = {
-    model: ["model", "模型", "sldprt", "sldasm", "step", "stp", "stl"],
-    drawing: ["drawing", "图纸", "工程图", "slddrw", "dwg", "dxf"],
-    bom: ["bom", "物料", "明细表"],
-    preview: ["preview", "预览", "png", "bmp", "jpg", "jpeg", "webp"],
-    report: ["review", "report", "ledger", "复核", "报告"],
+    model: ["model", "Model", "sldprt", "sldasm", "step", "stp", "stl"],
+    drawing: ["drawing", "Çizim", "Mühendislik çizimi", "slddrw", "dwg", "dxf"],
+    bom: ["bom", "Malzeme", "Ayrıntı tablosu"],
+    preview: ["preview", "Önizleme", "png", "bmp", "jpg", "jpeg", "webp"],
+    report: ["review", "report", "ledger", "İncele", "Rapor"],
   };
   return aliases[artifactGroup(artifact)].some((alias) => token.includes(alias));
 }
 
 export function assessDelivery(job?: AutomationJob): DeliveryAssessment {
-  if (!job) return { disposition: "idle", title: "等待任务结果", summary: "任务执行后将在这里形成交付判定。", issues: [], readyArtifacts: 0, currentArtifacts: 0 };
+  if (!job) return { disposition: "idle", title: "Görev sonucu bekleniyor", summary: "Yürütmeden sonra teslim değerlendirmesi burada görünür.", issues: [], readyArtifacts: 0, currentArtifacts: 0 };
   const artifacts = collectJobArtifacts(job);
   const readyArtifacts = artifacts.filter((item) => item.exists !== false && item.producedThisRun !== false);
   const issues: string[] = [];
   const staleOrMissing = artifacts.filter((item) => item.exists === false || item.producedThisRun === false);
-  if (staleOrMissing.length) issues.push(`${staleOrMissing.length} 个产物缺失或不是本轮生成`);
+  if (staleOrMissing.length) issues.push(`${staleOrMissing.length}  çıktı eksik veya bu yürütmede üretilmedi`);
   for (const requirement of job.requiredArtifacts ?? []) {
-    if (!readyArtifacts.some((artifact) => artifactMatchesRequirement(artifact, requirement))) issues.push(`缺少要求产物：${requirement}`);
+    if (!readyArtifacts.some((artifact) => artifactMatchesRequirement(artifact, requirement))) issues.push(`Gerekli çıktı eksik: ${requirement}`);
   }
   for (const evidence of [job.drawingEvidence, job.bomEvidence, job.dfmEvidence]) {
     if (!evidence) continue;
@@ -89,25 +89,25 @@ export function assessDelivery(job?: AutomationJob): DeliveryAssessment {
   const uniqueIssues = [...new Set(issues.filter(Boolean))];
   const evidenceStatuses = [job.drawingEvidence?.status, job.bomEvidence?.status, job.dfmEvidence?.status].map(String);
   if (job.status === "blocked" || evidenceStatuses.includes("blocked")) {
-    return { disposition: "blocked", title: "交付已阻断", summary: "环境、许可证或能力门禁尚未满足。", issues: uniqueIssues, readyArtifacts: readyArtifacts.length, currentArtifacts: artifacts.length };
+    return { disposition: "blocked", title: "Teslim engellendi", summary: "Ortam, lisans veya yetenek koşulları henüz karşılanmadı.", issues: uniqueIssues, readyArtifacts: readyArtifacts.length, currentArtifacts: artifacts.length };
   }
   if (job.status === "failed" || evidenceStatuses.some((status) => ["failed", "fail"].includes(status))) {
-    return { disposition: "failed", title: "交付未通过", summary: "执行或工程复核存在失败项，旧版本证据已保留。", issues: uniqueIssues.length ? uniqueIssues : [job.error || "请查看执行日志和复核报告"], readyArtifacts: readyArtifacts.length, currentArtifacts: artifacts.length };
+    return { disposition: "failed", title: "Teslim kontrolden geçmedi", summary: "Yürütme veya mühendislik incelemesinde başarısız öğeler var; önceki sürümün kanıtları korundu.", issues: uniqueIssues.length ? uniqueIssues : [job.error || "Yürütme günlüğünü ve inceleme raporunu kontrol edin"], readyArtifacts: readyArtifacts.length, currentArtifacts: artifacts.length };
   }
   if (["queued", "running", "approval_required"].includes(job.status)) {
-    return { disposition: "active", title: job.status === "approval_required" ? "等待审批" : "交付生成中", summary: "本轮机器证据尚未完整，不能提前判定完成。", issues: uniqueIssues, readyArtifacts: readyArtifacts.length, currentArtifacts: artifacts.length };
+    return { disposition: "active", title: job.status === "approval_required" ? "Onay bekleniyor" : "Teslim hazırlanıyor", summary: "Bu yürütmenin makine kanıtları eksik; tamamlandı kararı verilemez.", issues: uniqueIssues, readyArtifacts: readyArtifacts.length, currentArtifacts: artifacts.length };
   }
   if (job.status === "cancelled") {
-    return { disposition: "incomplete", title: "任务已取消", summary: "本轮执行已取消，现有文件不能自动作为最终交付。", issues: uniqueIssues, readyArtifacts: readyArtifacts.length, currentArtifacts: artifacts.length };
+    return { disposition: "incomplete", title: "Görev iptal edildi", summary: "Bu yürütme iptal edildi; mevcut dosyalar otomatik olarak son teslim sayılamaz.", issues: uniqueIssues, readyArtifacts: readyArtifacts.length, currentArtifacts: artifacts.length };
   }
-  if ((requiresArtifacts(job) && readyArtifacts.length === 0) || uniqueIssues.some((issue) => issue.startsWith("缺少要求产物"))) {
-    return { disposition: "incomplete", title: "交付证据不完整", summary: "任务已结束，但本轮要求的文件或账本尚未齐全。", issues: uniqueIssues.length ? uniqueIssues : ["没有可确认的本轮 CAD 产物"], readyArtifacts: readyArtifacts.length, currentArtifacts: artifacts.length };
+  if ((requiresArtifacts(job) && readyArtifacts.length === 0) || uniqueIssues.some((issue) => issue.startsWith("Gerekli çıktı eksik"))) {
+    return { disposition: "incomplete", title: "Teslim kanıtları eksik", summary: "Görev sona erdi ancak gerekli dosyalar veya çıktı kayıtları henüz eksiksiz değil.", issues: uniqueIssues.length ? uniqueIssues : ["Bu yürütme için doğrulanabilir çıktı yok:  CAD Çıktı"], readyArtifacts: readyArtifacts.length, currentArtifacts: artifacts.length };
   }
   const manualReviewRequired = [job.drawingEvidence, job.bomEvidence, job.dfmEvidence].some((item) => item?.manual_review_required);
   if (job.status === "review_required" || manualReviewRequired || job.reviewGate?.status === "warning") {
-    return { disposition: "review_required", title: "等待人工复核", summary: "文件已生成，需原生打开并核对尺寸、特征和版面后才能交付。", issues: uniqueIssues, readyArtifacts: readyArtifacts.length, currentArtifacts: artifacts.length };
+    return { disposition: "review_required", title: "İnsan incelemesi bekleniyor", summary: "Dosyalar üretildi. Teslimden önce özgün CAD uygulamasında açıp ölçüleri, özellikleri ve sayfa düzenini kontrol edin.", issues: uniqueIssues, readyArtifacts: readyArtifacts.length, currentArtifacts: artifacts.length };
   }
-  return { disposition: "ready", title: "本轮可交付", summary: job.reviewDecision === "approved" ? "机器检查与人工复核均已完成。" : "本轮机器证据完整，任务状态已完成。", issues: uniqueIssues, readyArtifacts: readyArtifacts.length, currentArtifacts: artifacts.length };
+  return { disposition: "ready", title: "Bu yürütme teslim edilebilir", summary: job.reviewDecision === "approved" ? "Makine kontrolleri ve insan incelemesi tamamlandı." : "Bu yürütmenin makine kanıtları eksiksiz; görev tamamlandı.", issues: uniqueIssues, readyArtifacts: readyArtifacts.length, currentArtifacts: artifacts.length };
 }
 
 export function backendDiagnosticsFor(job?: AutomationJob): BackendDiagnostic[] {

@@ -1,4 +1,4 @@
-"""@brief 原生路径工具的宿主启动、延迟连接和执行结果回归。"""
+'Native-path host startup, lazy connection and execution-result regressions.'
 from __future__ import annotations
 
 import json
@@ -24,7 +24,7 @@ NATIVE_TOOLS = {
 
 
 def test_server_registers_native_tools_without_com_imports():
-    """@brief 禁止 CAD COM 自动化导入时仍可启动；SDK 自身可使用 Windows 基础类型。"""
+    'The host starts without importing CAD COM automation; the SDK may use Windows base types.'
     code = '''
 import importlib.abc, json, sys
 class NoCom(importlib.abc.MetaPathFinder):
@@ -47,7 +47,7 @@ print(json.dumps(sorted(server.mcp._tool_manager._tools)))
 
 
 def test_connection_is_resolved_after_loader_under_host_lock(monkeypatch, tmp_path):
-    """@brief 工具注册后仍能取得宿主新加载的连接函数，并且连接发生在锁内。"""
+    'Registered tools use newly loaded host connection functions and connect inside the lock.'
     calls = []
     sw = object()
 
@@ -79,7 +79,7 @@ def test_connection_is_resolved_after_loader_under_host_lock(monkeypatch, tmp_pa
 
 @pytest.mark.parametrize("operation", ["inspect", "dry_run", "build", "exclude", "replace", "import"])
 def test_native_results_preserve_success_and_save_facts(operation, monkeypatch, tmp_path):
-    """@brief 不保存的成功操作与确实保存的导入均能通过真实宿主结果判定。"""
+    'Unsaved successful operations and saved imports both pass actual host result classification.'
     target = str(tmp_path / "target.sldprt")
     spec = tmp_path / "spec.json"
     spec.write_text(json.dumps({"boxes": [{"name": "Block", "bounds_mm": [0, 0, 0, 10, 10, 5]}]}), encoding="utf-8")
@@ -116,7 +116,7 @@ def test_native_results_preserve_success_and_save_facts(operation, monkeypatch, 
 
 
 def test_real_save_failure_is_still_an_error(monkeypatch):
-    """@brief 新工具的未保存语义不能削弱现有保存失败保护。"""
+    "New tools' unsaved semantics must not weaken existing save-failure protection."
     monkeypatch.setattr(server, "pythoncom", None)
     result = json.loads(server._run_locked(
         lambda: {"status": "ok", "save_requested": True, "saved": False},

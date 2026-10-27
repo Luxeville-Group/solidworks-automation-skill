@@ -1,4 +1,4 @@
-"""设计规格校验回归测试。"""
+"""Design-specification validation regression tests."""
 import json
 
 import pytest
@@ -14,7 +14,7 @@ from scripts.design_spec import (
 
 
 def minimal_spec(**overrides):
-    """构造一个最小可用的规格。"""
+    """Build a minimal valid specification."""
     spec = {
         "schema_version": "1.0",
         "part_name": "bracket",
@@ -27,7 +27,7 @@ def minimal_spec(**overrides):
 
 
 def test_valid_spec_passes():
-    """@brief 合法规格应通过并给出归一化结果。"""
+    """Valid specifications pass and return normalized results."""
     result = validate_design_spec(minimal_spec())
 
     assert result["status"] == "ok"
@@ -39,7 +39,7 @@ def test_valid_spec_passes():
 
 
 def test_units_are_normalized_to_mm():
-    """@brief 英寸制规格必须换算为毫米，避免 25.4 倍错误。"""
+    """Convert inch specifications to millimeters to avoid 25.4x errors."""
     spec = minimal_spec(
         units="in",
         base={"type": "rect_plate", "width": 2.0, "height": 1.0, "thickness": 0.25},
@@ -54,7 +54,7 @@ def test_units_are_normalized_to_mm():
 
 
 def test_unsupported_unit_is_rejected():
-    """@brief 未知单位必须报错，不能默默按毫米处理。"""
+    """Reject unknown units rather than silently treating them as millimeters."""
     result = validate_design_spec(minimal_spec(units="furlong"))
 
     assert result["status"] == "error"
@@ -62,7 +62,7 @@ def test_unsupported_unit_is_rejected():
 
 
 def test_all_errors_reported_at_once():
-    """@brief 应一次性返回全部问题，避免用户逐个试错。"""
+    """Return all issues together instead of forcing repeated trial and error."""
     spec = minimal_spec(
         base={"type": "rect_plate", "width": -1, "height": 0, "thickness": 6},
         holes=[{"id": "H1", "type": "wrong_type", "diameter": 6.6, "position": [10, 10]}],
@@ -74,7 +74,7 @@ def test_all_errors_reported_at_once():
 
 
 def test_duplicate_hole_id_is_rejected():
-    """@brief 孔 id 重复会让检验记录无法追溯，必须报错。"""
+    """Duplicate hole IDs prevent traceability and must fail validation."""
     spec = minimal_spec(holes=[
         {"id": "H1", "type": "through", "diameter": 6.6, "position": [10, 10]},
         {"id": "H1", "type": "through", "diameter": 6.6, "position": [20, 10]},
@@ -85,17 +85,17 @@ def test_duplicate_hole_id_is_rejected():
 
 
 def test_hole_without_id_gets_generated_id_and_warning():
-    """@brief 缺 id 时自动补号，但要提示用户显式命名。"""
+    """Fill missing IDs automatically while recommending explicit user naming."""
     spec = minimal_spec(holes=[{"type": "through", "diameter": 6.6, "position": [10, 10]}])
     result = validate_design_spec(spec)
 
     assert result["status"] == "ok"
     assert result["normalized"]["holes"][0]["id"] == "H1"
-    assert any("未提供 id" in warning for warning in result["warnings"])
+    assert any("id verilmedi" in warning for warning in result["warnings"])
 
 
 def test_blind_hole_requires_depth():
-    """@brief 盲孔缺 depth 必须报错。"""
+    """Blind holes require depth."""
     spec = minimal_spec(holes=[{"id": "H1", "type": "blind", "diameter": 5.0, "position": [10, 10]}])
     result = validate_design_spec(spec)
 
@@ -103,7 +103,7 @@ def test_blind_hole_requires_depth():
 
 
 def test_counterbore_requires_extra_fields():
-    """@brief 沉头孔缺沉孔直径/深度必须报错。"""
+    """Counterbores require bore diameter and depth."""
     spec = minimal_spec(holes=[{"id": "H1", "type": "counterbore", "diameter": 6.6, "position": [10, 10]}])
     result = validate_design_spec(spec)
 
@@ -113,16 +113,16 @@ def test_counterbore_requires_extra_fields():
 
 
 def test_oversized_fillet_radius_warns():
-    """@brief 圆角半径超过板厚一半时应给出 DFM 警告。"""
+    """Fillet radii exceeding half the plate thickness produce a DFM warning."""
     spec = minimal_spec(fillets=[{"radius": 10, "axis": "z"}])
     result = validate_design_spec(spec)
 
     assert result["status"] == "ok"
-    assert any("板厚" in warning for warning in result["warnings"])
+    assert any('levha kalınlığının' in warning for warning in result["warnings"])
 
 
 def test_conflicting_fillet_flags_rejected():
-    """@brief convex_only 与 concave_only 同时为真必须报错。"""
+    """Reject simultaneous convex_only and concave_only flags."""
     spec = minimal_spec(fillets=[{"radius": 2, "convex_only": True, "concave_only": True}])
     result = validate_design_spec(spec)
 
@@ -130,7 +130,7 @@ def test_conflicting_fillet_flags_rejected():
 
 
 def test_schema_version_mismatch_warns_but_proceeds():
-    """@brief 版本不一致只警告，不阻断。"""
+    """Version mismatches warn without blocking."""
     result = validate_design_spec(minimal_spec(schema_version="0.9"))
 
     assert result["status"] == "ok"
@@ -138,7 +138,7 @@ def test_schema_version_mismatch_warns_but_proceeds():
 
 
 def test_too_many_holes_rejected():
-    """@brief 孔数超过上限应报错，防止意外的海量几何。"""
+    """Reject hole counts above the limit to prevent excessive geometry."""
     spec = minimal_spec(holes=[
         {"id": f"H{index}", "type": "through", "diameter": 3.0, "position": [index, 0]}
         for index in range(250)
@@ -149,7 +149,7 @@ def test_too_many_holes_rejected():
 
 
 def test_non_dict_spec_rejected():
-    """@brief 非对象输入应明确报错。"""
+    """Non-object inputs fail with an explicit error."""
     result = validate_design_spec(["not", "a", "spec"])
 
     assert result["status"] == "error"
@@ -157,21 +157,21 @@ def test_non_dict_spec_rejected():
 
 
 def test_empty_spec_rejected():
-    """@brief 没有任何几何的规格应报错，避免建出空文档。"""
+    """Reject specifications without geometry rather than create empty documents."""
     result = validate_design_spec({"schema_version": "1.0", "units": "mm"})
 
     assert any(item["code"] == "SPEC_EMPTY" for item in result["errors"])
 
 
 def test_base_type_none_is_allowed():
-    """@brief 明确声明 base.type=none 表示只建孔等后续特征。"""
+    """Explicit base.type=none creates only subsequent features such as holes."""
     result = validate_design_spec(minimal_spec(base={"type": "none"}))
 
     assert result["status"] == "ok"
 
 
 def test_load_spec_missing_file():
-    """@brief 文件不存在时给出明确错误而不是抛异常。"""
+    """Missing files return clear errors rather than uncaught exceptions."""
     result = load_design_spec("definitely/not/here.json")
 
     assert result["status"] == "error"
@@ -179,7 +179,7 @@ def test_load_spec_missing_file():
 
 
 def test_load_spec_invalid_json(tmp_path):
-    """@brief JSON 语法错误应被捕获并报告。"""
+    """Catch and report JSON syntax errors."""
     path = tmp_path / "bad.json"
     path.write_text("{not json", encoding="utf-8")
 
@@ -189,7 +189,7 @@ def test_load_spec_invalid_json(tmp_path):
 
 
 def test_load_spec_round_trip(tmp_path):
-    """@brief 从磁盘读取合法规格。"""
+    """Read a valid specification from disk."""
     path = tmp_path / "spec.json"
     path.write_text(json.dumps(minimal_spec()), encoding="utf-8")
 
@@ -200,7 +200,7 @@ def test_load_spec_round_trip(tmp_path):
 
 
 def test_unit_scale_and_to_mm():
-    """@brief 单位换算函数本身。"""
+    """Test the unit-conversion function directly."""
     assert unit_scale("mm") == 1.0
     assert unit_scale("IN") == 25.4
     assert to_mm(2, "in") == pytest.approx(50.8)
@@ -208,10 +208,10 @@ def test_unit_scale_and_to_mm():
         unit_scale("stone")
 
 
-# ---------------------------------------------------------------- 验证比对
+# Verification comparisons
 
 def test_compare_verification_passes_on_match():
-    """@brief 实测与期望一致时通过。"""
+    """Matching actual and expected measurements pass."""
     result = compare_verification(
         {"envelope_mm": [100.0, 60.0, 6.0], "hole_count": 4, "mass_g": 500.0},
         {"envelope_mm": [100.0, 60.0, 6.0], "hole_count": 4, "tolerance_mm": 0.1},
@@ -222,7 +222,7 @@ def test_compare_verification_passes_on_match():
 
 
 def test_compare_verification_flags_dimension_mismatch():
-    """@brief 尺寸超差必须报告为警告并要求人工复核。"""
+    """Out-of-tolerance dimensions warn and require manual review."""
     result = compare_verification(
         {"envelope_mm": [100.0, 60.0, 6.0], "hole_count": 4},
         {"envelope_mm": [120.0, 60.0, 6.0], "hole_count": 4, "tolerance_mm": 0.1},
@@ -234,7 +234,7 @@ def test_compare_verification_flags_dimension_mismatch():
 
 
 def test_compare_verification_tolerance_is_honoured():
-    """@brief 偏差在公差内应通过。"""
+    """Deviations within tolerance pass."""
     result = compare_verification(
         {"envelope_mm": [100.05, 60.0, 6.0], "hole_count": 4},
         {"envelope_mm": [100.0, 60.0, 6.0], "hole_count": 4, "tolerance_mm": 0.1},
@@ -244,14 +244,14 @@ def test_compare_verification_tolerance_is_honoured():
 
 
 def test_compare_verification_skipped_without_expectations():
-    """@brief 未提供 verify 段时明确标记跳过，而不是假装通过。"""
+    """Missing verify sections are explicitly skipped rather than reported as passing."""
     result = compare_verification({"envelope_mm": [1, 2, 3]}, {})
 
     assert result["status"] == "skipped"
 
 
 def test_compare_verification_reports_unreadable_geometry():
-    """@brief 读不到几何时该项判为失败，不能默认通过。"""
+    """Unreadable geometry fails the check rather than passing by default."""
     result = compare_verification(
         {"envelope_mm": None, "hole_count": 2},
         {"envelope_mm": [100.0, 60.0, 6.0], "hole_count": 2},
@@ -262,7 +262,7 @@ def test_compare_verification_reports_unreadable_geometry():
 
 
 def test_compare_verification_mass_bounds():
-    """@brief 质量上下限分别校验。"""
+    """Validate mass lower and upper bounds independently."""
     result = compare_verification(
         {"mass_g": 400.0},
         {"min_mass_g": 300.0, "max_mass_g": 500.0},

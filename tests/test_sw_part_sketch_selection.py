@@ -1,10 +1,4 @@
-"""
-sw_part 草图选择回归测试。
-
-重点覆盖 SolidWorks 2024 中文版反馈过的问题：
-选择集为空且 SelectByID2("SKETCH") 失败时，特征函数应使用创建草图时
-缓存的对象引用，而不是依赖残留选择集。
-"""
+'sw_part sketch-selection regressions. A localized SW2024 issue showed that with an empty selection and failed SelectByID2(SKETCH), feature creation must use the cached sketch object rather than stale selections.'
 from pathlib import Path
 import sys
 import types
@@ -16,13 +10,13 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 
 def fake_get_com_member(obj, attr_name, *args):
-    """测试用 COM 成员读取器。"""
+    'Test COM member reader.'
     member = getattr(obj, attr_name)
     return member(*args) if args or callable(member) else member
 
 
 class FakeVariant:
-    """测试用 VARIANT 占位类型。"""
+    'Test VARIANT placeholder.'
 
     def __init__(self, *_args):
         pass
@@ -41,80 +35,80 @@ import sw_part  # noqa: E402
 
 
 class FakeFeature:
-    """模拟 SolidWorks Feature 对象。"""
+    'Simulate a SolidWorks Feature.'
 
     def __init__(self, name):
         self.Name = name
         self.selected = False
 
     def Select2(self, append, mark):
-        """模拟对象级选择成功。"""
+        'Simulate successful object-level selection.'
         self.selected = True
         return True
 
 
 class FakeSketch:
-    """模拟 SolidWorks Sketch 对象。"""
+    'Simulate a SolidWorks Sketch.'
 
     def __init__(self, name):
         self.Name = name
         self.feature = FakeFeature(name)
 
     def GetFeature(self):
-        """返回草图对应特征。"""
+        "Return the sketch's feature."
         return self.feature
 
 
 class FakeSketchManager:
-    """模拟 SketchManager。"""
+    'Simulate SketchManager.'
 
     def __init__(self, sketch):
         self.ActiveSketch = None
         self.sketch = sketch
 
     def InsertSketch(self, _update_edit_rebuild):
-        """进入或退出草图。"""
+        'Enter or exit sketch mode.'
         self.ActiveSketch = self.sketch if self.ActiveSketch is None else None
 
 
 class FakeSelectionManager:
-    """模拟空选择集。"""
+    'Simulate an empty selection set.'
 
     def GetSelectedObjectCount2(self, _mark):
-        """始终返回空选择集。"""
+        'Always return an empty selection set.'
         return 0
 
 
 class FakeExtension:
-    """模拟 SelectByID2 对 SKETCH 失败、对 PLANE 成功。"""
+    'Simulate SelectByID2 failing for SKETCH but succeeding for PLANE.'
 
     def __init__(self):
         self.calls = []
 
     def SelectByID2(self, name, entity_type, *_args):
-        """记录选择调用，并故意让 SKETCH 名称选择失败。"""
+        'Record selection calls and deliberately fail sketch-name selection.'
         self.calls.append((name, entity_type))
         return entity_type == "PLANE"
 
 
 class FakeFeatureManager:
-    """模拟拉伸特征管理器。"""
+    'Simulate the extrusion feature manager.'
 
     def __init__(self, model):
         self.model = model
 
     def FeatureExtrusion3(self, *_args):
-        """只有对象级选择发生后才创建特征。"""
+        'Create a feature only after object-level selection.'
         if self.model.sketch.feature.selected:
             return FakeFeature("Boss-Extrude1")
         return None
 
 
 class FakeModel:
-    """模拟最小 IModelDoc2。"""
+    'Simulate minimal IModelDoc2.'
 
     def __init__(self):
-        self.sketch = FakeSketch("草图1")
+        self.sketch = FakeSketch("\u8349\u56fe1")
         self.Extension = FakeExtension()
         self.SketchManager = FakeSketchManager(self.sketch)
         self.SelectionManager = FakeSelectionManager()
@@ -122,29 +116,29 @@ class FakeModel:
         self.clear_calls = 0
 
     def ClearSelection2(self, _clear_all):
-        """记录清空选择集。"""
+        'Record selection clearing.'
         self.clear_calls += 1
 
     def FeatureByName(self, _name):
-        """模拟中文 SW 中按名称找不到草图。"""
+        'Simulate localized SolidWorks failing to find a sketch by name.'
         return None
 
 
 class SketchSelectionTests(unittest.TestCase):
-    """验证草图选择不依赖残留选择集或 SelectByID2("SKETCH")。"""
+    'Sketch selection must not depend on stale selections or SelectByID2(SKETCH).'
 
     def test_extrude_uses_cached_sketch_object_when_select_by_id_fails(self):
-        """选择集为空且 SKETCH 名称选择失败时仍应拉伸成功。"""
+        'Extrusion succeeds despite empty selection and failed sketch-name selection.'
         model = FakeModel()
 
         with sw_part.sketch(model, "Front Plane") as sketch_name:
-            self.assertEqual(sketch_name, "草图1")
+            self.assertEqual(sketch_name, "\u8349\u56fe1")
 
         feature = sw_part.extrude_boss(model, sketch_name, 0.01)
 
         self.assertIsNotNone(feature)
         self.assertTrue(model.sketch.feature.selected)
-        self.assertNotIn(("草图1", "SKETCH"), model.Extension.calls)
+        self.assertNotIn(("\u8349\u56fe1", "SKETCH"), model.Extension.calls)
 
 
 if __name__ == "__main__":

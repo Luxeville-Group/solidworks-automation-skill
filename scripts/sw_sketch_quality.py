@@ -1,4 +1,4 @@
-"""@brief 草图质量适配：回读约束、尺寸与 Fix，不把 API 返回值当验收。"""
+"""@brief Sketch-quality adapter: read constraints, dimensions, and Fix relations; API return values alone are not acceptance."""
 try:
     from .sw_connect import create_empty_dispatch_variant, get_com_member
 except ImportError:
@@ -6,9 +6,9 @@ except ImportError:
 
 
 def inspect_sketch(sketch):
-    """@brief 读取可编辑性证据；信息无法取得时保持 blocked。
-    @param sketch ISketch 对象。
-    @return 约束状态、驱动尺寸/关系数量与固定关系数量。
+    """@brief Read editability evidence; remain blocked when unavailable.
+    @param sketch ISketch object.
+    @return Constraint state and counts of driving dimensions, relations, and fixed relations.
     """
     record = {"status": "blocked", "constrained_status": None, "dimension_count": None,
               "relation_count": None, "fix_count": None, "dimension_names": [], "errors": []}
@@ -31,17 +31,17 @@ def inspect_sketch(sketch):
 
 
 def fully_define_sketch(model):
-    """@brief 以原点为尺寸基准补全草图，禁止用 Fix 代替设计参数。
-    @param model 处于草图编辑态的 IModelDoc2。
-    @return 实际回读证据；无法取得明确通过证据时抛出异常。
+    """@brief Fully define a sketch using the origin as dimension datum; never replace design parameters with Fix.
+    @param model IModelDoc2 in sketch edit mode.
+    @return Actual readback evidence; raise without explicit passing evidence.
     """
     active = get_com_member(model.SketchManager, "ActiveSketch")
     if active is None:
-        raise ValueError("完全定义必须在草图编辑态执行")
+        raise ValueError("Fully Define işlemi Sketch düzenleme modunda çalıştırılmalı")
     model.ClearSelection2(True)
     try:
-        # 原点特征在中英文界面有不同名称；先枚举真实特征名，再构造官方点引用。
-        origins = ["Origin", "原点"]
+        # Origin feature names vary by UI locale; enumerate actual names before constructing the official point reference.
+        origins = ["Origin", "Orijin", "\u539f\u70b9"]
         feature = get_com_member(model, "FirstFeature", default=None)
         while feature is not None:
             if str(get_com_member(feature, "GetTypeName2")) == "OriginProfileFeature":
@@ -50,7 +50,7 @@ def fully_define_sketch(model):
             feature = get_com_member(feature, "GetNextFeature")
         selected = False
         for origin in dict.fromkeys(origins):
-            for point_name in ("Point1", "点1"):
+            for point_name in ("Point1", "Nokta1", "\u70b91"):
                 selected = model.Extension.SelectByID2(point_name + "@" + origin, "EXTSKETCHPOINT", 0, 0, 0, False, 6,
                     create_empty_dispatch_variant(), 0)
                 if selected:
@@ -58,21 +58,21 @@ def fully_define_sketch(model):
             if selected:
                 break
         if not selected:
-            raise RuntimeError("无法选择原点作为水平/垂直尺寸基准")
-        # 1023 是已核对的十种关系组合，不包含固定关系。返回码未定义，必须回读。
+            raise RuntimeError("Origin yatay/dikey ölçü datumu olarak seçilemedi")
+        # 1023 is the verified combination of ten relations, excluding Fix. Return codes are undefined, so read back evidence.
         returned = model.SketchManager.FullyDefineSketch(True, True, 1023, True,
             1, create_empty_dispatch_variant(), 1, create_empty_dispatch_variant(), 1, 1)
         record = inspect_sketch(active)
         record["api_return"] = returned
         if record["status"] != "pass":
-            raise RuntimeError(f"草图未通过完全定义与可编辑性验收: {record}")
+            raise RuntimeError(f"Sketch Fully Defined ve düzenlenebilirlik kabulünden geçemedi: {record}")
         return record
     finally:
         model.ClearSelection2(True)
 
 
 def inspect_model_sketches(model):
-    """@brief 复用已有特征遍历，检查保存模型的全部建模草图。"""
+    """@brief Reuse feature traversal to inspect all modeling sketches in the saved model."""
     try:
         from .sw_assembly import iter_feature_tree
     except ImportError:

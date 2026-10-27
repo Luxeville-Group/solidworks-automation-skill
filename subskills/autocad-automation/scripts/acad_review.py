@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """@file acad_review.py
-@brief 复核 AutoCAD 图纸的实体、图层和包围盒。
+@brief Review AutoCAD drawing entities, layers, and bounding boxes.
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ from acad_session import AutoCADSession, point_tuple
 
 
 def _safe_getattr(obj: Any, name: str, default: Any = None) -> Any:
-    """@brief 安全读取 COM 属性。"""
+    """@brief Read a COM property safely."""
     try:
         return getattr(obj, name)
     except Exception:
@@ -23,7 +23,7 @@ def _safe_getattr(obj: Any, name: str, default: Any = None) -> Any:
 
 
 def _entity_bbox(entity: Any) -> Optional[Tuple[Tuple[float, float, float], Tuple[float, float, float]]]:
-    """@brief 获取实体包围盒；不支持时返回 None。"""
+    """@brief Get an entity bounding box; return None when unsupported."""
     try:
         min_pt, max_pt = entity.GetBoundingBox()
         return point_tuple(min_pt), point_tuple(max_pt)
@@ -35,7 +35,7 @@ def _merge_bbox(
     current: Optional[List[List[float]]],
     bbox: Tuple[Tuple[float, float, float], Tuple[float, float, float]],
 ) -> List[List[float]]:
-    """@brief 合并全局包围盒。"""
+    """@brief Merge global bounding boxes."""
     min_pt, max_pt = bbox
     if current is None:
         return [list(min_pt), list(max_pt)]
@@ -46,7 +46,7 @@ def _merge_bbox(
 
 
 def review_active(session: AutoCADSession) -> Dict[str, Any]:
-    """@brief 复核当前活动文档。"""
+    """@brief Review the active document."""
     doc = session.active_document()
     type_counts: Counter[str] = Counter()
     layer_counts: Counter[str] = Counter()
@@ -83,11 +83,11 @@ def review_active(session: AutoCADSession) -> Dict[str, Any]:
 
 
 def main() -> int:
-    """@brief 命令行入口。"""
-    parser = argparse.ArgumentParser(description="复核 AutoCAD 当前或指定图纸")
-    parser.add_argument("target", nargs="?", help="可选：要打开并复核的 DWG/DXF")
-    parser.add_argument("--launch", action="store_true", help="允许启动 AutoCAD")
-    parser.add_argument("--json", help="保存复核报告 JSON")
+    """@brief CLI entry point."""
+    parser = argparse.ArgumentParser(description="Review the active or specified AutoCAD drawing")
+    parser.add_argument("target", nargs="?", help="Optional DWG/DXF to open and review")
+    parser.add_argument("--launch", action="store_true", help="Allow starting AutoCAD")
+    parser.add_argument("--json", help="Save the review report as JSON")
     args = parser.parse_args()
 
     session = AutoCADSession(create_if_missing=args.launch, visible=True).connect()
@@ -108,4 +108,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""SolidWorks 外来 STEP/IGES 导入回归测试。"""
+"""SolidWorks foreign STEP/IGES import regression."""
 
 from __future__ import annotations
 
@@ -21,23 +21,23 @@ from sw_session import SolidWorksSession  # noqa: E402
 
 
 def parse_args() -> argparse.Namespace:
-    """@brief 解析命令行参数。"""
+    """@brief Parse CLI arguments."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--output-dir",
         default=str(Path(tempfile.gettempdir()) / "solidworks_loadfile4_import_regression"),
-        help="测试输出目录。",
+        help="Test output directory.",
     )
     parser.add_argument(
         "--keep",
         action="store_true",
-        help="保留输出目录中的已有文件。",
+        help="Preserve existing files in the output directory.",
     )
     return parser.parse_args()
 
 
 def close_if_open(session: SolidWorksSession, *paths: Path) -> None:
-    """@brief 按文件名关闭可能已经打开的测试文档。"""
+    """@brief Close possibly open test documents by filename."""
     for path in paths:
         try:
             session.sw.CloseDoc(path.name)
@@ -46,7 +46,7 @@ def close_if_open(session: SolidWorksSession, *paths: Path) -> None:
 
 
 def main() -> int:
-    """@brief 创建块体 STEP，再通过 LoadFile4(..., 'r', ...) 导入并保存为 SLDPRT。"""
+    """@brief Create a block STEP, import through LoadFile4(..., 'r', ...), and save SLDPRT."""
     args = parse_args()
     output_dir = Path(args.output_dir).resolve()
     if output_dir.exists() and not args.keep:
@@ -69,12 +69,12 @@ def main() -> int:
         with sketch(source_model, "Front Plane") as sketch_ref:
             sketch_rectangle(source_model, 0, 0, mm(60), mm(28))
         if extrude_midplane(source_model, sketch_ref, mm(18)) is None:
-            raise AssertionError("测试块拉伸失败")
+            raise AssertionError("Test-block extrusion failed")
         source_model.ForceRebuild3(False)
         if not session.save(source_model, source_part):
-            raise AssertionError("源 SLDPRT 保存失败")
+            raise AssertionError("Source SLDPRT save failed")
         if not session.export(source_model, step_path):
-            raise AssertionError("源 STEP 导出失败")
+            raise AssertionError("Source STEP export failed")
         session.close(model=source_model)
 
         imported_model = session.open(step_path, silent=True, raise_on_error=True)
@@ -82,9 +82,9 @@ def main() -> int:
         imported_model.ForceRebuild3(False)
         bodies = get_com_member(imported_model, "GetBodies2", 0, False) or []
         if len(bodies) < 1:
-            raise AssertionError("导入后没有实体")
+            raise AssertionError("No bodies after import")
         if not session.save(imported_model, imported_part):
-            raise AssertionError("导入后 SLDPRT 保存失败")
+            raise AssertionError("Imported SLDPRT save failed")
 
         review, review_report_path = run_review(
             imported_model,

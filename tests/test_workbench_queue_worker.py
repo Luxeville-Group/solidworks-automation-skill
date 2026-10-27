@@ -47,7 +47,7 @@ from apps.desktop.cad_workbench.reviewer_gate import evaluate_ledger
 
 
 def test_build_handlers_registers_real_agent_tasks() -> None:
-    """@brief 桌面端启用 Agent 后必须真正注册 agent_task，不能只注册旧 Codex 类型。"""
+    'Desktop Agent support must register agent_task, not only the legacy Codex type.'
     handlers = build_handlers(enable_codex=True, enable_agent=True)
 
     assert "codex_task" in handlers
@@ -55,7 +55,7 @@ def test_build_handlers_registers_real_agent_tasks() -> None:
 
 
 def test_process_queue_dispatches_agent_executor_to_agent_task_handler(tmp_path: Path) -> None:
-    """@brief Claude 等 Agent 任务不得被内部强制改写为旧 codex_task。"""
+    'Claude and other Agent tasks must not be forced into legacy codex_task.'
     queue_dir = tmp_path / "queue"
     queue_dir.mkdir()
     job = _queued_job("agent-dispatch", "agent_task")
@@ -65,7 +65,7 @@ def test_process_queue_dispatches_agent_executor_to_agent_task_handler(tmp_path:
 
     def handler(active_job: dict) -> dict:
         called.append(str(active_job["id"]))
-        return {"mode": "agent", "message": "Claude 执行完成", "outputs": []}
+        return {"mode": "agent", "message": 'Claude yürütmesi tamamlandı', "outputs": []}
 
     processed = process_queue(queue_dir, handlers={"agent_task": handler})
 
@@ -78,8 +78,8 @@ def _queued_job(job_id: str = "job-1", kind: str = "create_shell") -> dict:
     return {
         "id": job_id,
         "kind": kind,
-        "title": "新建外壳",
-        "detail": "生成参数化壳体、开孔和基础检查任务",
+        "title": 'Yeni muhafaza',
+        "detail": 'Parametrik muhafaza, açıklıklar ve temel kontrol görevleri oluştur',
         "status": "queued",
         "progress": 0,
         "createdAt": "2026-07-25T12:00:00+08:00",
@@ -89,8 +89,8 @@ def _queued_job(job_id: str = "job-1", kind: str = "create_shell") -> dict:
 
 
 def test_retry_reuses_previous_dag_from_requested_stage() -> None:
-    """@brief 同任务重试必须复用历史 DAG，只使目标阶段及后继失效。"""
-    plan = build_engineering_plan("创建装配体、工程图、BOM 和 STEP/PDF 交付").to_dict()
+    'Retries reuse the historic DAG and invalidate only the target stage and successors.'
+    plan = build_engineering_plan('Montaj, teknik resim, BOM ve STEP/PDF teslimi oluştur').to_dict()
     for phase in plan["phases"]:
         if phase["status"] != "blocked":
             phase["status"] = "completed"
@@ -114,14 +114,14 @@ def test_retry_reuses_previous_dag_from_requested_stage() -> None:
 
 
 def test_write_job_retries_transient_windows_access_denied(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """@brief 队列文件被 Windows 短暂占用时，worker 必须重试而不是直接失败。"""
+    'Retry transient Windows queue-file locks rather than failing immediately.'
     original_replace = Path.replace
     attempts = {"denied": 0}
 
     def flaky_replace(self: Path, target: Path) -> Path:
         if Path(target).name == "job-retry.json" and attempts["denied"] < 2:
             attempts["denied"] += 1
-            raise PermissionError(5, "拒绝访问", str(self))
+            raise PermissionError(5, 'Erişim reddedildi', str(self))
         return original_replace(self, target)
 
     monkeypatch.setattr(Path, "replace", flaky_replace)
@@ -191,7 +191,7 @@ def test_queue_worker_marks_unknown_kind_failed(tmp_path: Path) -> None:
     saved = read_job(job_path)
     assert saved["status"] == "failed"
     assert saved["progress"] == 100
-    assert "未知任务类型" in saved["error"]
+    assert 'Bilinmeyen görev türü' in saved["error"]
 
 
 def test_artifact_ledger_records_output_hash(tmp_path: Path) -> None:
@@ -206,7 +206,7 @@ def test_artifact_ledger_records_output_hash(tmp_path: Path) -> None:
     def handler(job: dict) -> dict:
         output_path.parent.mkdir(parents=True)
         output_path.write_bytes(b"artifact\n")
-        return {"mode": "mock", "message": "生成交付物", "outputs": {"report": "outputs/delivery.txt"}}
+        return {"mode": "mock", "message": 'Teslim dosyaları oluştur', "outputs": {"report": "outputs/delivery.txt"}}
 
     process_queue(queue_dir, handlers={"create_shell": handler})
 
@@ -240,7 +240,7 @@ def test_reviewer_gate_passes_known_cad_file_signatures(tmp_path: Path) -> None:
         (outputs_dir / "drawing.dwg").write_bytes(b"AC1032 demo")
         return {
             "mode": "mock",
-            "message": "生成 CAD 交付物",
+            "message": 'CAD teslim dosyaları oluştur',
             "outputs": {
                 "step": "outputs/model.step",
                 "stl": "outputs/model.stl",
@@ -274,7 +274,7 @@ def test_reviewer_gate_fails_invalid_known_format(tmp_path: Path) -> None:
     def handler(job: dict) -> dict:
         output_path.parent.mkdir(parents=True)
         output_path.write_text("not a pdf", encoding="utf-8")
-        return {"mode": "mock", "message": "生成伪 PDF", "outputs": {"pdf": "outputs/drawing.pdf"}}
+        return {"mode": "mock", "message": 'Sahte PDF oluştur', "outputs": {"pdf": "outputs/drawing.pdf"}}
 
     process_queue(queue_dir, handlers={"create_shell": handler})
 
@@ -294,7 +294,7 @@ def test_reviewer_gate_fails_missing_artifact(tmp_path: Path) -> None:
     write_job(job_path, job)
 
     def handler(job: dict) -> dict:
-        return {"mode": "mock", "message": "声明了不存在的交付物", "outputs": {"step": "outputs/missing.step"}}
+        return {"mode": "mock", "message": 'Var olmayan çıktı bildirildi', "outputs": {"step": "outputs/missing.step"}}
 
     process_queue(queue_dir, handlers={"create_shell": handler})
 
@@ -309,13 +309,13 @@ def test_reviewer_gate_rejects_codex_receipt_as_cad_delivery(tmp_path: Path) -> 
     queue_dir = tmp_path / "queue"
     job_path = queue_dir / "job-no-cad.json"
     receipt = tmp_path / "codex-result.json"
-    receipt.write_text('{"summary":"只返回说明"}', encoding="utf-8")
+    receipt.write_text('{"summary":"Yalnızca açıklama döndü"}', encoding="utf-8")
     job = _queued_job("job-no-cad", "codex_task")
     job.update(
         {
             "executor": "codex",
             "expectedOutput": "SLDPRT / STEP / STL",
-            "prompt": "生成模型",
+            "prompt": 'Model oluştur',
             "cwd": str(Path(__file__).resolve().parents[1]),
         }
     )
@@ -324,9 +324,9 @@ def test_reviewer_gate_rejects_codex_receipt_as_cad_delivery(tmp_path: Path) -> 
     def handler(_job: dict) -> dict:
         return {
             "mode": "codex",
-            "message": "Codex 已结束",
+            "message": 'Codex tamamlandı',
             "outputPath": str(receipt),
-            "verification": [{"command": "echo", "status": "passed", "note": "仅检查回执"}],
+            "verification": [{"command": "echo", "status": "passed", "note": 'Yalnızca makbuzu kontrol et'}],
         }
 
     process_queue(queue_dir, handlers={"codex_task": handler})
@@ -347,7 +347,7 @@ def test_reviewer_gate_rejects_failed_executor_verification(tmp_path: Path) -> N
         {
             "executor": "codex",
             "expectedOutput": "SLDPRT / STEP / STL",
-            "prompt": "生成模型",
+            "prompt": 'Model oluştur',
             "cwd": str(Path(__file__).resolve().parents[1]),
         }
     )
@@ -356,9 +356,9 @@ def test_reviewer_gate_rejects_failed_executor_verification(tmp_path: Path) -> N
     def handler(_job: dict) -> dict:
         return {
             "mode": "codex",
-            "message": "生成后检查失败",
+            "message": 'Üretim sonrası kontrol başarısız',
             "outputs": [{"kind": "step", "path": str(model_path)}],
-            "verification": [{"command": "几何检查", "status": "failed", "note": "孔未贯穿"}],
+            "verification": [{"command": 'Geometri kontrolü', "status": "failed", "note": 'Delik tam geçmiyor'}],
         }
 
     process_queue(queue_dir, handlers={"codex_task": handler})
@@ -384,10 +384,10 @@ def test_reviewer_gate_rejects_cad_spec_mismatch_from_validation_json(tmp_path: 
     )
     ledger = {
         "executor": "codex",
-        "objective": "创建 60 x 40 x 12 mm 校准板，中心孔直径 10 mm，四角孔直径 4 mm。",
+        "objective": '60 x 40 x 12 mm kalibrasyon plakası oluştur; merkez delik çapı 10 mm, köşe delik çapı 4 mm.',
         "strictRules": [],
-        "resultMessage": "已创建 120 x 80 x 8 mm 校准板。",
-        "verification": [{"command": "cad-check", "status": "passed", "note": "执行器自报通过"}],
+        "resultMessage": '120 x 80 x 8 mm kalibrasyon plakası oluşturuldu.',
+        "verification": [{"command": "cad-check", "status": "passed", "note": 'Yürütücü başarı bildirdi'}],
         "artifacts": [
             {
                 "kind": "json",
@@ -424,10 +424,10 @@ def test_reviewer_gate_accepts_matching_cad_spec_evidence(tmp_path: Path) -> Non
     )
     ledger = {
         "executor": "codex",
-        "objective": "创建 60 x 40 x 12 mm 校准板，中心孔直径 10 mm，四角孔直径 4 mm。",
+        "objective": '60 x 40 x 12 mm kalibrasyon plakası oluştur; merkez delik çapı 10 mm, köşe delik çapı 4 mm.',
         "strictRules": [],
-        "resultMessage": "已完成校准板。",
-        "verification": [{"command": "cad-check", "status": "passed", "note": "尺寸已读取"}],
+        "resultMessage": 'Kalibrasyon plakası tamamlandı.',
+        "verification": [{"command": "cad-check", "status": "passed", "note": 'Ölçüler okundu'}],
         "artifacts": [
             {
                 "kind": "json",
@@ -463,9 +463,9 @@ def test_reviewer_gate_accepts_envelope_with_different_axis_order(tmp_path: Path
     )
     ledger = {
         "executor": "codex",
-        "objective": "创建 60 x 40 x 12 mm 零件。",
+        "objective": '60 x 40 x 12 mm parça oluştur.',
         "strictRules": [],
-        "verification": [{"command": "cad-check", "status": "passed", "note": "已读取包围盒"}],
+        "verification": [{"command": "cad-check", "status": "passed", "note": 'Sınırlayıcı kutu okundu'}],
         "artifacts": [
             {
                 "kind": "json",
@@ -487,10 +487,10 @@ def test_reviewer_gate_accepts_envelope_with_different_axis_order(tmp_path: Path
 def test_reviewer_gate_fails_when_machine_readable_spec_evidence_is_missing() -> None:
     ledger = {
         "executor": "codex",
-        "objective": "创建 60 x 40 x 12 mm 校准板，中心孔直径 10 mm。",
+        "objective": '60 x 40 x 12 mm kalibrasyon plakası oluştur; merkez delik çapı 10 mm.',
         "strictRules": [],
-        "resultMessage": "已创建 60 x 40 x 12 mm 校准板，中心孔直径 10 mm。",
-        "verification": [{"command": "cad-check", "status": "passed", "note": "执行器自报通过"}],
+        "resultMessage": '60 x 40 x 12 mm kalibrasyon plakası ve 10 mm merkez deliği oluşturuldu.',
+        "verification": [{"command": "cad-check", "status": "passed", "note": 'Yürütücü başarı bildirdi'}],
         "artifacts": [],
     }
 
@@ -516,9 +516,9 @@ def test_reviewer_gate_rejects_untrusted_matching_numbers(tmp_path: Path) -> Non
     )
     ledger = {
         "executor": "codex",
-        "objective": "创建 60 x 40 x 12 mm 校准板，中心孔直径 10 mm。",
+        "objective": '60 x 40 x 12 mm kalibrasyon plakası oluştur; merkez delik çapı 10 mm.',
         "strictRules": [],
-        "verification": [{"command": "agent-claim", "status": "passed", "note": "仅由 Agent 声明"}],
+        "verification": [{"command": "agent-claim", "status": "passed", "note": 'Agent beyanı'}],
         "artifacts": [
             {
                 "kind": "json",
@@ -535,8 +535,8 @@ def test_reviewer_gate_rejects_untrusted_matching_numbers(tmp_path: Path) -> Non
     review = evaluate_ledger(ledger)
 
     assert review["status"] == "fail"
-    assert any(check["id"] == "spec-envelope-dimensions" and "缺少独立" in check["message"] for check in review["checks"])
-    assert any(check["id"] == "spec-hole-diameters" and "缺少独立" in check["message"] for check in review["checks"])
+    assert any(check["id"] == "spec-envelope-dimensions" and 'bağımsız' in check["message"].lower() for check in review["checks"])
+    assert any(check["id"] == "spec-hole-diameters" and 'bağımsız' in check["message"].lower() for check in review["checks"])
 
 
 @pytest.mark.parametrize(
@@ -548,7 +548,7 @@ def test_reviewer_gate_rejects_stale_or_tampered_measurement_report(
     produced_this_run: bool,
     sha256: str,
 ) -> None:
-    """@brief 旧报告或账本哈希不一致时，机器测量证据不得进入规格门禁。"""
+    'Stale reports or ledger hash mismatches cannot enter machine-measurement specification gates.'
     validation = tmp_path / "cad_review.json"
     validation.write_text(
         json.dumps(
@@ -565,7 +565,7 @@ def test_reviewer_gate_rejects_stale_or_tampered_measurement_report(
     actual_sha256 = hashlib.sha256(validation.read_bytes()).hexdigest()
     ledger = {
         "executor": "codex",
-        "objective": "创建 60 x 40 x 12 mm 零件，中心孔直径 10 mm。",
+        "objective": '60 x 40 x 12 mm parça oluştur; merkez delik çapı 10 mm.',
         "strictRules": [],
         "verification": [],
         "artifacts": [
@@ -732,7 +732,7 @@ def test_managed_command_stops_when_cancel_requested(tmp_path: Path) -> None:
         except JobCancelled:
             pass
         else:
-            raise AssertionError("应响应取消请求")
+            raise AssertionError('Cancellation must be honored')
     finally:
         thread.join(timeout=2)
 
@@ -747,15 +747,15 @@ def test_codex_prompt_contains_ui_configuration() -> None:
     job.update(
         {
             "executor": "codex",
-            "objective": "按配置生成带真实 USB-C 开孔的外壳",
-            "targetSoftware": "AI 自动选软件",
-            "expectedOutput": "输出 SLDPRT、STEP、STL 和 GB/T 图纸",
-            "strictRules": ["真实开孔必须切透实体", "提交并推送 GitHub"],
+            "objective": 'Konfigürasyona göre gerçek USB-C açıklıklı muhafaza oluştur',
+            "targetSoftware": 'AI yazılımı otomatik seçsin',
+            "expectedOutput": 'SLDPRT, STEP, STL ve GB/T teknik resim üret',
+            "strictRules": ['Gerçek açıklık katıyı tamamen kesmelidir', 'GitHub commit ve push'],
             "uiConfig": {
                 "cadRuntime": {
                     "application": "auto",
-                    "applicationLabel": "AI 自动选软件",
-                    "route": "三维优先 SolidWorks，二维图纸优先 AutoCAD。",
+                    "applicationLabel": 'AI yazılımı otomatik seçsin',
+                    "route": '3D için SolidWorks, 2D teknik resim için AutoCAD öncelikli.',
                     "localCadAutomation": True,
                     "solidworksSkillPath": "C:/Users/test-user/.codex/skills/solidworks-automation/SKILL.md",
                     "autocadSkillPath": "C:/Users/test-user/.codex/skills/solidworks-automation/subskills/autocad-automation/SKILL.md",
@@ -769,15 +769,15 @@ def test_codex_prompt_contains_ui_configuration() -> None:
 
     prompt = build_codex_prompt(job)
 
-    assert "按配置生成带真实 USB-C 开孔的外壳" in prompt
-    assert "真实开孔必须切透实体" in prompt
+    assert 'Konfigürasyona göre gerçek USB-C açıklıklı muhafaza oluştur' in prompt
+    assert 'Gerçek açıklık katıyı tamamen kesmelidir' in prompt
     assert "solidworks-automation skill" in prompt
     assert "autocad-automation skill" in prompt
-    assert "目标 CAD 软件" in prompt
-    assert "三维优先 SolidWorks，二维图纸优先 AutoCAD。" in prompt
-    assert "本机 CAD 自动化: 允许" in prompt
+    assert 'Hedef CAD Uygulama' in prompt
+    assert '3D için SolidWorks, 2D teknik resim için AutoCAD öncelikli.' in prompt
+    assert 'Yerel CAD Otomasyon: İzin verilir' in prompt
     assert "auto_best" in prompt
-    assert "自动选择最佳工程方案" in prompt
+    assert 'auto_best etkin: belirtilmeyen alanlar için AI uygun mühendislik yaklaşımını seçmelidir.' in prompt
     assert '"wallThickness": 1.6' in prompt
 
 
@@ -837,8 +837,8 @@ def test_codex_executor_invokes_codex_exec_with_prompt(tmp_path: Path, monkeypat
         {
             "executor": "codex",
             "cwd": str(Path(__file__).resolve().parents[1]),
-            "prompt": "执行一次可控 Codex 桥接测试",
-            "objective": "目标尺寸与企业任务上下文不能被用户补充 prompt 覆盖",
+            "prompt": 'Kontrollü Codex köprü testi çalıştır',
+            "objective": 'User supplemental prompts must not override target dimensions or enterprise context',
             "codexOutputPath": str(tmp_path / "ignored.md"),
         }
     )
@@ -848,7 +848,7 @@ def test_codex_executor_invokes_codex_exec_with_prompt(tmp_path: Path, monkeypat
         calls.append((command, cwd, timeout_seconds))
         output_path.write_text(
             json.dumps(
-                {"summary": "完成", "changedFiles": [], "verification": [], "risks": [], "nextSteps": []},
+                {"summary": 'Tamamlandı', "changedFiles": [], "verification": [], "risks": [], "nextSteps": []},
                 ensure_ascii=False,
             ),
             encoding="utf-8",
@@ -860,9 +860,9 @@ def test_codex_executor_invokes_codex_exec_with_prompt(tmp_path: Path, monkeypat
     assert result["mode"] == "codex"
     assert result["sandbox"] == "workspace-write"
     assert calls[0][0][:2] == ["codex", "exec"]
-    assert "执行一次可控 Codex 桥接测试" in calls[0][0][-1]
-    assert "目标尺寸与企业任务上下文不能被用户补充 prompt 覆盖" in calls[0][0][-1]
-    assert "【用户补充 prompt】" in calls[0][0][-1]
+    assert 'Kontrollü Codex köprü testi çalıştır' in calls[0][0][-1]
+    assert 'User supplemental prompts must not override target dimensions or enterprise context' in calls[0][0][-1]
+    assert '[Ek kullanıcı talimatı]' in calls[0][0][-1]
     assert "-s" in calls[0][0]
     assert "workspace-write" in calls[0][0]
     assert "-a" not in calls[0][0]
@@ -878,7 +878,7 @@ def test_codex_executor_fails_when_structured_output_is_missing(tmp_path: Path, 
     output_path = tmp_path / "missing.json"
     monkeypatch.setattr("apps.desktop.cad_workbench.queue_worker.codex_output_path", lambda job, cwd: output_path)
     job = _queued_job("job-no-result", "codex_task")
-    job.update({"executor": "codex", "cwd": str(Path(__file__).resolve().parents[1]), "prompt": "不写结果"})
+    job.update({"executor": "codex", "cwd": str(Path(__file__).resolve().parents[1]), "prompt": 'Sonuç yazma'})
 
     def fake_runner(command, cwd, timeout_seconds):
         return subprocess.CompletedProcess(command, 0, stdout="ok", stderr="")
@@ -886,9 +886,9 @@ def test_codex_executor_fails_when_structured_output_is_missing(tmp_path: Path, 
     try:
         run_codex_job(job, runner=fake_runner, timeout_seconds=3)
     except RuntimeError as error:
-        assert "未生成结构化结果文件" in str(error)
+        assert 'Yapılandırılmış sonuç dosyası üretilmedi' in str(error)
     else:
-        raise AssertionError("Codex 未写结构化结果时必须失败")
+        raise AssertionError('Codex must fail when no structured result is written')
 
 
 def test_codex_executor_parses_structured_artifacts(tmp_path: Path, monkeypatch) -> None:
@@ -901,7 +901,7 @@ def test_codex_executor_parses_structured_artifacts(tmp_path: Path, monkeypatch)
         {
             "executor": "codex",
             "cwd": str(Path(__file__).resolve().parents[1]),
-            "prompt": "结构化结果测试",
+            "prompt": 'Yapılandırılmış sonuç testi',
             "uiConfig": {"outputDir": str(tmp_path)},
         }
     )
@@ -910,7 +910,7 @@ def test_codex_executor_parses_structured_artifacts(tmp_path: Path, monkeypatch)
         output_path.write_text(
             json.dumps(
                 {
-                    "summary": "已生成模型",
+                    "summary": 'Model oluşturuldu',
                     "changedFiles": [str(generated)],
                     "verification": [{"command": "check", "status": "passed", "note": "ok"}],
                     "risks": [],
@@ -924,7 +924,7 @@ def test_codex_executor_parses_structured_artifacts(tmp_path: Path, monkeypatch)
 
     result = run_codex_job(job, runner=fake_runner, timeout_seconds=3)
 
-    assert result["message"] == "已生成模型"
+    assert result["message"] == 'Model oluşturuldu'
     assert any(item["path"] == str(generated) for item in result["artifacts"])
     assert result["verification"][0]["status"] == "passed"
 
@@ -944,7 +944,7 @@ def _evaluate_codex_artifact_run(
         {
             "executor": "codex",
             "cwd": str(tmp_path),
-            "prompt": "本轮交付物证明测试",
+            "prompt": 'Bu çalıştırmanın teslim kanıtı testi',
             "expectedOutput": expected_output,
             "uiConfig": {"outputDir": str(tmp_path), "cadRuntime": {"localCadAutomation": True}},
         }
@@ -955,7 +955,7 @@ def _evaluate_codex_artifact_run(
         output_path.write_text(
             json.dumps(
                 {
-                    "summary": "已生成交付文件",
+                    "summary": 'Teslim dosyası oluşturuldu',
                     "changedFiles": [str(path) for path in changed_files],
                     "verification": [{"command": "cad-check", "status": "passed", "note": "ok"}],
                     "risks": [],
@@ -1062,7 +1062,7 @@ def test_codex_executor_rejects_artifact_outside_allowed_roots(tmp_path: Path, m
         {
             "executor": "codex",
             "cwd": str(Path(__file__).resolve().parents[1]),
-            "prompt": "越界交付物测试",
+            "prompt": 'Sınır dışı teslim dosyası testi',
             "uiConfig": {"outputDir": str(allowed)},
         }
     )
@@ -1071,7 +1071,7 @@ def test_codex_executor_rejects_artifact_outside_allowed_roots(tmp_path: Path, m
         output_path.write_text(
             json.dumps(
                 {
-                    "summary": "声明旧文件",
+                    "summary": 'Eski dosya bildirimi',
                     "changedFiles": [str(rejected)],
                     "verification": [],
                     "risks": [],
@@ -1086,7 +1086,7 @@ def test_codex_executor_rejects_artifact_outside_allowed_roots(tmp_path: Path, m
     result = run_codex_job(job, runner=fake_runner, timeout_seconds=3)
 
     assert all(item["path"] != str(rejected) for item in result["artifacts"])
-    assert any("已拒绝" in risk and str(rejected) in risk for risk in result["risks"])
+    assert any('reddedildi' in risk and str(rejected) in risk for risk in result["risks"])
 
 
 def test_policy_gate_requires_approval_for_git_push(tmp_path: Path) -> None:
@@ -1097,7 +1097,7 @@ def test_policy_gate_requires_approval_for_git_push(tmp_path: Path) -> None:
         {
             "executor": "codex",
             "cwd": str(Path(__file__).resolve().parents[1]),
-            "prompt": "提交并推送",
+            "prompt": 'Commit ve push',
             "capabilities": ["git_push"],
             "policy": {"sandbox": "workspace-write", "approval": "never", "requirePush": True},
         }
@@ -1122,7 +1122,7 @@ def test_policy_gate_allows_approved_job(tmp_path: Path) -> None:
         {
             "executor": "codex",
             "cwd": str(Path(__file__).resolve().parents[1]),
-            "prompt": "审批后执行",
+            "prompt": 'Onaydan sonra çalıştır',
             "capabilities": ["git_push"],
             "policy": {"sandbox": "workspace-write", "approval": "never", "requirePush": True},
         }
@@ -1138,7 +1138,7 @@ def test_policy_gate_allows_approved_job(tmp_path: Path) -> None:
 
     processed = process_queue(
         queue_dir,
-        handlers={"codex_task": lambda active_job: {"mode": "codex", "message": f"已执行 {active_job['id']}"}},
+        handlers={"codex_task": lambda active_job: {"mode": "codex", "message": f"Çalıştırıldı {active_job['id']}"}},
     )
 
     saved = read_job(job_path)
@@ -1155,7 +1155,7 @@ def test_policy_gate_rechecks_approved_scope_after_job_changes(tmp_path: Path) -
         {
             "executor": "codex",
             "cwd": str(Path(__file__).resolve().parents[1]),
-            "prompt": "审批范围测试",
+            "prompt": 'Onay kapsamı testi',
             "capabilities": ["git_push"],
             "policy": {"sandbox": "workspace-write", "approval": "never", "requirePush": True},
         }
@@ -1180,7 +1180,7 @@ def test_policy_gate_requires_approval_for_danger_full_access(tmp_path: Path) ->
         {
             "executor": "codex",
             "cwd": str(Path(__file__).resolve().parents[1]),
-            "prompt": "全权限测试",
+            "prompt": 'Tam erişim testi',
             "policy": {"sandbox": "danger-full-access", "approval": "never", "requirePush": False},
         }
     )
@@ -1201,7 +1201,7 @@ def test_policy_gate_requires_approval_for_dangerous_capability(tmp_path: Path) 
         {
             "executor": "codex",
             "cwd": str(Path(__file__).resolve().parents[1]),
-            "prompt": "CAD 宏测试",
+            "prompt": 'CAD makro testi',
             "capabilities": ["cad_macro"],
             "policy": {"sandbox": "workspace-write", "approval": "never", "requirePush": False},
         }
@@ -1212,11 +1212,11 @@ def test_policy_gate_requires_approval_for_dangerous_capability(tmp_path: Path) 
 
     saved = read_job(job_path)
     assert saved["status"] == "approval_required"
-    assert any("CAD 宏" in reason for reason in saved["approvalReasons"])
+    assert any('CAD Makro/COM' in reason for reason in saved["approvalReasons"])
 
 
 def test_capability_gate_separates_security_permissions_from_cad_capabilities() -> None:
-    """@brief cad_macro/full_access 只触发审批，不应被误报为未知 CAD 能力。"""
+    'cad_macro/full_access triggers approval rather than an unknown-CAD-capability error.'
     job = _queued_job("job-capability-separation", "codex_task")
     job.update({
         "schemaVersion": "2.0",
@@ -1238,7 +1238,7 @@ def test_codex_full_access_requires_policy_and_cli_flag(tmp_path: Path) -> None:
         calls.append(command)
         Path(command[command.index("-o") + 1]).write_text(
             json.dumps(
-                {"summary": "完成", "changedFiles": [], "verification": [], "risks": [], "nextSteps": []},
+                {"summary": 'Tamamlandı', "changedFiles": [], "verification": [], "risks": [], "nextSteps": []},
                 ensure_ascii=False,
             ),
             encoding="utf-8",
@@ -1246,7 +1246,7 @@ def test_codex_full_access_requires_policy_and_cli_flag(tmp_path: Path) -> None:
         return subprocess.CompletedProcess(command, 0, stdout="ok", stderr="")
 
     job = _queued_job("job-full-cli", "codex_task")
-    job.update({"executor": "codex", "cwd": str(repo), "prompt": "沙箱测试", "policy": {"sandbox": "danger-full-access"}})
+    job.update({"executor": "codex", "cwd": str(repo), "prompt": 'Sandbox testi', "policy": {"sandbox": "danger-full-access"}})
 
     result_without_cli = run_codex_job(job, runner=fake_runner, allow_full_access=False)
     result_with_cli = run_codex_job(job, runner=fake_runner, allow_full_access=True)
@@ -1272,19 +1272,19 @@ def test_loaded_profile_uses_restricted_default_sandbox(tmp_path: Path) -> None:
 
 def test_codex_executor_rejects_cwd_outside_workspace(tmp_path: Path) -> None:
     job = _queued_job("job-7", "codex_task")
-    job.update({"executor": "codex", "cwd": str(tmp_path), "prompt": "越界测试"})
+    job.update({"executor": "codex", "cwd": str(tmp_path), "prompt": 'Çalışma alanı sınır testi'})
 
     try:
         validate_codex_job(job)
     except ValueError as error:
-        assert "cwd 不在允许工作区内" in str(error)
+        assert 'cwd izin verilen çalışma alanı dışında' in str(error)
     else:
-        raise AssertionError("应拒绝仓库外 cwd")
+        raise AssertionError('Reject cwd outside the repository')
 
 
-@pytest.mark.skipif(os.name != "nt", reason="Windows 扩展路径仅在 Windows 上验证")
+@pytest.mark.skipif(os.name != "nt", reason='Windows extended paths are verified only on Windows')
 def test_resolve_workspace_accepts_windows_extended_path_prefix() -> None:
-    """@brief Windows 扩展路径与普通盘符路径必须被识别为同一工作区。"""
+    'Windows extended and ordinary drive paths identify the same workspace.'
     repo = Path(__file__).resolve().parents[1]
     extended_repo = Path("\\\\?\\" + str(repo))
 
@@ -1293,13 +1293,13 @@ def test_resolve_workspace_accepts_windows_extended_path_prefix() -> None:
     assert resolved == repo
 
 
-@pytest.mark.skipif(os.name != "nt", reason="Windows 扩展路径仅在 Windows 上验证")
+@pytest.mark.skipif(os.name != "nt", reason='Windows extended paths are verified only on Windows')
 def test_resolve_workspace_still_rejects_extended_path_outside_allowed_root() -> None:
-    """@brief 去掉扩展路径前缀后仍必须执行工作区边界检查。"""
+    'Workspace checks still apply after removing the extended-path prefix.'
     repo = Path(__file__).resolve().parents[1]
     extended_parent = Path("\\\\?\\" + str(repo.parent))
 
-    with pytest.raises(ValueError, match="cwd 不在允许工作区内"):
+    with pytest.raises(ValueError, match='cwd izin verilen çalışma alanı dışında'):
         resolve_workspace({"cwd": str(extended_parent)}, allowed_roots=[repo])
 
 

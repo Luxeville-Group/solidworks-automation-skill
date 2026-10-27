@@ -1,7 +1,8 @@
-"""CAD Studio 本机 CAD 安装发现。
+"""Discover local CAD installations for CAD Studio.
 
-该模块只读检查快捷方式、常见安装目录和 COM 注册，不启动或关闭 CAD。
-路径发现结果供 CLI、Skill 自检和桌面端复用；调用方负责脱敏后再上传诊断包。
+Read shortcuts, common installation directories and COM registrations without
+starting or closing CAD. Reuse paths in CLI, skill preflight and desktop; callers
+must redact them before uploading diagnostic bundles.
 """
 from __future__ import annotations
 
@@ -15,7 +16,7 @@ from typing import Any, Callable, Iterable, Mapping
 PUBLIC_DESKTOP = Path(os.environ.get("PUBLIC", r"C:\Users\Public")) / "Desktop"
 SHORTCUTS = {
     "solidworks": PUBLIC_DESKTOP / "SOLIDWORKS 2024.lnk",
-    "autocad": PUBLIC_DESKTOP / "AutoCAD 2024 - 简体中文 (Simplified Chinese).lnk",
+    "autocad": PUBLIC_DESKTOP / "AutoCAD 2024 - \u7b80\u4f53\u4e2d\u6587 (Simplified Chinese).lnk",
 }
 SHORTCUT_PATTERNS = {
     "solidworks": ("SOLIDWORKS*.lnk",),
@@ -24,10 +25,11 @@ SHORTCUT_PATTERNS = {
 
 
 def resolve_shortcut_target(target: str | None, working_directory: str | None, executable_name: str) -> list[Path]:
-    """把 Windows 快捷方式的目标和工作目录转换成可验证的 exe 候选。
+    """Convert a Windows shortcut target and working directory into verifiable EXE candidates.
 
-    安装器快捷方式有时目标不是最终程序（例如 i386_SldWorks.exe），此时优先
-    从工作目录补出真正的 SLDWORKS.exe，避免把安装器误当作 CAD 主程序。
+    Installer shortcuts may target a launcher such as i386_SldWorks.exe rather
+    than the application. Prefer the real SLDWORKS.exe from the working directory
+    in that case, avoiding misidentification of the installer as CAD.
     """
     candidates: list[Path] = []
     target_path = Path(target) if target else None
@@ -53,7 +55,7 @@ def _unique_paths(paths: Iterable[Path]) -> list[Path]:
 
 
 def _shortcut_info(path: Path) -> tuple[str | None, str | None]:
-    """读取 .lnk；没有 pywin32 或非 Windows 时安静失败。"""
+    """Read a .lnk; fail quietly without pywin32 or outside Windows."""
     if not path.is_file() or os.name != "nt":
         return None, None
     try:
@@ -66,7 +68,7 @@ def _shortcut_info(path: Path) -> tuple[str | None, str | None]:
 
 
 def _shortcut_paths(product: str) -> list[Path]:
-    """@brief 枚举产品的全部公共桌面快捷方式，不把版本固定为 2024。"""
+    """@brief Enumerate all public desktop shortcuts for the product without pinning the release to 2024."""
     paths = [SHORTCUTS[product]]
     if PUBLIC_DESKTOP.is_dir():
         for pattern in SHORTCUT_PATTERNS[product]:
@@ -75,7 +77,7 @@ def _shortcut_paths(product: str) -> list[Path]:
 
 
 def _version_metadata(*values: object) -> tuple[str | None, str | None]:
-    """@brief 从显示名、路径或文件版本文本中提取年份与 Service Pack。"""
+    """@brief Extract year and Service Pack from display names, paths or file-version text."""
     text = " ".join(str(value or "") for value in values)
     version_match = re.search(r"(?<!\d)(20\d{2})(?!\d)", text)
     service_pack_match = re.search(r"\bSP\s*0?(\d+)(?:[._](\d+))?\b", text, re.IGNORECASE)
@@ -88,7 +90,7 @@ def _version_metadata(*values: object) -> tuple[str | None, str | None]:
 
 
 def _uninstall_registry_candidates(product: str) -> list[dict[str, Any]]:
-    """@brief 从 Windows 卸载注册表读取主 CAD 产品的真实安装目录。"""
+    """@brief Read actual main CAD installation directories from Windows uninstall registry entries."""
     if os.name != "nt":
         return []
     try:
@@ -229,9 +231,9 @@ def _common_candidates(product: str) -> list[Path]:
 
 
 def discover_installations(product: str, *, exists: Callable[[Path], bool] | None = None) -> list[dict[str, Any]]:
-    """@brief 发现产品的全部安装，并按版本从新到旧排序。"""
+    """@brief Discover all installations and sort newest first."""
     if product not in {"solidworks", "autocad"}:
-        raise ValueError(f"不支持的 CAD 产品: {product}")
+        raise ValueError(f"Desteklenmeyen CAD ürünü: {product}")
     exists = exists or Path.is_file
     exe_name = "SLDWORKS.exe" if product == "solidworks" else "acad.exe"
     candidates: list[dict[str, Any]] = []
@@ -306,7 +308,7 @@ def discover_installations(product: str, *, exists: Callable[[Path], bool] | Non
 
 
 def discover_installation(product: str, *, exists: Callable[[Path], bool] | None = None) -> dict:
-    """@brief 返回最新安装，保持旧调用方的单结果接口兼容。"""
+    """@brief Return the newest installation, preserving the legacy single-result interface."""
     installations = discover_installations(product, exists=exists)
     if installations:
         return installations[0]

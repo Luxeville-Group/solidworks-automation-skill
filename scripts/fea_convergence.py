@@ -1,4 +1,4 @@
-"""@brief CalculiX 多网格收敛序列执行与证据汇总。"""
+"""@brief Execute CalculiX multi-mesh convergence sequences and collect evidence."""
 from __future__ import annotations
 
 import hashlib
@@ -15,48 +15,48 @@ except ImportError:
 
 
 def _now_iso() -> str:
-    """@brief 返回 UTC 秒级时间戳。"""
+    """@brief Return a UTC timestamp with second precision."""
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
 def _finite_positive(value: Any, field: str, *, maximum: float | None = None) -> float:
-    """@brief 校验有限正数和可选上限。"""
+    """@brief Validate finite positive values and optional upper bounds."""
     if isinstance(value, bool):
-        raise ValueError(f"{field} 必须是有限正数。")
+        raise ValueError(f"{field} sonlu pozitif sayı olmalı.")
     try:
         number = float(value)
     except (TypeError, ValueError) as exc:
-        raise ValueError(f"{field} 必须是有限正数。") from exc
+        raise ValueError(f"{field} sonlu pozitif sayı olmalı.") from exc
     if not math.isfinite(number) or number <= 0 or (maximum is not None and number > maximum):
-        raise ValueError(f"{field} 超出允许范围。")
+        raise ValueError(f"{field} izin verilen aralık dışında.")
     return number
 
 
 def _identifier(value: Any, field: str) -> str:
-    """@brief 校验不会进入路径或求解器关键字的标识符。"""
+    """@brief Validate identifiers against path or solver-keyword injection."""
     token = str(value or "")
     if not token or len(token) > 64 or not token[0].isalpha() or not all(char.isalnum() or char == "_" for char in token):
-        raise ValueError(f"{field} 只能使用字母开头的 1-64 位字母、数字或下划线。")
+        raise ValueError(f"{field} yalnızca harfle başlayan 1–64 harf, rakam veya alt çizgi içerebilir.")
     return token
 
 
 def _load_request(value: str | Path | dict[str, Any]) -> dict[str, Any]:
-    """@brief 从字典或不超过 128 MiB 的 JSON 文件读取收敛请求。"""
+    """@brief Read convergence requests from a dictionary or JSON file up to 128 MiB."""
     if isinstance(value, dict):
         return dict(value)
     path = Path(value).expanduser().resolve()
     if path.suffix.lower() != ".json" or not path.is_file():
-        raise ValueError("网格收敛请求必须是存在的 JSON 文件。")
+        raise ValueError("Mesh convergence isteği mevcut bir JSON dosyası olmalıdır.")
     if path.stat().st_size > 128 * 1024 * 1024:
-        raise ValueError("网格收敛请求超过 128 MiB 安全上限。")
+        raise ValueError("Mesh convergence isteği 128 MiB güvenlik sınırını aşıyor.")
     payload = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(payload, dict):
-        raise ValueError("网格收敛请求必须是 JSON object。")
+        raise ValueError("Mesh convergence isteği bir JSON object olmalıdır.")
     return payload
 
 
 def _physics_fingerprint(analysis: dict[str, Any]) -> str:
-    """@brief 计算不含网格和任务 ID 的物理条件指纹。"""
+    """@brief Fingerprint physical conditions excluding mesh and task IDs."""
     payload = {
         key: analysis.get(key)
         for key in (
@@ -69,18 +69,18 @@ def _physics_fingerprint(analysis: dict[str, Any]) -> str:
 
 
 def validate_convergence_request(value: str | Path | dict[str, Any]) -> dict[str, Any]:
-    """@brief 校验至少三档、物理条件一致且网格严格细化的收敛请求。"""
+    """@brief Validate at least three meshes with identical physics and strictly increasing refinement."""
     request = _load_request(value)
     allowed = {"schemaVersion", "studyId", "tolerancePercent", "cases"}
     if set(request) - allowed:
-        raise ValueError(f"收敛请求含未允许字段: {', '.join(sorted(set(request) - allowed))}")
+        raise ValueError(f"Convergence isteğinde izin verilmeyen alanlar var: {', '.join(sorted(set(request) - allowed))}")
     if request.get("schemaVersion") != "1.0":
-        raise ValueError("schemaVersion 必须为 1.0。")
+        raise ValueError("schemaVersion 1.0 olmalıdır.")
     _identifier(request.get("studyId"), "studyId")
     _finite_positive(request.get("tolerancePercent"), "tolerancePercent", maximum=25.0)
     cases = request.get("cases")
     if not isinstance(cases, list) or not 3 <= len(cases) <= 8:
-        raise ValueError("cases 必须包含 3-8 档网格。")
+        raise ValueError("cases 3-8 mesh seviyesi içermelidir.")
     case_ids: set[str] = set()
     previous_size = math.inf
     previous_nodes = 0
@@ -88,34 +88,34 @@ def validate_convergence_request(value: str | Path | dict[str, Any]) -> dict[str
     fingerprint = None
     for index, case in enumerate(cases):
         if not isinstance(case, dict) or set(case) != {"id", "characteristicSizeMm", "analysis"}:
-            raise ValueError(f"cases[{index}] 结构无效。")
+            raise ValueError(f"cases[{index}] yapısı geçersiz.")
         case_id = _identifier(case.get("id"), f"cases[{index}].id")
         if case_id in case_ids:
-            raise ValueError(f"收敛 case ID 重复: {case_id}")
+            raise ValueError(f"Yinelenen convergence case ID: {case_id}")
         case_ids.add(case_id)
         size = _finite_positive(case.get("characteristicSizeMm"), f"cases[{index}].characteristicSizeMm")
         if size >= previous_size:
-            raise ValueError("characteristicSizeMm 必须按粗到细严格递减。")
+            raise ValueError("characteristicSizeMm kabadan inceye doğru kesin azalmalıdır.")
         previous_size = size
         analysis = validate_analysis(case.get("analysis"))
         if analysis["analysisType"] not in {"static_linear", "static_nonlinear"} or analysis["solver"] not in {"auto", "calculix"}:
-            raise ValueError("网格收敛当前只允许 CalculiX static_linear/static_nonlinear。")
+            raise ValueError("Mesh convergence şu anda yalnızca CalculiX static_linear/static_nonlinear kabul eder.")
         node_count = len(analysis["mesh"]["nodes"])
         element_count = len(analysis["mesh"]["elements"])
         if node_count <= previous_nodes or element_count <= previous_elements:
-            raise ValueError("网格细化时节点数和单元数必须严格增加。")
+            raise ValueError("Mesh inceldikçe node ve element sayıları kesin artmalıdır.")
         previous_nodes = node_count
         previous_elements = element_count
         current_fingerprint = _physics_fingerprint(analysis)
         if fingerprint is None:
             fingerprint = current_fingerprint
         elif current_fingerprint != fingerprint:
-            raise ValueError("所有收敛 case 的材料、载荷和约束必须完全一致。")
+            raise ValueError("Tüm convergence case malzeme, yük ve constraint verileri aynı olmalıdır.")
     return request
 
 
 def _versioned_directory(path: Path) -> Path:
-    """@brief 返回不覆盖既有目录的版本化目录。"""
+    """@brief Return a versioned directory without overwriting existing directories."""
     if not path.exists():
         return path
     index = 2
@@ -127,7 +127,7 @@ def _versioned_directory(path: Path) -> Path:
 
 
 def _relative_change_percent(previous: float, current: float) -> float:
-    """@brief 计算相邻网格结果相对变化百分比。"""
+    """@brief Calculate percentage relative change between adjacent mesh results."""
     return abs(current - previous) / max(abs(current), abs(previous), 1e-15) * 100.0
 
 
@@ -137,7 +137,7 @@ def run_convergence_study(
     *,
     timeout_seconds_per_case: int = 600,
 ) -> dict[str, Any]:
-    """@brief 依次真实求解各档网格并汇总位移/应力收敛证据。"""
+    """@brief Solve each mesh sequentially and collect displacement/stress convergence evidence."""
     try:
         request = validate_convergence_request(value)
     except (ValueError, json.JSONDecodeError) as exc:
@@ -241,7 +241,7 @@ def run_convergence_study(
         "retryable": not converged,
         "error_code": None if converged else "fea_mesh_convergence_not_reached",
         "limitations": [
-            "收敛比较最后两档网格的位移/应力，并在存在时同时比较塑性应变、接触穿透和接触压力；仍需检查奇异点、载荷路径和局部结果。",
+            "Convergence son iki mesh seviyesindeki displacement/stress sonuçlarını ve varsa plastic strain/contact penetration/contact pressure değerlerini karşılaştırır; singularity, load path ve yerel sonuçlar ayrıca incelenmelidir.",
         ],
         "generatedAt": _now_iso(),
     }

@@ -14,7 +14,7 @@ type TaskSequenceProps = {
   onClearTerminal: () => Promise<void>;
 };
 
-/** @brief 项目内最近任务列表，提供单条删除和终态记录批量清理。 */
+/** @brief Recent jobs in a project, with individual deletion and bulk cleanup of terminal records. */
 export function TaskSequence({
   jobs,
   activeJobId,
@@ -43,16 +43,16 @@ export function TaskSequence({
   }
 
   return (
-    <nav className="project-sequence" aria-label="项目任务序列">
+    <nav className="project-sequence" aria-label="Proje görev sırası">
       <div className="project-sequence-head">
-        <span className="sidebar-label">最近任务</span>
+        <span className="sidebar-label">Son görevler</span>
         {terminalCount ? (
           <button
             className={clearArmed ? "clear-terminal-button confirm" : "clear-terminal-button"}
             type="button"
             disabled={clearing || deletingJobId !== null}
-            title={clearArmed ? `再次点击清理 ${terminalCount} 条终态记录` : "清理已结束的任务记录"}
-            aria-label={clearArmed ? `确认清理 ${terminalCount} 条终态任务记录` : "批量清理终态任务记录"}
+            title={clearArmed ? `Temizlemek için tekrar seçin ${terminalCount}  terminal kayıt` : "Tamamlanmış görev kayıtlarını temizle"}
+            aria-label={clearArmed ? `Temizlemeyi onayla ${terminalCount}  terminal görev kaydı` : "Sonlanmış görev kayıtlarını topluca temizle"}
             onBlur={() => setClearArmed(false)}
             onClick={() => void clearTerminalRecords()}
           >
@@ -73,15 +73,15 @@ export function TaskSequence({
             className={deleteCandidateJobId === job.id ? "project-sequence-delete confirm" : "project-sequence-delete"}
             type="button"
             disabled={deletingJobId !== null}
-            aria-label={deleteCandidateJobId === job.id ? `确认删除 ${jobDisplayTitle(job)}` : `删除 ${jobDisplayTitle(job)}`}
-            title={deleteCandidateJobId === job.id ? "再次点击确认删除" : "删除任务记录"}
+            aria-label={deleteCandidateJobId === job.id ? `Silmeyi onayla ${jobDisplayTitle(job)}` : `Sil ${jobDisplayTitle(job)}`}
+            title={deleteCandidateJobId === job.id ? "Silmeyi onaylamak için tekrar seçin" : "Görev kaydını sil"}
             onClick={() => onDelete(job)}
           >
             {deletingJobId === job.id ? <SpinnerGap className="spin" size={15} /> : deleteCandidateJobId === job.id ? <Check size={15} weight="bold" /> : <Trash size={15} weight="duotone" />}
           </button>
         </div>
       )) : (
-        <div className="sidebar-empty">这里会显示真正执行过的任务。选择模板不会新增记录。</div>
+        <div className="sidebar-empty">Gerçekten çalıştırılan görevler burada görünür. Şablon seçmek yeni kayıt oluşturmaz.</div>
       )}
     </nav>
   );

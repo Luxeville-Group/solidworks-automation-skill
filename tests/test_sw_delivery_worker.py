@@ -1,4 +1,4 @@
-"""@brief 回退 PID/版本、短期进程与失败契约；不启动 CAD。"""
+'Fallback PID/version, short-lived processes and failure contracts without CAD.'
 from contextlib import nullcontext
 import json
 from pathlib import Path
@@ -12,12 +12,12 @@ from scripts.sw_connect import SolidWorksConnectionError
 
 
 def app(pid=7, revision="34.1.1"):
-    """@brief 创建带真实形状身份字段的共享实例替身。"""
+    'Create a shared-instance stub with realistic identity fields.'
     return SimpleNamespace(GetProcessID=lambda: pid, RevisionNumber=lambda: revision)
 
 
 def constructor_fixture(monkeypatch, before, target):
-    """@brief ROT 不可用时返回指定对象，便于测量所有权。"""
+    'Return the designated object when ROT is unavailable to measure ownership.'
     monkeypatch.setattr(sw_delivery, "solidworks_processes", lambda: before)
     monkeypatch.setattr(sw_delivery, "_LaunchGuard", nullcontext)
     class Client:
@@ -52,10 +52,10 @@ def test_wrong_pid_or_year_is_blocked(monkeypatch, target, code):
 
 
 def worker_call(monkeypatch, tmp_path, run):
-    """@brief 封装实际包装器，所有 subprocess 调用由当前用例接管。"""
+    'Wrap the real wrapper while the test controls all subprocess calls.'
     monkeypatch.setattr(sw_delivery.win32com_client, "GetActiveObject", lambda _: app())
     monkeypatch.setattr(sw_delivery.subprocess, "run", run)
-    return sw_delivery._comtypes_pack_and_go("中文😀.sldprt", tmp_path, {}, include_drawings=False,
+    return sw_delivery._comtypes_pack_and_go('Türkçe😀.sldprt', tmp_path, {}, include_drawings=False,
         include_simulation_results=False, include_toolbox_components=False, include_suppressed=False, flatten=True)
 
 
@@ -63,7 +63,7 @@ def test_child_protocol_is_utf8_bound_to_parent_and_has_timeout(monkeypatch, tmp
     def run(command, **options):
         payload = json.loads(options["input"])
         assert payload["expected_pid"] == 7
-        assert payload["source_path"] == "中文😀.sldprt"
+        assert payload["source_path"] == 'Türkçe😀.sldprt'
         assert options["timeout"] == 120
         assert options["env"]["PYTHONIOENCODING"] == "utf-8"
         assert command[0] == sys.executable and command[1].endswith("sw_delivery_comtypes_worker.py")

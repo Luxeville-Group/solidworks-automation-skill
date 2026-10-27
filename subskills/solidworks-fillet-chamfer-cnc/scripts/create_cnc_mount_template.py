@@ -1,8 +1,4 @@
-"""SolidWorks CNC 安装座多圆角/倒角模板。
-
-@brief 生成参数化、可降级且带拓扑证据的 CNC 风格安装座。
-@details 使用 ``--dry-run`` 时只做参数/DFM 预检，不连接 SolidWorks。
-"""
+'SolidWorks CNC mounting-base template with multiple fillets/chamfers. Creates parametric geometry with bounded fallback and topology evidence. --dry-run performs parameter/DFM checks without connecting to SolidWorks.'
 
 from __future__ import annotations
 
@@ -43,31 +39,31 @@ EdgePredicate = Callable[[Any], bool]
 
 
 def assert_feature(feature, label: str):
-    """@brief 检查特征是否创建成功。"""
+    'Check that a feature was created.'
     if feature is None:
-        raise RuntimeError(f"{label} 创建失败")
+        raise RuntimeError(f"{label} oluşturulamadı / creation failed")
     print(f"OK: {label} -> {getattr(feature, 'Name', '<unnamed>')}")
     return feature
 
 
 def clear(model) -> None:
-    """@brief 清空选择集。"""
+    'Clear the selection set.'
     model.ClearSelection2(True)
 
 
 def hide_reference_planes(model) -> None:
-    """@brief 审查前隐藏构造平面，避免名称和橙色边框污染预览。"""
+    'Hide construction planes before review to keep names/orange borders out of previews.'
     clear(model)
     try:
         if bool(get_com_member(model, "GetVisibilityOfConstructPlanes")):
             get_com_member(model, "ViewDispRefplanes")
     except Exception as exc:
-        print(f"WARN 隐藏参考平面失败: {exc}")
+        print(f"WARN Referans düzlemleri gizlenemedi / Could not hide reference planes: {exc}")
     clear(model)
 
 
 def select_plane(model, aliases: tuple[str, ...]) -> None:
-    """@brief 选择中英文基准面。"""
+    'Select a reference plane using supported localized aliases.'
     clear(model)
     for name in aliases:
         selected = model.Extension.SelectByID2(
@@ -75,20 +71,20 @@ def select_plane(model, aliases: tuple[str, ...]) -> None:
         )
         if selected:
             return
-    raise RuntimeError(f"无法选择基准面: {aliases}")
+    raise RuntimeError(f"Referans düzlemi seçilemiyor / Cannot select reference plane: {aliases}")
 
 
 def current_sketch_name(model, fallback: str) -> str:
-    """@brief 读取当前草图名称。"""
+    'Read the active sketch name.'
     active = model.SketchManager.ActiveSketch
     return active.Name if active else fallback
 
 
 def offset_front_plane(model, name: str, z_mm: float) -> str:
-    """@brief 创建平行前视基准面的偏置面。"""
+    'Create an offset plane parallel to the front plane.'
     if model.FeatureByName(name):
         return name
-    select_plane(model, ("Front Plane", "前视基准面"))
+    select_plane(model, ("Front Plane", "Ön Düzlem", "\u524d\u89c6\u57fa\u51c6\u9762"))
     plane = assert_feature(
         model.FeatureManager.InsertRefPlane(8, mm(z_mm), 0, 0, 0, 0), name
     )
@@ -97,17 +93,17 @@ def offset_front_plane(model, name: str, z_mm: float) -> str:
 
 
 def select_sketch(model, name: str) -> None:
-    """@brief 按名称选择草图。"""
+    'Select a sketch by name.'
     clear(model)
     selected = model.Extension.SelectByID2(
         name, "SKETCH", 0, 0, 0, False, 0, create_empty_dispatch_variant(), 0
     )
     if not selected:
-        raise RuntimeError(f"无法选择草图: {name}")
+        raise RuntimeError(f"Eskiz seçilemiyor / Cannot select sketch: {name}")
 
 
 def extrude_boss(model, name: str, depth_mm: float, label: str):
-    """@brief 创建并命名凸台拉伸。"""
+    'Create and name a boss extrusion.'
     select_sketch(model, name)
     feature = assert_feature(
         model.FeatureManager.FeatureExtrusion3(
@@ -131,7 +127,7 @@ def cut(
     through_all: bool = False,
     total_depth_mm: float,
 ):
-    """@brief 创建并命名拉伸切除。"""
+    'Create and name an extruded cut.'
     select_sketch(model, name)
     end_condition = 1 if through_all else 0
     depth = mm(max(depth_mm, total_depth_mm + 4.0) if through_all else depth_mm)
@@ -150,7 +146,7 @@ def cut(
 
 
 def edge_points(edge):
-    """@brief 读取边线端点；闭合圆边可能没有端点。"""
+    'Read edge endpoints; closed circular edges may have none.'
     try:
         start = get_com_member(edge, "GetStartVertex")
         end = get_com_member(edge, "GetEndVertex")
@@ -165,7 +161,7 @@ def edge_points(edge):
 
 
 def midpoint(edge):
-    """@brief 计算带端点边线的中点。"""
+    'Compute the midpoint of an edge with endpoints.'
     points = edge_points(edge)
     if not points:
         return None
@@ -174,7 +170,7 @@ def midpoint(edge):
 
 
 def edge_direction(edge):
-    """@brief 判断直线边的主方向。"""
+    'Determine the dominant axis of a straight edge.'
     try:
         curve = get_com_member(edge, "GetCurve")
         if not curve or not get_com_member(curve, "IsLine"):
@@ -192,7 +188,7 @@ def edge_direction(edge):
 
 
 def circle_center_radius(edge):
-    """@brief 读取圆边/圆弧的圆心和半径。"""
+    'Read the center and radius of a circular edge/arc.'
     try:
         curve = get_com_member(edge, "GetCurve")
         if not curve or not get_com_member(curve, "IsCircle"):
@@ -204,7 +200,7 @@ def circle_center_radius(edge):
 
 
 def edge_signature(edge) -> dict[str, Any]:
-    """@brief 生成与临时 EdgeN 名称无关的几何签名。"""
+    'Generate a geometric signature independent of temporary EdgeN names.'
     circle = circle_center_radius(edge)
     points = edge_points(edge)
 
@@ -230,7 +226,7 @@ def edge_signature(edge) -> dict[str, Any]:
 
 
 def all_edges(model):
-    """@brief 枚举当前所有实体边。"""
+    'Enumerate edges of all current bodies.'
     model.ForceRebuild3(False)
     edges = []
     for body in get_com_member(model, "GetBodies2", SW_SOLID_BODY, False) or []:
@@ -239,7 +235,7 @@ def all_edges(model):
 
 
 def matching_edges(model, predicate: EdgePredicate) -> list[Any]:
-    """@brief 按几何谓词返回匹配边对象。"""
+    'Return edge objects matching a geometric predicate.'
     matched = []
     for edge in all_edges(model):
         try:
@@ -256,25 +252,25 @@ def select_exact_edges(
     label: str,
     expected_count: int,
 ) -> tuple[list[Any], list[dict[str, Any]]]:
-    """@brief 精确选择语义边集，数量不符时禁止继续猜测。"""
+    'Select an exact semantic edge set; stop rather than guess on a count mismatch.'
     clear(model)
     edges = matching_edges(model, predicate)
     signatures = [edge_signature(edge) for edge in edges]
     if len(edges) != expected_count:
         raise RuntimeError(
-            f"{label} 语义选边数量不符: expected={expected_count}, actual={len(edges)}, "
+            f"{label} anlamsal kenar sayısı uyuşmuyor / semantic edge count mismatch: expected={expected_count}, actual={len(edges)}, "
             f"signatures={json.dumps(signatures, ensure_ascii=False)}"
         )
     for index, edge in enumerate(edges):
         if not edge.Select2(index > 0, 0):
             clear(model)
-            raise RuntimeError(f"{label} 第 {index + 1} 条边 Select2 失败")
+            raise RuntimeError(f"{label} kenar / edge {index + 1} için Select2 başarısız / Select2 failed")
     print(f"SELECT: {label} -> {len(edges)}")
     return edges, signatures
 
 
 def planar_outer_loop_predicate(z_mm: float, half_x_mm: float, half_y_mm: float) -> EdgePredicate:
-    """@brief 创建指定 Z 平面和外包络的闭环边谓词。"""
+    'Create a closed-loop edge predicate for a given Z plane and outer envelope.'
     z_value = mm(z_mm)
     half_x = mm(half_x_mm)
     half_y = mm(half_y_mm)
@@ -299,7 +295,7 @@ def vertical_corner_predicate(
     half_x_mm: float,
     half_y_mm: float,
 ) -> EdgePredicate:
-    """@brief 创建矩形体四条立角边的几何谓词。"""
+    'Create a predicate for the four vertical corners of a rectangular body.'
     tolerance = mm(SELECTION_TOLERANCE_MM)
     half_x = mm(half_x_mm)
     half_y = mm(half_y_mm)
@@ -323,7 +319,7 @@ def vertical_corner_predicate(
 
 
 def hole_mouth_predicate(params: MountParameters) -> EdgePredicate:
-    """@brief 创建沉孔和定位孔入口圆边谓词。"""
+    'Create a predicate for counterbore and dowel-hole entry circular edges.'
     positions = parameter_positions(params)
     targets = [
         *((point, params.counterbore_diameter / 2.0) for point in positions["mount"]),
@@ -350,7 +346,7 @@ def hole_mouth_predicate(params: MountParameters) -> EdgePredicate:
 
 
 def operation_predicate(name: str, params: MountParameters) -> EdgePredicate:
-    """@brief 将计划中的语义目标映射为运行时几何谓词。"""
+    'Map planned semantic targets to runtime geometric predicates.'
     predicates = {
         "Fillet_Base_Corners": vertical_corner_predicate(
             0.0, params.thickness, params.length / 2.0, params.width / 2.0
@@ -377,11 +373,11 @@ def operation_predicate(name: str, params: MountParameters) -> EdgePredicate:
     try:
         return predicates[name]
     except KeyError as exc:
-        raise ValueError(f"未知圆角/倒角操作: {name}") from exc
+        raise ValueError(f"Bilinmeyen radyüs/pah işlemi / Unknown fillet/chamfer operation: {name}") from exc
 
 
 def apply_treatment(model, operation: dict[str, Any], params: MountParameters) -> dict[str, Any]:
-    """@brief 按计划执行圆角/倒角，并记录每次有界降级尝试。"""
+    'Execute planned fillets/chamfers and record every bounded fallback attempt.'
     attempts = []
     predicate = operation_predicate(operation["name"], params)
     for value_mm in operation["attempt_values_mm"]:
@@ -400,8 +396,8 @@ def apply_treatment(model, operation: dict[str, Any], params: MountParameters) -
         except Exception as exc:
             clear(model)
             raise RuntimeError(
-                f"{operation['name']} 调用特征 API 时出现异常；为避免部分特征叠加，"
-                "禁止自动重试"
+                f"{operation['name']} unsur API çağrısında hata; kısmi unsurların birikmesini önlemek için / feature API raised; to avoid accumulating partial features, "
+                'otomatik yeniden deneme yasak / automatic retries prohibited'
             ) from exc
         if feature is None:
             attempts.append(
@@ -419,12 +415,12 @@ def apply_treatment(model, operation: dict[str, Any], params: MountParameters) -
             clear(model)
             model.ForceRebuild3(False)
             if model.FeatureByName(operation["name"]) is None:
-                raise RuntimeError("特征返回非空，但重建后未在特征树持久化")
+                raise RuntimeError('Unsur döndü ancak yeniden oluşturmadan sonra ağaçta kalmadı / Feature returned but did not persist after rebuild')
         except Exception as exc:
             clear(model)
             raise RuntimeError(
-                f"{operation['name']} 已返回特征对象，但命名或重建回读失败；"
-                "禁止继续尝试其他尺寸"
+                f"{operation['name']} unsur nesnesi döndü ancak adlandırma veya yeniden oluşturma doğrulaması başarısız / feature returned but naming or rebuild readback failed; "
+                'farklı boyutlarla devam etmek yasak / further dimension attempts prohibited'
             ) from exc
         attempts.append(
             {
@@ -443,7 +439,7 @@ def apply_treatment(model, operation: dict[str, Any], params: MountParameters) -
             "attempts": attempts,
         }
     raise RuntimeError(
-        f"{operation['name']} 在有界降级阶梯中全部失败: "
+        f"{operation['name']} sınırlı geri dönüş adımlarının tümü başarısız / all bounded fallback attempts failed: "
         f"{json.dumps(attempts, ensure_ascii=False)}"
     )
 
@@ -455,7 +451,7 @@ def create_centered_slot(
     size_x_mm: float,
     size_y_mm: float,
 ) -> None:
-    """@brief 在活动草图中创建指定包络的水平或垂直长圆槽。"""
+    'Create a horizontal/vertical obround slot with the specified envelope in the active sketch.'
     if size_x_mm >= size_y_mm:
         radius = size_y_mm / 2.0
         half_line = size_x_mm / 2.0 - radius
@@ -481,7 +477,7 @@ def create_centered_slot(
 
 
 def collect_feature_evidence(model, expected_names: list[str]) -> dict[str, Any]:
-    """@brief 重建后回读顶层特征树并核对关键特征持久化。"""
+    'Read the top-level feature tree after rebuild and verify critical persistence.'
     model.ForceRebuild3(False)
     features = []
     feature = get_com_member(model, "FirstFeature")
@@ -512,7 +508,7 @@ def build_model(
     basename: str,
     failure_policy: str,
 ) -> dict[str, Any]:
-    """@brief 构建、保存、导出并审查模型。"""
+    'Build, save, export and review the model.'
     basename = validate_basename(basename)
     output_dir.mkdir(parents=True, exist_ok=True)
     part = output_dir / f"{basename}.SLDPRT"
@@ -530,7 +526,7 @@ def build_model(
         pass
     model = session.new_part()
 
-    select_plane(model, ("Front Plane", "前视基准面"))
+    select_plane(model, ("Front Plane", "Ön Düzlem", "\u524d\u89c6\u57fa\u51c6\u9762"))
     model.SketchManager.InsertSketch(True)
     base_sketch = current_sketch_name(model, "Sketch_Base")
     model.SketchManager.CreateCenterRectangle(
@@ -651,7 +647,7 @@ def build_model(
     feature_evidence = collect_feature_evidence(model, expected_features)
     if feature_evidence["missing_names"]:
         raise RuntimeError(
-            "重建后关键特征缺失，停止交付: " + ", ".join(feature_evidence["missing_names"])
+            'Yeniden oluşturmadan sonra kritik unsur eksik; teslim durduruldu / Critical features missing after rebuild; delivery stopped: ' + ", ".join(feature_evidence["missing_names"])
         )
     hide_reference_planes(model)
     model.ViewZoomtofit2()
@@ -668,9 +664,9 @@ def build_model(
         json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
     )
     if not session.save(model, str(part)):
-        raise RuntimeError(f"保存失败: {part}")
+        raise RuntimeError(f"Kaydetme başarısız / Save failed: {part}")
     if not export_to_step(model, str(step)):
-        raise RuntimeError(f"STEP 导出失败: {step}")
+        raise RuntimeError(f"STEP dışa aktarma başarısız / STEP export failed: {step}")
     report, report_path = run_review(
         model,
         output_dir,
@@ -699,45 +695,45 @@ def build_model(
 
 
 def parse_args() -> argparse.Namespace:
-    """@brief 解析命令行参数。"""
+    'Parse CLI arguments.'
     parser = argparse.ArgumentParser(
-        description="生成带参数校验、语义选边和降级证据的 SolidWorks CNC 安装座。"
+        description='Parametre kontrolü, anlamsal kenar seçimi ve geri dönüş kanıtıyla CNC montaj tabanı oluşturur / Generate a verified-plan CNC mounting base.'
     )
-    parser.add_argument("--params-json", type=Path, help="JSON 参数文件；可直接写字段或使用 parameters 包装。")
+    parser.add_argument("--params-json", type=Path, help='JSON parametre dosyası; doğrudan alanlar veya parameters nesnesi / JSON parameter file, direct fields or parameters wrapper.')
     parser.add_argument(
         "--set",
         dest="set_values",
         action="append",
         default=[],
         metavar="NAME=VALUE",
-        help="覆盖任意参数，可重复使用，例如 --set base_corner_radius=6。",
+        help='Parametreyi geçersiz kılın; tekrarlanabilir: --set base_corner_radius=6 / Repeatable parameter override.',
     )
-    parser.add_argument("--length", type=float, help="基体长度 mm。")
-    parser.add_argument("--width", type=float, help="基体宽度 mm。")
-    parser.add_argument("--thickness", type=float, help="基体厚度 mm。")
-    parser.add_argument("--base-corner-radius", type=float, help="基体立角圆角半径 mm；0 表示禁用。")
-    parser.add_argument("--boss-corner-radius", type=float, help="凸台立角圆角半径 mm；0 表示禁用。")
-    parser.add_argument("--top-chamfer", type=float, help="基体顶面外轮廓倒角距离 mm；0 表示禁用。")
-    parser.add_argument("--pocket-shape", choices=("rounded_slot", "rectangle"), help="减重口袋形状。")
+    parser.add_argument("--length", type=float, help='Taban uzunluğu mm / Base length mm.')
+    parser.add_argument("--width", type=float, help='Taban genişliği mm / Base width mm.')
+    parser.add_argument("--thickness", type=float, help='Taban kalınlığı mm / Base thickness mm.')
+    parser.add_argument("--base-corner-radius", type=float, help='Taban köşe radyüsü mm; 0 kapatır / Base corner radius mm; 0 disables.')
+    parser.add_argument("--boss-corner-radius", type=float, help='Çıkıntı köşe radyüsü mm; 0 kapatır / Boss corner radius mm; 0 disables.')
+    parser.add_argument("--top-chamfer", type=float, help='Taban üst dış kenar pahı mm; 0 kapatır / Base top-outline chamfer mm; 0 disables.')
+    parser.add_argument("--pocket-shape", choices=("rounded_slot", "rectangle"), help='Hafifletme cebi biçimi / Weight-reduction pocket shape.')
     parser.add_argument(
         "--failure-policy",
         choices=("strict", "progressive"),
         default="progressive",
-        help="strict 只尝试指定尺寸；progressive 允许 100%%/75%%/50%% 有界降级。",
+        help='strict yalnızca istenen boyutu dener; progressive 100%%/75%%/50%% adımlarına izin verir / strict uses requested dimensions; progressive allows bounded fallback.',
     )
-    parser.add_argument("--basename", default="CNC_Mount_Template", help="输出文件基名。")
+    parser.add_argument("--basename", default="CNC_Mount_Template", help='Çıktı dosyası taban adı / Output basename.')
     parser.add_argument(
         "--output-dir",
         type=Path,
         default=Path.cwd() / "solidworks_fillet_chamfer_output",
-        help="输出目录。",
+        help='Çıktı dizini / Output directory.',
     )
-    parser.add_argument("--dry-run", action="store_true", help="只输出参数校验和操作计划，不连接 SolidWorks。")
+    parser.add_argument("--dry-run", action="store_true", help="Yalnızca parametre kontrolü ve plan üretir; SolidWorks'e bağlanmaz / Validate and plan without connecting to SolidWorks.")
     return parser.parse_args()
 
 
 def parameters_from_args(args: argparse.Namespace) -> tuple[MountParameters, dict[str, Any]]:
-    """@brief 按默认值、JSON、--set、显式 CLI 的优先级构建参数。"""
+    'Build parameters in priority order: defaults, JSON, --set, explicit CLI.'
     overlays: list[dict[str, Any]] = []
     if args.params_json:
         overlays.append(load_parameter_file(args.params_json))
@@ -756,7 +752,7 @@ def parameters_from_args(args: argparse.Namespace) -> tuple[MountParameters, dic
 
 
 def main() -> int:
-    """@brief 命令行入口。"""
+    'Command-line entry point.'
     args = parse_args()
     basename = validate_basename(args.basename)
     params, validation = parameters_from_args(args)

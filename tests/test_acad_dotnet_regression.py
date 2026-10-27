@@ -38,13 +38,15 @@ def test_runtime_pass_requires_successful_process_and_report():
 
 
 def test_process_output_decodes_utf8_and_autocad_utf16():
-    assert _MODULE._decode_output("生成成功".encode("utf-8")) == "生成成功"
-    assert _MODULE._decode_output("中文输出".encode("gb18030")) == "中文输出"
-    assert _MODULE._decode_output("未知命令".encode("utf-16")) == "未知命令"
+    # Escaped legacy strings retain non-ASCII codec coverage; these are input fixtures, not UI text.
+    assert _MODULE._decode_output("\u751f\u6210\u6210\u529f".encode("utf-8")) == "\u751f\u6210\u6210\u529f"
+    assert _MODULE._decode_output("\u4e2d\u6587\u8f93\u51fa".encode("gb18030")) == "\u4e2d\u6587\u8f93\u51fa"
+    assert _MODULE._decode_output("\u672a\u77e5\u547d\u4ee4".encode("utf-16")) == "\u672a\u77e5\u547d\u4ee4"
 
 
 def test_secureload_probe_parses_and_restores_supported_values(tmp_path):
-    assert _MODULE._parse_system_variable("输入 SECURELOAD 的新值 <2>:", "SECURELOAD") == 2
+    # Preserve a localized legacy console prompt alongside the English prompt below.
+    assert _MODULE._parse_system_variable("\u8f93\u5165 SECURELOAD \u7684\u65b0\u503c <2>:", "SECURELOAD") == 2
     assert _MODULE._parse_system_variable("Enter new value for FILEDIA <1>:", "FILEDIA") == 1
     assert _MODULE._parse_system_variable("no matching prompt", "BACKGROUNDPLOT") is None
     text = _MODULE._script_text(tmp_path / "plugin.dll", {"SECURELOAD": 1, "FILEDIA": 0, "BACKGROUNDPLOT": 2})
@@ -52,7 +54,7 @@ def test_secureload_probe_parses_and_restores_supported_values(tmp_path):
 
 
 def test_persist_result_records_failed_run_in_history(tmp_path, monkeypatch):
-    """@brief 前置或构建失败也必须写 final report 和历史。"""
+    """@brief Preflight/build failures must still write the final report and history."""
     monkeypatch.setattr(_MODULE, "ROOT", tmp_path)
     run_dir = tmp_path / "output" / "autocad-dotnet" / "20260802T000000Z"
     run_dir.mkdir(parents=True)

@@ -3,22 +3,21 @@
   "evals": [
     {
       "id": 1,
-      "prompt": "我想让 Codex 直接打开本机 AutoCAD，新建一张毫米单位的 DWG，画一个 120x80 的安装板，四角各一个直径 9 的安装孔，并保存到 C:\\temp\\plate.dwg。",
-      "expected_output": "应先运行 AutoCAD/pywin32 自检，生成明确绘图计划，使用 scripts/acad_draw.py 或 acad_session.py 创建矩形和四个圆，保存 DWG，并建议运行 acad_review.py 复核实体和包围盒。",
+      "prompt": "Have Codex open local AutoCAD, create a millimeter-unit DWG, draw a 120x80 mounting plate with one 9 mm diameter mounting hole at each corner, and save it to C:\\temp\\plate.dwg.",
+      "expected_output": "First run AutoCAD/pywin32 preflight, produce a clear drawing plan, use scripts/acad_draw.py or acad_session.py to create the rectangle and four circles, save DWG, and recommend acad_review.py to review entities and bounding boxes.",
       "files": []
     },
     {
       "id": 2,
-      "prompt": "我有一批 DWG，想统计每张图的图层、实体数量和大概边界，最好不要覆盖原图。",
-      "expected_output": "应选择批量只读打开和 acad_review.py 路线，强调不覆盖原图、逐文件记录错误、输出 JSON/CSV 汇总，并说明 COM 操作串行执行。",
+      "prompt": "I have a batch of DWGs and want each drawing's layers, entity count, and approximate bounds, preferably without overwriting the originals.",
+      "expected_output": "Choose batch read-only opening with acad_review.py; preserve originals, record errors per file, output a JSON/CSV summary, and explain that COM operations execute serially.",
       "files": []
     },
     {
       "id": 3,
-      "prompt": "帮我做一个 AutoCAD .NET 插件，用 NETLOAD 后执行命令自动生成几个圆和文字，最好参考官方文档和 GitHub 示例。",
-      "expected_output": "应切换到 .NET 插件路线，读取 api-lookup.md，参考 Managed .NET Developer Guide、ADN-DevTech 示例，说明 CommandMethod、事务、文档锁、版本目标框架和 NETLOAD 验证。",
+      "prompt": "Build an AutoCAD .NET plugin that draws several circles and text through a command after NETLOAD, using official documentation and GitHub examples as references.",
+      "expected_output": "Switch to the .NET plugin route, read api-lookup.md, consult the Managed .NET Developer Guide and ADN-DevTech examples, and explain CommandMethod, transactions, document locks, version target frameworks, and NETLOAD verification.",
       "files": []
     }
   ]
 }
-
