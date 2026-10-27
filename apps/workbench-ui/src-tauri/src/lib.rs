@@ -3279,7 +3279,9 @@ mod tests {
             prepare_job_for_retry(&mut job, "retry-test-2".to_string(), "unix:2".to_string())
                 .expect_err("queued job must not be retried");
 
-        assert!(error.contains("Başarısız, engellendi, iptal edildi veya inceleme bekliyor"));
+        assert!(error.contains(
+            "Yalnızca başarısız, engellenmiş, iptal edilmiş veya inceleme bekleyen görevler"
+        ));
     }
 
     #[test]
