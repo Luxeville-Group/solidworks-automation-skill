@@ -1,252 +1,165 @@
-# SolidWorks Automation Skill
+# SolidWorks Automation Skill — Türkçe / English
 
-**AI Skill + MCP toolkit for reliable desktop CAD automation.**
+[**Türkçe başlangıç kılavuzu**](README.tr.md) · **English documentation** · [Terminology / Terimler](localization/TERMS.tr-en.md)
 
-让 Codex、Claude、Cursor 等 Agent 通过自然语言调用真实 CAD 软件，并对执行结果进行验证与追踪。
+AI skill and MCP toolkit for supervised desktop CAD automation. Codex, Claude, Cursor and other agents use scripts and native CAD APIs to create artifacts and check the results.
 
-> Tool success is not treated as task success.
+This is the **Luxeville-Group Turkish/English fork** of [wzyn20051216/solidworks-automation-skill](https://github.com/wzyn20051216/solidworks-automation-skill). Desktop UI and guided interactions use Turkish with English CAD terminology; technical documentation and code comments are English. CLI/API diagnostics may be Turkish, English or bilingual. See the [language policy](localization/README.md).
 
-工具调用成功，不代表任务真的完成；需要 Review 的任务会经过结果验证后再交付。
-
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![GitHub Release](https://img.shields.io/github/v/release/wzyn20051216/solidworks-automation-skill)](https://github.com/wzyn20051216/solidworks-automation-skill/releases)
-[![GitHub Stars](https://img.shields.io/github/stars/wzyn20051216/solidworks-automation-skill?style=flat)](https://github.com/wzyn20051216/solidworks-automation-skill)
 [![MCP](https://img.shields.io/badge/MCP-stdio--server-blue)](mcp-server/README.md)
-[![CI](https://github.com/wzyn20051216/solidworks-automation-skill/actions/workflows/windows-release.yml/badge.svg)](https://github.com/wzyn20051216/solidworks-automation-skill/actions/workflows/windows-release.yml)
 
 ```text
-User → Agent (Codex / Claude / Cursor) → Skill / MCP → Execution Core → CAD → Artifacts + Evidence
+User → Agent (Codex / Claude / Cursor) → Skill / MCP → CAD APIs → Artifacts + Evidence
 ```
 
-AI 负责理解意图、查证 API、规划步骤；Execution Core 保证执行过程可追踪、可验证、失败可恢复。
+The agent interprets intent, checks APIs and plans operations. CAD Studio's Worker uses the execution core to record execution, check evidence and select bounded recovery actions. Direct Skill and MCP workflows use their documented scripts, tool checks and review steps; they do not all pass through the complete Worker execution chain. **A successful tool call does not establish a completed engineering task.**
 
----
+## What it does
 
-## See It In Action
+The normal SolidWorks path uses Python COM automation, with C# or native bridges for specific interfaces. It calls CAD APIs rather than clicking screen coordinates. SolidWorks may still open a visible window; some workflows capture previews or require manual review. The desktop workbench is an optional interface to the same capabilities.
 
-<p align="center">
-  <img src="assets/showcase/solidworks-engineering-drawing-demo.gif" alt="代码驱动 SolidWorks 生成复杂测试件与 GB/T 工程图" width="900">
-</p>
+A typical workflow is: requirements → structured plan → native `SLDPRT + SLDDRW` → PDF/export → geometry and evidence review.
 
-一个真实流程：自然语言需求 → Agent 调用 Skill → SolidWorks 生成原生 `SLDPRT + SLDDRW` → 导出 PDF → 自动复核尺寸与证据。
-
-| 案例 | 能力 | 状态 |
+| Example | Capability | Upstream status |
 |---|---|---|
-| [M6×1 真实螺纹孔](subskills/solidworks-threaded-holes/README.md) | Metric Tap Thread，重建后回读 | `verified` |
-| [CNC 多圆角/倒角安装座](subskills/solidworks-fillet-chamfer-cnc/README.md) | 语义选边、可变半径、face/full-round/setback | `stable` |
-| [标准渐开线直齿轮](references/gears.md) | 模数/齿数/压力角驱动实体 | `pilot` |
+| [M6×1 threaded hole](subskills/solidworks-threaded-holes/README.md) | Metric Tap Thread with post-rebuild readback | `verified` |
+| [CNC mounting base](subskills/solidworks-fillet-chamfer-cnc/README.md) | Semantic edge selection, variable-radius, face/full-round/setback fillets | `stable`, within documented limits |
+| [Involute spur gear](references/gears.md) | Solid driven by module, tooth count and pressure angle | `pilot` |
 
----
+Upstream verification records apply to their stated versions and samples. Translating this fork does not independently repeat native CAD acceptance or certify a design for manufacture.
 
-## Quick Start
+## Installation and entry points
 
-三种入口**任选其一**即可，不需要同时启动。
+Choose one entry point; Skill, MCP and CAD Studio share the same scripts, capability registry and evidence system.
 
-### Option 1 — Skill（最简单）
+| Entry point | Suitable for | Optional workbench GUI |
+|---|---|---|
+| Skill | An agent client that reads `SKILL.md` and runs local scripts | Not required |
+| MCP | Codex / Claude / Cursor / Windsurf tool calls | Not required |
+| CAD Studio | Managing projects, tasks, previews and deliveries in a desktop app | Required |
 
-```bash
-npx github:wzyn20051216/solidworks-automation-skill
-# 或
-claude skill add https://github.com/wzyn20051216/solidworks-automation-skill
-```
+For native SolidWorks work, use Windows, an installed/licensed SolidWorks environment and Python 3.10+ with the relevant dependencies. Native operations currently target SolidWorks 2026 acceptance. Other versions require capability checks.
 
-### Option 2 — MCP
+### Skill from this fork
+
+With Node.js/npm and Git installed, the existing installer is:
 
 ```powershell
-npm install -g @smithery/cli
-smithery mcp add wzyn20051216/solidworks-automation-skill --client codex --config '{}'
+npx github:Luxeville-Group/solidworks-automation-skill
 ```
 
-### Option 3 — CAD Studio 桌面版
+This installer detects common agent skill directories, copies the repository, installs base Python dependencies and attempts MCP registration. Review [install.js](install.js) before use.
 
-从 [GitHub Releases](https://github.com/wzyn20051216/solidworks-automation-skill/releases) 下载 Windows 安装包。
+**Node.js is not required by the Python CAD execution layer.** Without Node/npm, clone this fork into a skill directory recognized by your agent, install the Python dependencies, and use the skill or Python MCP server directly. Do not run the npm installer merely to use the Python API. A dedicated no-Node PowerShell installer is not included in this localization change.
 
-> **Choose one entry point. You do not need to run all three.**
+### MCP
 
-| 入口 | 适合谁 | 需要 GUI | 典型用法 |
-|---|---|---|---|
-| **Skill** | 支持 skill 导入的 Agent 客户端 | 否 | 自然语言驱动 SolidWorks |
-| **MCP** | Codex / Claude / Cursor / Windsurf 等 MCP 客户端 | 否 | Agent 自动 Tool Calling |
-| **CAD Studio** | 需要图形界面管理项目/任务/预览/交付 | 是 | 桌面端提交任务 |
+Use the local server from this checkout; see [MCP setup](mcp-server/README.md). The all-client JavaScript registrar requires Node, while the Python server itself does not. An upstream registry package is not a release of this localized fork.
 
-三者是**平级入口**，共用同一套能力清单（`capabilities.yaml`）、脚本与证据系统。安装后可用 `python scripts/cad_doctor.py` 做环境诊断；详细安装与 CLI 见 [`docs/CAD_STUDIO_USER_MANUAL.md`](docs/CAD_STUDIO_USER_MANUAL.md)。
+### CAD Studio
 
----
+Use the source startup/build instructions in [the desktop guide](apps/desktop/README.md) and [user manual](docs/CAD_STUDIO_USER_MANUAL.md). Do not assume upstream Windows installers contain these translations. Fork releases must be built and published separately.
 
-## Why This Project
+Run environment diagnostics from the repository root:
 
-LLM 会规划，但常见的 AI CAD 自动化有几个真实问题：
-
-- LLM 会规划，但不会真正操作桌面 CAD 软件
-- Tool 返回 `success` 不代表任务真的完成
-- CAD API 版本、环境、Backend 差异复杂
-- 固定 Tool 集合覆盖不完所有工程需求
-- Agent 执行过程通常不可追踪、不可审计
-
-本项目的解法：
-
-| 问题 | 方案 |
-|---|---|
-| 自然语言 → 真实操作 | Skill / MCP 接入真实 COM 与后端 |
-| Tool success ≠ Task success | Verification-first completion |
-| Backend 失败 | Backend Router + Recovery Decision |
-| 能力缺失 | Capability Gap → 交还 Agent 查证 |
-| 执行不可追踪 | 结构化 Trace |
-| 是否可靠 | Golden Workflow Eval |
-
----
+```powershell
+python scripts/cad_doctor.py
+```
 
 ## Architecture
 
 ```text
 User / Agent
-  ↓
-Skill / MCP
-  ↓
-Execution Core（Capability · Verification · Recovery Decision · Trace）
-  ↓
-Backend Router
-  ↓
-Python COM / C# / OCCT
-  ↓
-CAD Software
-  ↓
-Artifacts + Evidence
+  ├─ Skill / MCP → Scripts / Tools → Backend APIs
+  └─ CAD Studio → Worker → Execution Core → Existing Handlers → Backend APIs
+
+Shared capability registry and backend routing
+  → Python COM / C# / OCCT
+  → CAD Software / Geometry Kernel
+  → Artifacts + Evidence
 ```
 
-- **Root Skill** = 通用能力、规则与执行基础设施（连接、建模、审查、MCP）。
-- **Subskills** = 专项领域工作流（工程图、螺纹孔、CNC 圆角、VibeCAD、AutoCAD），由 Root Skill 按需调用，不需要用户手动启动。
-- **Execution Core** = 内部可靠执行层：统一状态、结果验证、失败恢复决策与执行追踪。它是内部实现，**不是独立服务、不需要用户启动**。
-- **Capability Gap** = 找不到能力时结构化返回 `CAPABILITY_GAP`，交还 Agent 查证，而不是「做不了」：
+- **Root skill:** connection, document management, modeling wrappers, review and MCP.
+- **Subskills:** specialist workflows for drawings, threaded holes, CNC fillets, VibeCAD and AutoCAD; loaded when relevant.
+- **Execution core:** reusable state, verification, recovery decisions and traces, integrated around Worker handlers. MCP reuses result normalization; direct script execution still follows the Skill's review instructions. It is an internal layer, not another service to start.
+- **Capability gap:** returns structured `CAPABILITY_GAP` so the agent can consult references or official API/SDK documentation, implement a minimal extension and verify it.
 
-  ```text
-  Existing Tools → Tool Composition → Backend Fallback → Capability Gap
-    → Agent 查 references / 官方 API / SDK → 最小实现 → Verification
-  ```
+```text
+Existing Tools → Tool Composition → Backend Fallback → Capability Gap
+  → Agent research → Minimal implementation → Verification
+```
 
-  Execution Core 自身**不会自动联网执行未知代码**。
+The execution core does not automatically download and execute unknown code. See [execution-core architecture](docs/architecture/execution-core.md).
 
-详细：[`docs/architecture/execution-core.md`](docs/architecture/execution-core.md)
+## Reliability and limits
 
----
+The upstream V2 benchmark contains 37 deterministic scenarios covering normal execution, injected failures, backend fallback, capability gaps and policy gates.
 
-## Reliability
-
-V2 附带 **37 个 deterministic reliability scenarios**，覆盖正常执行、故障注入、后端回退、能力缺口与策略门禁。
-
-| Metric | Current baseline |
+| Upstream benchmark metric | Recorded baseline |
 |---|---|
-| Nominal workflow | 10/10 first-pass（基线 v3，warning 等待人工复核） |
-| Injected false-completion cases | all detected |
-| Escaped false completion | 0 in current deterministic benchmark |
-| Regression suite | 当前方案 B 验证记录见 [可靠性修复与验收](docs/architecture/scheme-b-reliability.md) |
+| Nominal workflows | 10/10 first pass in baseline v3; warnings await manual review |
+| Injected false-completion cases | All detected |
+| Escaped false completion | 0 in that deterministic benchmark |
+| Scheme B regression record | [Reliability repairs and acceptance](docs/architecture/scheme-b-reliability.md) |
 
-> 这是 **deterministic engineering benchmark**（Fake Handler/Reviewer + 故障注入），
-> 不是生产 SLA 或真实用户成功率。详见 [`docs/architecture/v2-evaluation.md`](docs/architecture/v2-evaluation.md)。
+These are fake-handler/reviewer and fault-injection results, **not production success rates or a service-level guarantee**. See [evaluation details](docs/architecture/v2-evaluation.md).
 
-原生 SolidWorks 操作当前以 **2026** 为支持与验收目标。方案 B 保留现有执行架构，修复失败状态、原生阵列、草图可编辑性和文档归属，并提供可选 HTTP 与可验证的产物取回；原有 60 个 MCP 工具的名称和输入 Schema 保持兼容。
+Scheme B retains the execution architecture while addressing failure states, native patterns, sketch editability and document ownership, with optional HTTP and verifiable artifact retrieval. Existing MCP tool names and input schemas remain compatible.
 
----
-
-## Capabilities & Status
-
-| Category | 你能做什么 | 状态 |
+| Category | Scope | Status varies by operation |
 |---|---|---|
-| Modeling | 零件建模、草图/拉伸/旋转、齿轮、钣金、焊件 | `verified` + `pilot` |
-| Assembly | 装配、Mate、干涉检查、爆炸视图 | `verified` |
-| Drawing | GB/T 工程图、尺寸链、孔表、BOM | `verified` + `pilot` |
-| Export | STEP / STL / IGES / PDF / DXF / DWG | `verified` |
-| Motion | 运动算例、旋转马达、结果门禁 | `pilot` |
-| FEA | CalculiX 线性/非线性求解编排与审计 | `pilot` |
-| DFM / Routing | 制造复核、路由复核 | `pilot` |
-| Surface / Mold | 受限 Loft/Sweep/Thicken、模具计划 | `pilot` |
-| AutoCAD | DWG/DXF 二维绘图、图层/标注/预览 | `verified` / `pilot` / `blocked` |
-| Open-format | OCCT 无头写入 STEP/BREP/STL/OBJ/GLB 等 | `verified` |
+| Modeling | Parts, sketches, extrusions, revolutions, gears, sheet metal, weldments | `verified` / `pilot` |
+| Assembly | Components, mates, interference checks and exploded views | See operation evidence |
+| Drawing | GB/T drawings, dimension chains, hole tables and BOM | `verified` / `pilot` |
+| Export | STEP / STL / IGES / PDF / DXF / DWG | Depends on backend and format |
+| Motion | Rotary motors and result gates | `pilot` |
+| FEA | CalculiX linear/nonlinear orchestration and audits | `pilot` |
+| DFM / Routing | Manufacturing and routing review | `pilot` |
+| Surface / Mold | Restricted Loft/Sweep/Thicken and mold planning | `pilot` |
+| AutoCAD | DWG/DXF, layers, annotations and previews | `verified` / `pilot` / `blocked` |
+| Open formats | OCCT STEP/BREP/STL/OBJ/GLB and other outputs | Within recorded limits |
 
-状态等级（`capabilities.yaml` 定义）：
+`verified` means evidence exists for the stated native environment and scope; `stable` denotes established regression coverage; `pilot` requires further validation/manual review; `blocked` prohibits automatic delivery in the current environment.
 
-| Status | 含义 |
-|---|---|
-| `verified` | 真机验证完成，可按已知范围使用 |
-| `stable` | 长期回归覆盖 |
-| `pilot` | 已实现但仍需人工复核 |
-| `blocked` | 当前环境或能力不允许自动交付 |
+The authoritative per-operation versions, dependencies and limits are in [capabilities.yaml](capabilities.yaml). Historic evidence includes SolidWorks 2024/2026 and AutoCAD 2024; this is not a blanket compatibility guarantee. Engineering drawings retain their declared GB/T/ISO rules; translating the interface does not select Turkish standards automatically.
 
-真机基线：SolidWorks 2024 / 2026、AutoCAD 2024。未验证能力不会被包装成无人值守交付。
+## Without SolidWorks
 
-- 完整能力矩阵（每个能力的精确等级/版本/限制）→ [`capabilities.yaml`](capabilities.yaml)
-- 领域工作流 → [`subskills/`](subskills/) · [`SUBSKILLS.md`](SUBSKILLS.md)
-
----
-
-## No SolidWorks Installed?
-
-没有 SolidWorks 时，部分开放格式任务仍可完成：
+Some open-format operations can run through isolated OCCT/OCP processes:
 
 `STEP · IGES · BREP · STL · OBJ · GLB · DXF · SVG · PDF · PNG`
 
-（通过 OCCT/OCP 隔离进程真实写入。）
+Native `SLDPRT / SLDASM / SLDDRW` production and acceptance still require SolidWorks.
 
-但原生 `SLDPRT / SLDASM / SLDDRW` 仍需要合法 SolidWorks 环境。
+## Assembly interference check
 
----
+`solidworks_interference_check` uses `IAssemblyDoc.InterferenceDetectionManager`, calls `GetInterferences()`, reads `IInterference.Components` and volumes, and finishes with `Done()`. Hidden bodies and ignored results are included; intersections within a single multibody part are excluded.
 
-## Examples
+Calculation, count-read, array-count or cleanup failures return `blocked`, never a false zero-interference result. Suppressed components are excluded; zero results still require checking resolved components and design intent.
 
-[`examples/`](examples/) 目录包含从基础零件到装配、工程图、Motion、FEA 的可运行示例。
-
----
+Upstream recorded 26 offline regressions for call order, failure handling and SI volume conversion, and a successful zero-interference MCP case on SOLIDWORKS 2026 SP4.1 (34.4.1) / Python 3.10. Nonzero readback has offline evidence only.
 
 ## Documentation
 
 | Topic | Link |
 |---|---|
-| MCP Setup | [`mcp-server/README.md`](mcp-server/README.md) |
-| CAD Studio | [`docs/CAD_STUDIO_USER_MANUAL.md`](docs/CAD_STUDIO_USER_MANUAL.md) |
-| Architecture | [`docs/architecture/execution-core.md`](docs/architecture/execution-core.md) |
-| Reliability Eval | [`docs/architecture/v2-evaluation.md`](docs/architecture/v2-evaluation.md) |
-| Capability Matrix | [`capabilities.yaml`](capabilities.yaml) |
-| Subskills | [`SUBSKILLS.md`](SUBSKILLS.md) |
-| API / Backend | [`references/`](references/) |
-| Troubleshooting | [`references/troubleshooting.md`](references/troubleshooting.md) |
+| Turkish onboarding | [README.tr.md](README.tr.md) |
+| Turkish/English terminology | [Terminology](localization/TERMS.tr-en.md) |
+| MCP setup | [MCP README](mcp-server/README.md) |
+| CAD Studio | [User manual](docs/CAD_STUDIO_USER_MANUAL.md) |
+| Architecture / evaluation | [Execution core](docs/architecture/execution-core.md) · [Evaluation](docs/architecture/v2-evaluation.md) |
+| Capability matrix | [capabilities.yaml](capabilities.yaml) |
+| Specialist workflows | [SUBSKILLS.md](SUBSKILLS.md) |
+| API / backend reference | [references/](references/) |
+| Troubleshooting | [Troubleshooting](references/troubleshooting.md) |
+| Runnable examples | [examples/](examples/) |
 
----
+## Contributing and attribution
 
-## Roadmap & Contributing
+Priorities include broader native validation, reliable capability routing, workbench observability and verified specialist workflows. Reuse existing backends, add meaningful tests and evidence, and never label an unverified capability `verified`. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
-**Roadmap**：更广的真机验证 · 更可靠的能力路由 · 更好的 CAD Studio 可观测性 · 更多 verified 子技能 · 社区贡献工作流。
+[MIT license](LICENSE) · [Fork issues](https://github.com/Luxeville-Group/solidworks-automation-skill/issues) · [Original project](https://github.com/wzyn20051216/solidworks-automation-skill)
 
-**Contributing**：新增能力时，先查 `capabilities.yaml`，优先复用现有 backend，新增 tests + evidence，不要把未验证 capability 标为 `verified`。详见 [`CONTRIBUTING.md`](CONTRIBUTING.md)。
-
----
-
-## License & Community
-
-[MIT](LICENSE) · [GitHub Issues](https://github.com/wzyn20051216/solidworks-automation-skill/issues) · [Star History](https://star-history.com/#wzyn20051216/solidworks-automation-skill&Date)
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=wzyn20051216/solidworks-automation-skill&amp;type=Date&amp;theme=dark">
-  <img src="https://api.star-history.com/svg?repos=wzyn20051216/solidworks-automation-skill&amp;type=Date" alt="SolidWorks Automation Skill 星标趋势" width="960">
-</picture>
-
----
-
-## English
-
-**SolidWorks Automation Skill** is an AI Skill + MCP toolkit for reliable desktop CAD automation. Codex, Claude, Cursor, and other agents drive real SolidWorks / CAD workflows through natural language, with verification, deterministic recovery decisions, and execution tracing. Three peer entry points — Skill, MCP, and CAD Studio — share one capability registry (`capabilities.yaml`). **Choose one; no extra runtime service is required.** See Quick Start above.
-
----
-
-<sub>关注抖音 @balance. · 嵌入式开发、SolidWorks 自动化和 AI 辅助工程实践持续更新</sub>
-
-### 装配干涉检查 API
-
-`solidworks_interference_check` 使用 `IAssemblyDoc.InterferenceDetectionManager`，
-通过 `GetInterferences()` 计算并读取 `IInterference.Components` 和体积，最后调用
-`Done()`。隐藏实体和已忽略结果参与检查；同一个多实体零件内部的相交不计入。
-计算失败、计数读取失败、数组数量不一致或结束检查失败均返回 `blocked`，不会误报零干涉。
-抑制组件不参与计算；零结果仍需核对组件解析状态和设计意图。
-离线回归覆盖调用顺序、失败处理和 SI 体积换算（26 项通过）。
-SOLIDWORKS 2026 SP4.1（34.4.1）、Python 3.10 上已通过 MCP 实测正常返回；
-该真机样例为零干涉，非零结果读取仍以离线回归为证据。
+Original authors and third-party case attribution are preserved. Historical upstream media may retain its original UI language and is not presented as a localized demonstration.

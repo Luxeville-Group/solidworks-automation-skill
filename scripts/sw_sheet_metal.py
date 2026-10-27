@@ -1,4 +1,4 @@
-"""SolidWorks 原生钣金特征创建与证据回读。"""
+"""SOLIDWORKS native sheet-metal creation and evidence readback."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -21,7 +21,7 @@ SW_SOLID_BODY = 0
 
 @dataclass(frozen=True)
 class BaseFlangeSpec:
-    """@brief 基体法兰的可制造参数，全部长度单位为米。"""
+    """@brief Manufacturable base-flange parameters; all lengths are meters."""
 
     thickness: float
     bend_radius: float
@@ -32,21 +32,21 @@ class BaseFlangeSpec:
     reverse_thickness: bool = False
 
     def validate(self) -> None:
-        """@brief 在进入 COM 前拒绝明显无效的制造参数。"""
+        """@brief Reject obviously invalid manufacturing parameters before COM calls."""
         if self.thickness <= 0:
-            raise ValueError("钣金厚度必须大于 0")
+            raise ValueError("Sac levha kalınlığı sıfırdan büyük olmalı")
         if self.bend_radius < 0:
-            raise ValueError("折弯半径不能小于 0")
+            raise ValueError("Büküm yarıçapı negatif olamaz")
         if self.depth <= 0:
-            raise ValueError("基体法兰深度必须大于 0")
+            raise ValueError("Base Flange derinliği sıfırdan büyük olmalı")
         if not 0 < self.k_factor < 1:
-            raise ValueError("K 因子必须位于 0 与 1 之间")
+            raise ValueError("K faktörü 0 ile 1 arasında olmalı")
         if self.relief_ratio <= 0:
-            raise ValueError("卸料槽比例必须大于 0")
+            raise ValueError("Relief oranı sıfırdan büyük olmalı")
 
 
 def _feature_type(feature: Any) -> str:
-    """@brief 安全读取特征类型名。"""
+    """@brief Read a feature type name safely."""
     try:
         return str(get_com_member(feature, "GetTypeName2") or "")
     except Exception:
@@ -54,10 +54,10 @@ def _feature_type(feature: Any) -> str:
 
 
 def iter_features(model):
-    """@brief 顺序遍历特征树，兼容 pywin32 的属性/方法两种投影。"""
+    """@brief Traverse features in order with pywin32 property/method compatibility."""
     feature = get_com_member(model, "FirstFeature")
-    # pywin32 可能为不同 COM 对象复用短生命周期包装器的 Python id，不能
-    # 用 id 去重；以硬上限防御异常的特征链循环。
+    # pywin32 may reuse short-lived wrapper Python IDs for different COM objects;
+    # do not deduplicate by id; use a hard limit to guard against feature-chain cycles.
     count = 0
     while feature is not None and count < 4096:
         yield feature
@@ -66,10 +66,9 @@ def iter_features(model):
 
 
 def create_base_flange(model, sketch_ref, spec: BaseFlangeSpec):
-    """@brief 使用现代 FeatureData API 从开放或闭合草图创建原生基体法兰。
+    """@brief Create a native base flange from an open or closed sketch using the modern FeatureData API.
 
-    开放折线路径会生成轮廓法兰；闭合轮廓会生成平板基体。返回真实
-    ``IFeature``，失败时抛出异常，不把空返回值包装为成功。
+    Open polylines create profile flanges; closed profiles create flat bases. Return an actual IFeature or raise on failure; never wrap empty results as success.
     """
     spec.validate()
     _ensure_sketch_selected(model, sketch_ref)
@@ -77,13 +76,13 @@ def create_base_flange(model, sketch_ref, spec: BaseFlangeSpec):
 
     bend_allowance = get_com_member(manager, "CreateCustomBendAllowance")
     if bend_allowance is None:
-        raise RuntimeError("CreateCustomBendAllowance 未返回对象")
+        raise RuntimeError("CreateCustomBendAllowance nesne döndürmedi")
     bend_allowance.Type = SW_BEND_ALLOWANCE_K_FACTOR
     bend_allowance.KFactor = float(spec.k_factor)
 
     data = get_com_member(manager, "CreateDefinition", SW_FM_BASE_FLANGE)
     if data is None:
-        raise RuntimeError("CreateDefinition(swFmBaseFlange) 未返回特征数据")
+        raise RuntimeError("CreateDefinition(swFmBaseFlange) FeatureData döndürmedi")
 
     data.Initialize(
         False,
@@ -108,17 +107,17 @@ def create_base_flange(model, sketch_ref, spec: BaseFlangeSpec):
 
     feature = get_com_member(manager, "CreateFeature", data)
     if feature is None:
-        raise RuntimeError("CreateFeature(IBaseFlangeFeatureData) 创建失败")
-    # GetErrorCode2 还带一个 by-ref ``isWarning`` 参数；此处只需拒绝硬错误，
-    # 使用无歧义的 GetErrorCode 可兼容 pywin32 静态与动态代理。
+        raise RuntimeError("CreateFeature(IBaseFlangeFeatureData) başarısız")
+    # GetErrorCode2 also has a by-ref isWarning argument; only hard errors need rejection here.
+    # Unambiguous GetErrorCode supports both static and dynamic pywin32 proxies.
     error_code = int(get_com_member(feature, "GetErrorCode") or 0)
     if error_code:
-        raise RuntimeError(f"基体法兰返回特征错误码: {error_code}")
+        raise RuntimeError(f"Base Flange özellik hata kodu: {error_code}")
     return feature
 
 
 def sheet_metal_evidence(model) -> dict[str, Any]:
-    """@brief 回读原生特征、实体与关键钣金参数，形成可审计证据。"""
+    """@brief Read native features, bodies, and key sheet-metal parameters as auditable evidence."""
     feature_rows = []
     base_parameters = []
     for feature in iter_features(model):

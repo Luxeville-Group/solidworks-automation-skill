@@ -12,11 +12,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/wzyn20051216/solidworks-automation-skill"
+    "url": "https://github.com/Luxeville-Group/solidworks-automation-skill"
   },
-  "homepage": "https://github.com/wzyn20051216/solidworks-automation-skill#readme",
-  "documentation": "https://github.com/wzyn20051216/solidworks-automation-skill/blob/main/mcp-server/README.md",
-  "support": "https://github.com/wzyn20051216/solidworks-automation-skill/issues",
+  "homepage": "https://github.com/Luxeville-Group/solidworks-automation-skill#readme",
+  "documentation": "https://github.com/Luxeville-Group/solidworks-automation-skill/blob/main/mcp-server/README.md",
+  "support": "https://github.com/Luxeville-Group/solidworks-automation-skill/issues",
   "server": {
     "type": "python",
     "entry_point": "mcp-server/server.py",

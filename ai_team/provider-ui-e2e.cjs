@@ -52,7 +52,7 @@ async function main() {
     if (process.env.CAD_STUDIO_EXPECT_BUNDLED_SKILL === "1") {
       const normalizedSkillRoot = String(runtime.skillRoot || "").replace(/\\/g, "/").toLowerCase();
       if (!normalizedSkillRoot.endsWith("/skill")) {
-        throw new Error(`发布版没有使用内置 skill: ${runtime.skillRoot}`);
+        throw new Error(`Release does not use the bundled skill: ${runtime.skillRoot}`);
       }
     }
 
@@ -64,32 +64,32 @@ async function main() {
       ]),
     );
     if (counts.codex < 7 || counts.claude < 10 || counts.gemini < 2 || counts.opencode < 1) {
-      throw new Error(`CC Switch 路由读取不完整: ${JSON.stringify(counts)}`);
+      throw new Error(`CC Switch routes were incompletely read: ${JSON.stringify(counts)}`);
     }
     if (!directSync.databasePath?.endsWith("cc-switch.db")) {
-      throw new Error(`未使用 CC Switch SQLite: ${directSync.databasePath}`);
+      throw new Error(`CC Switch SQLite was not used: ${directSync.databasePath}`);
     }
     const serialized = JSON.stringify(directSync);
     if (serialized.includes("OPENAI_API_KEY") || serialized.includes("ANTHROPIC_API_KEY")) {
-      throw new Error("同步结果包含凭据字段");
+      throw new Error("Sync result contains credential fields");
     }
 
-    await page.getByRole("button", { name: "设置", exact: true }).click();
+    await page.getByRole("button", { name: "Ayarlar", exact: true }).click();
     const claudeCard = page.locator(".agent-provider-grid button").filter({ hasText: "Claude Code" });
     await waitUntil(async () => !(await claudeCard.isDisabled()), "Claude provider enabled");
     await claudeCard.click();
-    await page.getByRole("button", { name: "读取 CC Switch 状态", exact: true }).click();
+    await page.getByRole("button", { name: "CC Switch durumunu oku", exact: true }).click();
     await waitUntil(
-      async () => (await page.locator(".api-sync-row span").innerText()).includes("10 个 Claude Code 路由"),
+      async () => (await page.locator(".api-sync-row span").innerText()).includes("10 adet Claude Code yönlendirmesi"),
       "Claude CC Switch sync",
     );
     const claudeRows = await page.locator(".provider-row").count();
     const claudeText = await page.locator(".provider-list").innerText();
-    if (claudeRows !== counts.claude || claudeText.includes("未检测到 Key")) {
-      throw new Error(`Claude 路由 UI 异常: rows=${claudeRows}`);
+    if (claudeRows !== counts.claude || claudeText.includes("Algılanmadı Key")) {
+      throw new Error(`Unexpected Claude route UI: rows=${claudeRows}`);
     }
 
-    await page.getByRole("button", { name: "建模", exact: true }).click();
+    await page.getByRole("button", { name: "Modelleme", exact: true }).click();
     const executor = await page.locator(".runtime-line").filter({ hasText: "Executor" }).locator("strong").innerText();
     const runButton = await page.locator(".bridge-run").innerText();
     const corner = await page.locator(".main-window").evaluate((element) => ({
@@ -108,30 +108,30 @@ async function main() {
       };
     });
     if (executor !== "Claude Code" || !runButton.includes("Claude Code")) {
-      throw new Error(`Claude 文案未联动: executor=${executor}, button=${runButton}`);
+      throw new Error(`Claude copy was not synchronized: executor=${executor}, button=${runButton}`);
     }
     if (corner.borderTopLeftRadius !== "0px" || corner.overflowX !== "hidden") {
-      throw new Error(`主窗口无框布局未生效: ${JSON.stringify(corner)}`);
+      throw new Error(`Main window borderless layout was not applied: ${JSON.stringify(corner)}`);
     }
     if (
       toolbar.backgroundColor !== "rgba(0, 0, 0, 0)" ||
       [toolbar.borderTopWidth, toolbar.borderRightWidth, toolbar.borderBottomWidth, toolbar.borderLeftWidth].some((value) => value !== "0px") ||
       toolbar.boxShadow !== "none"
     ) {
-      throw new Error(`顶栏仍存在容器边框: ${JSON.stringify(toolbar)}`);
+      throw new Error(`Toolbar container still has a border: ${JSON.stringify(toolbar)}`);
     }
 
-    await page.getByRole("button", { name: "设置", exact: true }).click();
+    await page.getByRole("button", { name: "Ayarlar", exact: true }).click();
     const codexCard = page.locator(".agent-provider-grid button").filter({ hasText: "Codex" }).first();
     await codexCard.click();
-    await page.getByRole("button", { name: "读取 CC Switch 状态", exact: true }).click();
+    await page.getByRole("button", { name: "CC Switch durumunu oku", exact: true }).click();
     await waitUntil(
-      async () => (await page.locator(".api-sync-row span").innerText()).includes("7 个 Codex 路由"),
+      async () => (await page.locator(".api-sync-row span").innerText()).includes("7 adet Codex yönlendirmesi"),
       "Codex CC Switch sync",
     );
     const activeCodexRoute = await page.locator(".provider-row.active strong").first().innerText();
     if (activeCodexRoute !== "5555") {
-      throw new Error(`Codex 当前路由识别错误: ${activeCodexRoute}`);
+      throw new Error(`Active Codex route identified incorrectly: ${activeCodexRoute}`);
     }
 
     const providerLabels = {};
@@ -139,15 +139,15 @@ async function main() {
       ["Gemini CLI", "Gemini CLI"],
       ["OpenCode", "OpenCode"],
     ]) {
-      await page.getByRole("button", { name: "设置", exact: true }).click();
+      await page.getByRole("button", { name: "Ayarlar", exact: true }).click();
       const providerCard = page.locator(".agent-provider-grid button").filter({ hasText: providerName }).first();
       await waitUntil(async () => !(await providerCard.isDisabled()), `${providerName} provider enabled`);
       await providerCard.click();
-      await page.getByRole("button", { name: "建模", exact: true }).click();
+      await page.getByRole("button", { name: "Modelleme", exact: true }).click();
       const providerExecutor = await page.locator(".runtime-line").filter({ hasText: "Executor" }).locator("strong").innerText();
       const providerButton = await page.locator(".bridge-run").innerText();
       if (providerExecutor !== expectedExecutor || !providerButton.includes(expectedExecutor)) {
-        throw new Error(`${providerName} 文案未联动: executor=${providerExecutor}, button=${providerButton}`);
+        throw new Error(`${providerName} copy was not synchronized: executor=${providerExecutor}, button=${providerButton}`);
       }
       providerLabels[providerName] = { executor: providerExecutor, button: providerButton };
     }

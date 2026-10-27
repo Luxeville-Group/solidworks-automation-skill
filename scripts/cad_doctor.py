@@ -1,7 +1,8 @@
-"""CAD Studio 环境诊断 CLI。
+"""CAD Studio environment diagnostics CLI.
 
-该脚本只读取环境信息，不启动或关闭 CAD。输出适合桌面端和 CI 消费的 JSON，
-并用稳定的检查 ID/状态帮助用户定位安装、依赖和权限问题。
+Read environment information without starting or closing CAD. Return JSON for the
+desktop and CI, using stable check IDs and statuses to identify installation,
+dependency and permission problems.
 """
 from __future__ import annotations
 
@@ -39,7 +40,7 @@ def _check(
     download_url: str | None = None,
     required: bool = False,
 ) -> dict[str, Any]:
-    """@brief 构造稳定检查项，并在失败时附带可执行修复信息。"""
+    """@brief Construct a stable check with actionable repair information on failure."""
     result: dict[str, Any] = {
         "id": name,
         "status": "passed" if ok else severity,
@@ -58,7 +59,7 @@ def _check(
 
 
 def _collect_remediations(checks: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """@brief 将失败检查转换为去重后的桌面端/CLI 修复动作。"""
+    """@brief Convert failed checks into deduplicated desktop/CLI repair actions."""
     remediations: list[dict[str, Any]] = []
     seen: set[str] = set()
     agent_available = any(
@@ -68,7 +69,7 @@ def _collect_remediations(checks: list[dict[str, Any]]) -> list[dict[str, Any]]:
     for item in checks:
         if item["status"] == "passed" or not item.get("action"):
             continue
-        # Agent CLI 是可替代关系；只要发现一个，就不提示安装其余 Provider。
+        # Agent CLIs are alternatives: finding one suppresses suggestions to install other providers.
         if agent_available and item["id"].startswith("agent."):
             continue
         remediation_id = str(item["id"])
@@ -116,25 +117,25 @@ def _solidworks_installation() -> dict[str, Any]:
 
 
 def run_doctor(*, probe_cad: bool = False) -> dict[str, Any]:
-    """执行诊断并返回脱敏 JSON 数据。"""
+    """Run diagnostics and return redacted JSON data."""
     checks: list[dict[str, Any]] = []
     python_ready = sys.version_info >= (3, 10)
     checks.append(_check(
         "python",
         python_ready,
-        f"Python {platform.python_version()}" if python_ready else f"Python {platform.python_version()} 低于推荐的 3.10",
+        f"Python {platform.python_version()}" if python_ready else f"Python {platform.python_version()} önerilen 3.10 sürümünden eski",
         code="PYTHON_VERSION_UNSUPPORTED" if not python_ready else "PYTHON_READY",
-        action="安装 Python 3.10 或更高版本",
+        action="Python 3.10 veya daha yeni sürümünü yükleyin",
         install_command="winget install -e --id Python.Python.3.12",
         download_url="https://www.python.org/downloads/windows/",
         required=True,
     ))
     dependencies = (
-        (("win32com.client",), "pywin32", "warning", "安装 SolidWorks COM 自动化依赖", 'python -m pip install "pywin32>=305"', "https://pypi.org/project/pywin32/"),
-        (("comtypes",), "comtypes", "warning", "安装 Windows COM 兼容依赖", 'python -m pip install "comtypes>=1.2.0"', "https://pypi.org/project/comtypes/"),
-        (("ezdxf",), "ezdxf", "warning", "安装 DXF 无头读写依赖", 'python -m pip install "ezdxf>=1.3,<2"', "https://pypi.org/project/ezdxf/"),
-        (("OCP",), "OCP", "warning", "安装 OCCT 开放格式几何后端", "python -m pip install -r requirements-occt.txt", "https://pypi.org/project/cadquery-ocp/"),
-        (("fitz", "pymupdf"), "PyMuPDF", "warning", "安装 PDF 预览与文字复核依赖", "python -m pip install -r requirements-pdf.txt", "https://pymupdf.readthedocs.io/en/latest/installation.html"),
+        (("win32com.client",), "pywin32", "warning", "SolidWorks COM otomasyon bağımlılıklarını yükleyin", 'python -m pip install "pywin32>=305"', "https://pypi.org/project/pywin32/"),
+        (("comtypes",), "comtypes", "warning", "Windows COM uyumluluk bağımlılıklarını yükleyin", 'python -m pip install "comtypes>=1.2.0"', "https://pypi.org/project/comtypes/"),
+        (("ezdxf",), "ezdxf", "warning", "Headless DXF okuma/yazma bağımlılıklarını yükleyin", 'python -m pip install "ezdxf>=1.3,<2"', "https://pypi.org/project/ezdxf/"),
+        (("OCP",), "OCP", "warning", "OCCT açık format geometri backend yükleyin", "python -m pip install -r requirements-occt.txt", "https://pypi.org/project/cadquery-ocp/"),
+        (("fitz", "pymupdf"), "PyMuPDF", "warning", "PDF önizleme ve metin inceleme bağımlılıklarını yükleyin", "python -m pip install -r requirements-pdf.txt", "https://pymupdf.readthedocs.io/en/latest/installation.html"),
     )
     for module_names, label, severity, action, install_command, download_url in dependencies:
         available = False
@@ -146,7 +147,7 @@ def run_doctor(*, probe_cad: bool = False) -> dict[str, Any]:
         checks.append(_check(
             f"python.{label.lower()}",
             available,
-            f"{label} {'已安装' if available else '未安装；仅影响对应能力，其余后端仍可使用'}",
+            f"{label} {'Yüklü' if available else 'Yüklü değil; yalnızca ilgili capability etkilenir, diğer backend seçenekleri kullanılabilir'}",
             severity=severity,
             code="DEPENDENCY_MISSING" if not available else "DEPENDENCY_READY",
             action=action,
@@ -164,10 +165,10 @@ def run_doctor(*, probe_cad: bool = False) -> dict[str, Any]:
     checks.append(_check(
         "solver.calculix",
         calculix_ready,
-        "CalculiX 已发现" if calculix_ready else "未发现 CalculiX；仅阻断开放 FEA 求解，不影响建模、图纸和预览",
+        "CalculiX bulundu" if calculix_ready else "CalculiX bulunamadı; yalnızca açık FEA çözümü engellenir, modelleme, çizimler ve önizleme etkilenmez",
         severity="warning",
         code="CALCULIX_READY" if calculix_ready else "CALCULIX_NOT_FOUND",
-        action="下载 CalculiX，并设置 CADSTUDIO_CALCULIX_EXE 指向 ccx.exe",
+        action="CalculiX indirin ve CADSTUDIO_CALCULIX_EXE değerini ccx.exe konumuna ayarlayın",
         download_url="https://www.calculix.de/",
     ))
 
@@ -176,10 +177,10 @@ def run_doctor(*, probe_cad: bool = False) -> dict[str, Any]:
         checks.append(_check(
             f"agent.{cli}",
             bool(found),
-            f"{cli}: {'已发现' if found else '未发现；安装任意一个受支持的 Agent CLI 即可'}",
+            f"{cli}: {'Bulundu' if found else 'Bulunamadı; desteklenen Agent CLI seçeneklerinden birini yükleyin'}",
             severity="warning",
             code="AGENT_NOT_FOUND" if not found else "AGENT_READY",
-            action=f"安装 {cli} CLI",
+            action=f"Kur: {cli} CLI",
             download_url=_AGENT_DOWNLOADS[cli],
         ))
 
@@ -188,10 +189,10 @@ def run_doctor(*, probe_cad: bool = False) -> dict[str, Any]:
     checks.append(_check(
         "cad.solidworks",
         sw_ready,
-        "SolidWorks COM 或安装目录已发现" if sw_ready else "未发现 SolidWorks；仅阻断 SLDPRT/SLDASM/SLDDRW 原生格式，STEP/IGES/BREP/STL/GLB 等开放格式仍可使用",
+        "SolidWorks COM veya kurulum dizini bulundu" if sw_ready else "SolidWorks bulunamadı; yalnızca SLDPRT/SLDASM/SLDDRW native formatları engellenir. STEP/IGES/BREP/STL/GLB gibi açık formatlar kullanılabilir",
         severity="warning",
         code="SOLIDWORKS_READY" if sw_ready else "SOLIDWORKS_NOT_FOUND",
-        action="需要 SolidWorks 原生格式时，从官方渠道安装并完成授权",
+        action="SolidWorks native formatları için resmi kanaldan yükleyip lisansını etkinleştirin",
         download_url="https://www.solidworks.com/",
     ))
     autocad = discover_all()["autocad"]
@@ -199,10 +200,10 @@ def run_doctor(*, probe_cad: bool = False) -> dict[str, Any]:
     checks.append(_check(
         "cad.autocad",
         autocad_ready,
-        "AutoCAD 安装已发现" if autocad_ready else "未发现 AutoCAD；仅阻断原生 DWG 后端，DXF/SVG/PDF/PNG 无头交付仍可使用",
+        "AutoCAD kurulumu bulundu" if autocad_ready else "AutoCAD bulunamadı; yalnızca native DWG backend engellenir. Headless DXF/SVG/PDF/PNG çıktıları kullanılabilir",
         severity="warning",
         code="AUTOCAD_READY" if autocad_ready else "AUTOCAD_NOT_FOUND",
-        action="需要原生 DWG 时，从 Autodesk 官方渠道安装并完成授权",
+        action="Native DWG için Autodesk resmi kanalından yükleyip lisansını etkinleştirin",
         download_url="https://www.autodesk.com/products/autocad/overview",
     ))
 
@@ -211,18 +212,18 @@ def run_doctor(*, probe_cad: bool = False) -> dict[str, Any]:
     checks.append(_check(
         "filesystem.documents",
         documents_writable,
-        f"文档目录可写: {documents.name}",
+        f"Belge dizini yazılabilir: {documents.name}",
         code="DOCUMENTS_READY" if documents_writable else "DOCUMENTS_NOT_WRITABLE",
-        action="为文档目录授予当前用户写入权限，或在 CAD Studio 中选择其他输出目录",
+        action="Geçerli kullanıcıya belge dizini yazma izni verin veya CAD Studio içinde başka çıktı dizini seçin",
         required=True,
     ))
     temp_writable = _is_writable(Path(os.environ.get("TEMP", str(Path.home()))))
     checks.append(_check(
         "filesystem.temp",
         temp_writable,
-        "临时目录可写",
+        "Geçici dizin yazılabilir",
         code="TEMP_READY" if temp_writable else "TEMP_NOT_WRITABLE",
-        action="修复当前用户临时目录权限后重新诊断",
+        action="Geçerli kullanıcının geçici dizin izinlerini düzeltip diagnostics işlemini yineleyin",
         required=True,
     ))
 
@@ -232,8 +233,8 @@ def run_doctor(*, probe_cad: bool = False) -> dict[str, Any]:
             from sw_connect import connect_solidworks
 
             app, _ = connect_solidworks(wait_seconds=8, visible=False)
-            checks.append(_check("cad.solidworks.com", app is not None, "SolidWorks COM 连接成功", code="SOLIDWORKS_COM_FAILED"))
-        except Exception as exc:  # pragma: no cover - 真实 Windows 环境执行
+            checks.append(_check("cad.solidworks.com", app is not None, "SolidWorks COM bağlantısı başarılı", code="SOLIDWORKS_COM_FAILED"))
+        except Exception as exc:  # pragma: no cover - requires a real Windows environment
             checks.append(_check("cad.solidworks.com", False, str(exc), code="SOLIDWORKS_COM_FAILED"))
 
     errors = sum(item["status"] == "error" for item in checks)
@@ -255,9 +256,9 @@ def run_doctor(*, probe_cad: bool = False) -> dict[str, Any]:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="诊断 CAD Studio 本地运行环境")
-    parser.add_argument("--probe-cad", action="store_true", help="在 COM 已注册时尝试连接 SolidWorks")
-    parser.add_argument("--output", type=Path, help="写入 JSON 文件")
+    parser = argparse.ArgumentParser(description="CAD Studio yerel çalışma ortamını denetle")
+    parser.add_argument("--probe-cad", action="store_true", help="COM kayıtlıysa SolidWorks bağlantısını dene")
+    parser.add_argument("--output", type=Path, help="JSON dosyasına yaz")
     args = parser.parse_args(argv)
     result = run_doctor(probe_cad=args.probe_cad)
     text = json.dumps(result, ensure_ascii=False, indent=2)

@@ -1,3 +1,3 @@
-"""CAD 自动化交付工作台。"""
+"""@brief CAD automation delivery workbench."""
 
 __version__ = "0.1.0"

@@ -1,16 +1,15 @@
-"""@brief Execution Core 内部能力包（内部实现，不是用户入口）。
+"""@brief Internal Execution Core package; this is not a user entry point.
 
-本包只承载「可靠执行」的轻量数据模型与适配层：
-- ``state``        统一执行状态模型
-- ``capability``   capabilities.yaml 的 Facade（复用现有 router）
-- ``trace``        复用 queue/events 的 append-only Execution Trace adapter
-- ``verification`` 把既有 Reviewer 结果统一成 VerificationResult 的 Adapter
-- ``recovery``     失败后的纯确定性决策层（分类 + 决策，不执行动作）
-- ``execution``    内部编排层（State + Handler + Verification + Recovery + Trace）
+Lightweight reliable-execution models and adapters:
+- state: unified execution state model
+- capability: facade for capabilities.yaml using the existing router
+- trace: append-only Execution Trace adapter for queue/events
+- verification: adapt existing Reviewer results into VerificationResult
+- recovery: deterministic failure classification and decisions, without actions
+- execution: State + Handler + Verification + Recovery + Trace orchestration
 
-注意：``scripts/__init__.py`` 会在导入时触发 ``sw_connect`` 的 COM 依赖加载，
-因此无 SolidWorks 的 CI 应通过顶层 ``core.*``（``scripts/`` 加入 sys.path）导入
-本包，避免触发 pywin32 交互。
+Import through top-level core.* with scripts/ on sys.path in CAD-free CI to avoid
+legacy COM dependency loading and pywin32 interaction through scripts/__init__.py.
 """
 from .capability import (
     capability_gap,

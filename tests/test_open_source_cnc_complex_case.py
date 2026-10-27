@@ -1,4 +1,4 @@
-"""@brief 开源复杂 CNC 案例的离线来源与门槛测试。"""
+'Offline provenance and acceptance-gate tests for open-source complex CNC cases.'
 
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ SPEC.loader.exec_module(MODULE)
 
 
 def test_pinned_manifest_contains_commit_hash_and_attribution() -> None:
-    """@brief 网络案例必须固定提交、哈希、许可和署名。"""
+    'Network cases require pinned commit, hash, license and attribution.'
     case = MODULE.load_case(MANIFEST)
 
     assert case["commit"] in case["download_url"]
@@ -32,7 +32,7 @@ def test_pinned_manifest_contains_commit_hash_and_attribution() -> None:
 
 
 def test_cached_source_is_verified_without_network(tmp_path, monkeypatch) -> None:
-    """@brief 已缓存源文件也必须逐字节校验 SHA-256。"""
+    'Cached source files still require byte-for-byte SHA-256 verification.'
     content = b"ISO-10303-21; pinned fixture"
     destination = tmp_path / "fixture.step"
     destination.write_bytes(content)
@@ -45,8 +45,8 @@ def test_cached_source_is_verified_without_network(tmp_path, monkeypatch) -> Non
     }
 
     def reject_network(*args, **kwargs):
-        """@brief 缓存路径不得请求网络，即使清单来源合法。"""
-        pytest.fail("读取有效缓存时意外请求网络")
+        'Reading a cached file must not request the network, even for a valid manifest.'
+        pytest.fail('Unexpected network request while reading a valid cache')
 
     monkeypatch.setattr(MODULE, "read_https_response", reject_network)
     evidence = MODULE.fetch_pinned_source(case, destination)
@@ -56,16 +56,16 @@ def test_cached_source_is_verified_without_network(tmp_path, monkeypatch) -> Non
 
 
 def test_complexity_gate_rejects_empty_or_simplified_models() -> None:
-    """@brief 单实体条件不能掩盖面边数量过低的错误导入。"""
+    'Single-body checks must not conceal incorrect imports with too few faces/edges.'
     assert MODULE.topology_is_complex({"solids": 1, "faces": 40, "edges": 98, "vertices": 64})
     assert not MODULE.topology_is_complex({"solids": 1, "faces": 6, "edges": 12, "vertices": 8})
     assert not MODULE.topology_is_complex({"solids": 2, "faces": 40, "edges": 98, "vertices": 64})
 
 
 def test_expected_source_topology_rejects_drift() -> None:
-    """@brief 固定案例不能只满足下限，还必须匹配声明的精确拓扑。"""
+    'Pinned cases must match exact declared topology, not just minimum counts.'
     case = {"expected_source_topology": {"solids": 1, "faces": 40, "edges": 98}}
     MODULE.assert_expected_source_topology(case, {"solids": 1, "faces": 40, "edges": 98})
 
-    with pytest.raises(RuntimeError, match="拓扑漂移"):
+    with pytest.raises(RuntimeError, match='topology drift'):
         MODULE.assert_expected_source_topology(case, {"solids": 1, "faces": 39, "edges": 98})

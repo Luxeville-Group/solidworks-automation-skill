@@ -1,4 +1,4 @@
-"""@brief OCP 高级曲面白名单操作与连续性证据回归。"""
+"""OCP advanced-surface allowlist and continuity-evidence regression tests."""
 from __future__ import annotations
 
 import hashlib
@@ -15,7 +15,7 @@ from scripts.advanced_surface_ocp import (
 
 
 def _common(operation: str, model_id: str) -> dict:
-    """@brief 返回高级曲面公共请求字段。"""
+    """Return common advanced-surface request fields."""
     return {
         "schemaVersion": "1.0", "modelId": model_id, "units": "mm",
         "operation": operation, "toleranceMm": 0.01, "outputs": ["brep"],
@@ -23,7 +23,7 @@ def _common(operation: str, model_id: str) -> dict:
 
 
 def _smooth_loft_request() -> dict:
-    """@brief 返回同轴等径平滑 Loft 黄金样件。"""
+    """Return a coaxial equal-diameter smooth Loft golden sample."""
     return {
         **_common("smooth_loft", "smooth_cylinder"),
         "solid": True, "continuityTarget": "C2", "maxDegree": 8,
@@ -36,7 +36,7 @@ def _smooth_loft_request() -> dict:
 
 
 def _write_brep(shape, path: Path) -> dict:
-    """@brief 写出测试 BREP 并返回可信产物引用。"""
+    """Write a test BREP and return a trusted artifact reference."""
     from OCP.BRepTools import BRepTools
 
     assert BRepTools.Write_s(shape, str(path))
@@ -45,7 +45,7 @@ def _write_brep(shape, path: Path) -> dict:
 
 
 def _rectangle_face():
-    """@brief 创建 20x10 mm 平面面片。"""
+    """Create a 20x10 mm planar face."""
     from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeFace, BRepBuilderAPI_MakePolygon
     from OCP.gp import gp_Pnt
 
@@ -57,7 +57,7 @@ def _rectangle_face():
 
 
 def _two_faces(*, orthogonal: bool):
-    """@brief 创建共享同一拓扑边的共面或正交双面。"""
+    """Create two coplanar or orthogonal faces sharing one topological edge."""
     from OCP.BRep import BRep_Builder
     from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeEdge, BRepBuilderAPI_MakeFace, BRepBuilderAPI_MakeWire
     from OCP.TopoDS import TopoDS, TopoDS_Compound
@@ -95,7 +95,7 @@ def _two_faces(*, orthogonal: bool):
 
 
 def test_validate_surface_request_rejects_untrusted_brep_and_long_arc(tmp_path: Path) -> None:
-    """@brief 伪哈希输入和超过 180 度的首版圆弧必须阻断。"""
+    """Block false-hash inputs and first-version arcs exceeding 180 degrees."""
     pytest.importorskip("OCP")
     source = tmp_path / "face.brep"
     artifact = _write_brep(_rectangle_face(), source)
@@ -111,7 +111,7 @@ def test_validate_surface_request_rejects_untrusted_brep_and_long_arc(tmp_path: 
 
 
 def test_advanced_surface_json_schema_accepts_smooth_loft() -> None:
-    """@brief 公共高级曲面 Schema 应接受平滑 Loft 请求。"""
+    """The public advanced-surface Schema accepts smooth Loft requests."""
     jsonschema = pytest.importorskip("jsonschema")
     schema_path = Path(__file__).parents[1] / "apps" / "desktop" / "cad_workbench" / "schemas" / "advanced_surface.schema.json"
     schema = jsonschema.loads(schema_path.read_text(encoding="utf-8")) if hasattr(jsonschema, "loads") else None
@@ -124,7 +124,7 @@ def test_advanced_surface_json_schema_accepts_smooth_loft() -> None:
 
 
 def test_continuity_coplanar_passes_g2_and_orthogonal_fails_g1() -> None:
-    """@brief 连续性证据必须区分共面 G2 与 90 度折角。"""
+    """Continuity evidence distinguishes coplanar G2 from a 90-degree corner."""
     pytest.importorskip("OCP")
     coplanar = collect_surface_continuity_evidence(_two_faces(orthogonal=False))
     orthogonal = collect_surface_continuity_evidence(_two_faces(orthogonal=True))
@@ -136,7 +136,7 @@ def test_continuity_coplanar_passes_g2_and_orthogonal_fails_g1() -> None:
 
 
 def test_smooth_loft_writes_reopens_and_reports_sampled_continuity(tmp_path: Path) -> None:
-    """@brief 平滑 Loft 必须写出真实实体、重开并输出 G1/G2 采样。"""
+    """Smooth Loft must write and reopen an actual solid and report G1/G2 samples."""
     pytest.importorskip("OCP")
     report = execute_advanced_surface(_smooth_loft_request(), tmp_path)
     assert report["status"] == "review_required", report
@@ -149,7 +149,7 @@ def test_smooth_loft_writes_reopens_and_reports_sampled_continuity(tmp_path: Pat
 
 
 def test_smooth_loft_rejects_excessive_bulge(tmp_path: Path) -> None:
-    """@brief 平滑算法即使生成有效实体，超出截面包络仍必须失败。"""
+    """Reject smooth geometry outside the section envelope even when it forms a valid solid."""
     pytest.importorskip("OCP")
     request = _smooth_loft_request()
     request["modelId"] = "bulging_loft"
@@ -161,12 +161,12 @@ def test_smooth_loft_rejects_excessive_bulge(tmp_path: Path) -> None:
     report = execute_advanced_surface(request, tmp_path)
     assert report["status"] == "failed"
     assert report["error_code"] == "ocp_surface_operation_failed"
-    assert "超出截面理论包络" in report["message"]
+    assert "teorik kesit zarfını aşıyor" in report["message"]
     assert report["artifacts"] == []
 
 
 def test_execute_advanced_surface_blocks_when_ocp_dependency_is_missing(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    """@brief OCP 运行时缺失属于环境阻断，不应误报为普通几何失败。"""
+    """A missing OCP runtime is an environment block, not an ordinary geometry failure."""
     import scripts.advanced_surface_ocp as surface_module
 
     def missing_dependency(_request: dict):
@@ -189,7 +189,7 @@ def test_execute_advanced_surface_blocks_when_ocp_dependency_is_missing(monkeypa
     ],
 )
 def test_sweep_line_and_arc_produce_expected_volume(tmp_path: Path, path: dict) -> None:
-    """@brief 直线和单圆弧 Sweep 必须形成真实实体并通过体积恒等检查。"""
+    """Straight and single-arc Sweeps form actual solids and pass volume-identity checks."""
     pytest.importorskip("OCP")
     request = {**_common("sweep", f"sweep_{path['type']}"), "profile": {"type": "circle", "radiusMm": 2}, "path": path}
     report = execute_advanced_surface(request, tmp_path)
@@ -199,7 +199,7 @@ def test_sweep_line_and_arc_produce_expected_volume(tmp_path: Path, path: dict) 
 
 
 def test_knit_six_box_faces_creates_closed_solid(tmp_path: Path) -> None:
-    """@brief 六个可信盒面必须 Knit 成无自由边的有效实体。"""
+    """Six trusted box faces must Knit into a valid solid without free edges."""
     pytest.importorskip("OCP")
     from OCP.BRep import BRep_Builder
     from OCP.BRepPrimAPI import BRepPrimAPI_MakeBox
@@ -224,7 +224,7 @@ def test_knit_six_box_faces_creates_closed_solid(tmp_path: Path) -> None:
 
 
 def test_thicken_planar_face_creates_valid_solid(tmp_path: Path) -> None:
-    """@brief 可信平面面片应通过简单偏置生成并重开实体。"""
+    """A trusted planar face must thicken by simple offset into a reopenable solid."""
     pytest.importorskip("OCP")
     artifact = _write_brep(_rectangle_face(), tmp_path / "plate_face.brep")
     request = {**_common("thicken", "thick_plate"), "input": artifact, "thicknessMm": 2}
@@ -237,7 +237,7 @@ def test_thicken_planar_face_creates_valid_solid(tmp_path: Path) -> None:
 
 
 def test_thicken_rejects_thickness_above_sampled_curvature_gate(tmp_path: Path) -> None:
-    """@brief 曲面加厚超过采样最小曲率半径一半时必须在偏置前阻断。"""
+    """Block thickening beyond half the sampled minimum curvature radius before offsetting."""
     pytest.importorskip("OCP")
     from OCP.BRepAdaptor import BRepAdaptor_Surface
     from OCP.BRepPrimAPI import BRepPrimAPI_MakeCylinder

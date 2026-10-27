@@ -1,4 +1,4 @@
-"""批量导出产物证据与文档所有权测试。"""
+'Batch-export artifact evidence and document ownership.'
 from pathlib import Path
 
 from scripts import sw_export
@@ -64,8 +64,8 @@ def test_batch_export_blocks_existing_and_colliding_outputs(tmp_path, monkeypatc
     report = sw_export.batch_export_formats(sw, [first, second], output_dir, ["step"])
 
     assert report["success"] is False
-    assert "已存在" in report["documents"][0]["outputs"][0]["error"]
-    assert "同名输出" in report["documents"][1]["outputs"][0]["error"]
+    assert 'zaten var' in report["documents"][0]["outputs"][0]["error"]
+    assert 'aynı çıktı' in report["documents"][1]["outputs"][0]["error"]
     assert (output_dir / "same.step").read_bytes() == b"old"
 
 
@@ -92,7 +92,7 @@ def test_activate_source_document_verifies_active_path(tmp_path):
 
 
 def test_activate_source_document_falls_back_to_dynamic_proxy(tmp_path, monkeypatch):
-    """@brief SW2024 makepy 拒绝 by-ref VARIANT 时改用动态代理。"""
+    'Use a dynamic proxy when SW2024 makepy rejects by-ref VARIANT.'
     source = tmp_path / "part.sldprt"
     source.write_text("part", encoding="utf-8")
 

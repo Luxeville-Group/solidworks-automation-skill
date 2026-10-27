@@ -1,9 +1,4 @@
-"""SolidWorks 新建文档回归测试。
-
-重点是复现并锁定一个数据破坏型缺陷：当 ``NewDocument`` 返回 ``None`` 时，
-旧实现会调用 ``sw.ActiveDoc`` 兜底，把用户先前打开的无关文档当成新建结果返回，
-导致后续所有特征静默画到错误的文档上。
-"""
+"SolidWorks new-document regressions. If NewDocument returns None, falling back to an unrelated preexisting ActiveDoc could silently write all subsequent features into the user's document. These tests lock that destructive failure out."
 from pathlib import Path
 
 import pytest
@@ -12,7 +7,7 @@ from scripts import sw_connect
 
 
 class FakeModel:
-    """@brief 最小文档对象，用标题区分身份。"""
+    'Minimal document identified by title.'
 
     def __init__(self, title, path=""):
         self._title = title
@@ -26,7 +21,7 @@ class FakeModel:
 
 
 class FakeSolidWorks:
-    """@brief 维护一个打开文档列表的可控 SolidWorks 假体。"""
+    'Controllable SolidWorks fake maintaining open documents.'
 
     def __init__(self, documents=()):
         self.documents = list(documents)
@@ -46,12 +41,12 @@ class FakeSolidWorks:
 
 @pytest.fixture(autouse=True)
 def _stub_template(monkeypatch):
-    """@brief 绕过模板查找，专注新建文档的身份判定逻辑。"""
+    'Bypass template lookup to test new-document identity.'
     monkeypatch.setattr(sw_connect, "find_template", lambda _sw, _doc_type: r"C:\fake\part.prtdot")
 
 
 def test_new_document_uses_returned_model():
-    """@brief 正常路径：NewDocument 返回值即为新建文档。"""
+    'Normal path: NewDocument returns the newly created document.'
     created = FakeModel("Part1")
     sw = FakeSolidWorks()
 
@@ -65,25 +60,22 @@ def test_new_document_uses_returned_model():
 
 
 def test_new_document_never_falls_back_to_preexisting_active_document():
-    """@brief 核心缺陷：NewDocument 返回 None 时不得把用户已打开的文档当成新建结果。
-
-    旧实现在此处返回 ``user_part``，于是后续建模全部写进了用户的文档。
-    """
+    'If NewDocument returns None, never return an already open user document as the new result; doing so would direct later modeling into the wrong file.'
     user_part = FakeModel("UserPart.SLDPRT", r"C:\user\important.sldprt")
     sw = FakeSolidWorks([user_part])
-    sw.new_document_return = None  # 未创建任何新文档
+    sw.new_document_return = None  # No new document was created.
 
     with pytest.raises(RuntimeError) as excinfo:
         sw_connect.new_document(sw, "part")
 
     message = str(excinfo.value)
-    assert "未返回新文档" in message
-    # 错误信息必须给出可操作的下一步，而不是只报"失败"
-    assert "模板" in message
+    assert 'yeni belge döndürmedi' in message
+    # The error must provide an actionable next step, not just failure.
+    assert 'Şablon' in message
 
 
 def test_new_document_recovers_when_return_value_is_none_but_document_exists():
-    """@brief 退化路径：返回值缺失时按标题差集找回真正的新文档。"""
+    'When the return is absent, recover the actual new document through title-set difference.'
     user_part = FakeModel("UserPart.SLDPRT", r"C:\user\important.sldprt")
     created = FakeModel("Part1")
     sw = FakeSolidWorks([user_part])
@@ -98,7 +90,7 @@ def test_new_document_recovers_when_return_value_is_none_but_document_exists():
 
 
 def test_new_document_rejects_stale_return_value():
-    """@brief 返回值若与已打开文档同名，视为陈旧引用并改走差集定位。"""
+    'Treat a same-name preexisting return as stale and use set-difference lookup.'
     user_part = FakeModel("UserPart.SLDPRT")
     created = FakeModel("Part1")
     sw = FakeSolidWorks([user_part])
@@ -107,13 +99,13 @@ def test_new_document_rejects_stale_return_value():
         document_owner.documents.append(created)
 
     sw.new_document_side_effect = create
-    sw.new_document_return = user_part  # 陈旧引用
+    sw.new_document_return = user_part  # Stale reference.
 
     assert sw_connect.new_document(sw, "part") is created
 
 
 def test_new_document_detects_two_documents_with_same_title():
-    """@brief 同名文档场景：差集按标题判定，用户文档不会被误取。"""
+    'Title-based set difference must not select an existing user document.'
     user_part = FakeModel("Part1")
     sw = FakeSolidWorks([user_part])
     sw.new_document_return = None
@@ -123,7 +115,7 @@ def test_new_document_detects_two_documents_with_same_title():
 
 
 def test_snapshot_open_documents_tolerates_none():
-    """@brief 无文档时 GetDocuments 可能返回 None。"""
+    'GetDocuments may return None when no documents exist.'
 
     class EmptySolidWorks:
         def GetDocuments(self):
@@ -133,7 +125,7 @@ def test_snapshot_open_documents_tolerates_none():
 
 
 def test_snapshot_open_documents_tolerates_broken_member():
-    """@brief 单个文档读取标题失败时不应中断整体快照。"""
+    'A single unreadable title must not interrupt the entire snapshot.'
 
     class BrokenSolidWorks:
         def GetDocuments(self):
@@ -143,7 +135,7 @@ def test_snapshot_open_documents_tolerates_broken_member():
 
 
 def test_new_document_expands_explicit_template(monkeypatch, tmp_path):
-    """@brief 显式模板路径应展开为绝对路径后再传给 NewDocument。"""
+    'Expand explicit template paths to absolute paths before NewDocument.'
     template = tmp_path / "custom.prtdot"
     template.write_bytes(b"template")
     created = FakeModel("Part1")

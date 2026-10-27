@@ -1,8 +1,7 @@
 interface:
-  display_name: "SolidWorks Automation"
-  short_description: "Automate SolidWorks CAD with Python COM"
-  default_prompt: "Use $solidworks-automation to create, edit, export, or troubleshoot SolidWorks CAD models with Python automation."
+  display_name: "SolidWorks Automation — Türkçe / English"
+  short_description: "SolidWorks CAD otomasyonu / CAD automation"
+  default_prompt: "Use $solidworks-automation to create, edit, export, or review SolidWorks models; explain the results in Turkish with English CAD terminology."
 
 policy:
   allow_implicit_invocation: true
-

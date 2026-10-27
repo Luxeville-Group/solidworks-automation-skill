@@ -1,9 +1,9 @@
-"""@brief 同一 MCP 的可选 HTTP 传输；显式 Host/Origin 与共享密钥边界。"""
+"""@brief Optional HTTP transport for the same MCP server with explicit Host/Origin and shared-secret boundaries."""
 import hmac
 
 
 class TokenAuthMiddleware:
-    """@brief 在 HTTP 层校验 Bearer，不接触工具 Schema、COM 锁或日志内容。"""
+    """@brief Validate Bearer at the HTTP layer without changing tool schemas, COM locks, or logs."""
     def __init__(self, app, token):
         self.app = app
         self.expected = ("Bearer " + token).encode("utf-8") if token else None

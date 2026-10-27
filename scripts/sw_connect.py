@@ -1,6 +1,6 @@
 """
-SolidWorks 连接工具
-提供连接到 SolidWorks 实例的各种方法
+SOLIDWORKS connection utilities.
+Provides methods for connecting to a SOLIDWORKS instance.
 """
 import glob
 import os
@@ -25,6 +25,11 @@ except ImportError:
 
 
 DOC_TYPE_MAP = {
+    "parça": 1,
+    "parca": 1,
+    "montaj": 2,
+    "teknik çizim": 3,
+    "teknik cizim": 3,
     "part": 1,
     "prt": 1,
     "sldprt": 1,
@@ -37,9 +42,9 @@ DOC_TYPE_MAP = {
 }
 
 DOC_TYPE_LABELS = {
-    "part": "零件",
-    "assembly": "装配体",
-    "drawing": "工程图",
+    "part": "parça",
+    "assembly": "montaj",
+    "drawing": "teknik çizim",
 }
 
 DEFAULT_TEMPLATE_PREFS = {
@@ -52,7 +57,7 @@ SW_ALWAYS_USE_DEFAULT_TEMPLATES = 111
 
 
 class SolidWorksConnectionError(RuntimeError):
-    """带阶段和错误码的 SolidWorks 连接错误。"""
+    """SOLIDWORKS connection error carrying a stage and error code."""
 
     def __init__(self, code, stage, message):
         self.code = code
@@ -61,7 +66,7 @@ class SolidWorksConnectionError(RuntimeError):
 
 
 class _LaunchGuard:
-    """跨进程启动互斥；Windows 使用命名 Mutex，其它平台使用独占锁文件。"""
+    """Cross-process launch lock: named Mutex on Windows, exclusive lock file elsewhere."""
 
     def __init__(self, name="CADStudio.SolidWorks.Launch"):
         self.name = name
@@ -82,12 +87,12 @@ class _LaunchGuard:
             kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
             self.handle = kernel32.CreateMutexW(None, False, self.name)
             if not self.handle:
-                raise SolidWorksConnectionError("SW_MUTEX", "locking", "无法创建 SolidWorks 启动互斥锁")
+                raise SolidWorksConnectionError("SW_MUTEX", "locking", "SOLIDWORKS başlatma mutex oluşturulamadı")
             wait_result = kernel32.WaitForSingleObject(self.handle, 15000)
             if wait_result not in (0, 0x80):
                 kernel32.CloseHandle(self.handle)
                 self.handle = None
-                raise SolidWorksConnectionError("SW_MUTEX_TIMEOUT", "locking", "等待其它启动任务超时")
+                raise SolidWorksConnectionError("SW_MUTEX_TIMEOUT", "locking", "Diğer başlatma görevi beklenirken zaman aşımı")
             return self
 
         try:
@@ -102,7 +107,7 @@ class _LaunchGuard:
             except (ProcessLookupError, ValueError):
                 self.path.unlink(missing_ok=True)
                 return self.__enter__()
-            raise SolidWorksConnectionError("SW_MUTEX_BUSY", "locking", "已有 SolidWorks 启动任务") from exc
+            raise SolidWorksConnectionError("SW_MUTEX_BUSY", "locking", "SOLIDWORKS başlatma görevi zaten var") from exc
         return self
 
     def __exit__(self, *_):
@@ -125,16 +130,16 @@ _MEMBER_UNSET = object()
 
 def get_com_member(obj, attr_name, *args, default=_MEMBER_UNSET):
     """
-    兼容 pywin32 中“同一成员在不同环境下可能是属性也可能是方法”的情况。
+    Support COM members that pywin32 exposes as either properties or methods.
 
-    参数:
-        obj: COM 对象
-        attr_name: 成员名称
-        *args: 当成员可调用时传入的参数
-        default: 当成员不存在时返回的值；未提供则按旧行为抛出 AttributeError
+    Args:
+        obj: COM object.
+        attr_name: Member name.
+        *args: Arguments supplied when the member is callable.
+        default: Value for a missing member; omit to preserve AttributeError behavior.
 
-    返回:
-        成员值或调用结果；成员缺失且提供了 default 时返回 default
+    Returns:
+        Member value or call result, or default when supplied for a missing member.
     """
     try:
         member = getattr(obj, attr_name)
@@ -148,71 +153,71 @@ def get_com_member(obj, attr_name, *args, default=_MEMBER_UNSET):
         return member() if callable(member) else member
     except Exception as exc:
         message = str(exc)
-        if "-2147352573" in message or "找不到成员" in message or "Member not found" in message:
+        if "-2147352573" in message or "\u627e\u4e0d\u5230\u6210\u5458" in message or "Member not found" in message:
             return member
         raise
 
 
 def safe_get_com_member(obj, attr_name, *args):
     """
-    读取 COM 成员，兼容 pywin32 中伪可调用属性。
+    Read a COM member with support for pywin32 pseudo-callable properties.
 
-    保留该别名便于其它模块表达“安全读取”的意图；核心逻辑统一在 get_com_member。
+    Keep this alias to express safe-read intent; get_com_member owns the implementation.
     """
     return get_com_member(obj, attr_name, *args)
 
 
 def create_empty_dispatch_variant():
-    """创建可传给 COM 接口的空 Dispatch 参数。"""
+    """Create an empty Dispatch argument for COM interfaces."""
     return VARIANT(pythoncom.VT_DISPATCH, None)
 
 
 def normalize_doc_type(doc_type):
     """
-    规范化文档类型名称。
+    Normalize a document type.
 
-    参数:
-        doc_type: "part"、"assembly"、"drawing" 或常见缩写/扩展名
+    Args:
+        doc_type: "part", "assembly", "drawing", or a common abbreviation/extension.
 
-    返回:
-        (name, enum_value) 元组
+    Returns:
+        (name, enum_value) tuple.
     """
     key = str(doc_type).strip().lower().lstrip(".")
     enum_value = DOC_TYPE_MAP.get(key)
     if enum_value is None:
-        raise ValueError(f"未知文档类型: {doc_type}")
+        raise ValueError(f"Bilinmeyen belge türü: {doc_type}")
 
     name_map = {1: "part", 2: "assembly", 3: "drawing"}
     return name_map[enum_value], enum_value
 
 
 def _expand_path(file_path):
-    """展开用户目录和环境变量，并返回绝对路径。"""
+    """Expand user directories and environment variables and return an absolute path."""
     return os.path.abspath(os.path.expandvars(os.path.expanduser(file_path)))
 
 
 def _ensure_parent_dir(file_path):
-    """确保输出文件的父目录存在。"""
+    """Ensure the output file parent directory exists."""
     parent = os.path.dirname(_expand_path(file_path))
     if parent:
         os.makedirs(parent, exist_ok=True)
 
 
 def _prog_id_for_version(version):
-    """返回 SolidWorks 年份对应的 ProgID。"""
+    """Return the ProgID for a SOLIDWORKS release year."""
     if version is None:
         return "SldWorks.Application"
     try:
         year = int(version)
     except (TypeError, ValueError) as exc:
-        raise ValueError(f"SolidWorks 版本必须是年份，例如 2024: {version}") from exc
+        raise ValueError(f"SOLIDWORKS sürümü yıl olmalı; örneğin 2024: {version}") from exc
     if year < 2010 or year > 2035:
-        raise ValueError(f"不支持的 SolidWorks 版本年份: {year}")
+        raise ValueError(f"Desteklenmeyen SOLIDWORKS sürüm yılı: {year}")
     return f"SldWorks.Application.{(year - 2000) + 8}"
 
 
 def _read_active_document(sw):
-    """读取活动文档，兼容 COM 属性/方法差异。"""
+    """Read the active document with support for COM property/method differences."""
     try:
         return get_com_member(sw, "ActiveDoc", default=None)
     except Exception:
@@ -220,7 +225,7 @@ def _read_active_document(sw):
 
 
 def _wait_until_ready(sw, timeout_seconds):
-    """等待 COM 服务器可读，避免固定 sleep 导致 UI 假死。"""
+    """Wait for readable COM state instead of a fixed sleep that can leave the UI unresponsive."""
     deadline = time.monotonic() + max(0.1, float(timeout_seconds))
     last_error = None
     while time.monotonic() < deadline:
@@ -231,12 +236,12 @@ def _wait_until_ready(sw, timeout_seconds):
             last_error = exc
             time.sleep(0.1)
     raise SolidWorksConnectionError(
-        "SW_START_TIMEOUT", "ready", f"SolidWorks 启动超时（{timeout_seconds:.1f}s）: {last_error or 'COM 未就绪'}"
+        "SW_START_TIMEOUT", "ready", f"SOLIDWORKS başlatma zaman aşımı ({timeout_seconds:.1f}s): {last_error or 'COM hazır değil'}"
     )
 
 
 def close_owned_solidworks(sw, started_by_cad_studio, expected_pid=None):
-    """只退出由当前 CAD Studio 会话启动的 SolidWorks 实例。"""
+    """Quit only the SOLIDWORKS instance launched by the current CAD Studio session."""
     if not started_by_cad_studio:
         return False
     if expected_pid is not None:
@@ -257,15 +262,15 @@ def close_owned_solidworks(sw, started_by_cad_studio, expected_pid=None):
 
 def connect_solidworks(version=None, wait_seconds=5, visible=True, return_metadata=False):
     """
-    连接到 SolidWorks 实例。
+    Connect to a SOLIDWORKS instance.
 
-    参数:
-        version: SolidWorks 版本年份（如 2024），None 则自动检测
-        wait_seconds: 启动新实例后等待秒数
-        visible: 启动新实例后是否显示窗口
+    Args:
+        version: Release year (such as 2024); None auto-detects.
+        wait_seconds: Seconds to wait after launching a new instance.
+        visible: Show the new instance window when True.
 
-    返回:
-        (sw, model) 元组，model 可能为 None（无打开的文档时）
+    Returns:
+        (sw, model), where model may be None when no document is open.
     """
     ensure_solidworks_installed()
     prog_id = _prog_id_for_version(version)
@@ -273,18 +278,18 @@ def connect_solidworks(version=None, wait_seconds=5, visible=True, return_metada
     launched_here = False
     dispatched = False
 
-    # 启动和附着共享同一把互斥锁，避免多个 worker 同时拉起实例。
+    # Launch and attach share one mutex to prevent concurrent workers from launching instances.
     with _LaunchGuard():
         before = solidworks_processes()
         try:
             sw = win32com_client.GetActiveObject(prog_id)
-            print(f"已连接到运行中的 SolidWorks 实例（ProgID: {prog_id}）")
+            print(f"Çalışan SOLIDWORKS örneğine bağlanıldı (ProgID: {prog_id})")
         except Exception as attach_error:
             try:
                 if before is None:
-                    raise SolidWorksConnectionError("SW_PROCESS_STATE_UNAVAILABLE", "attach", "无法读取 CAD 进程状态，已阻止不确定的启动")
+                    raise SolidWorksConnectionError("SW_PROCESS_STATE_UNAVAILABLE", "attach", "CAD süreç durumu okunamadı; belirsiz başlatma engellendi")
                 if before and (version is None or any(year is None or year == int(version) for year in before.values())):
-                    # ROT 尚未注册时等待已有实例，禁止重复 Dispatch 启动同版本。
+                    # Wait for an existing instance before ROT registration; never Dispatch a duplicate of the same version.
                     deadline = time.monotonic() + max(.1, float(wait_seconds))
                     while time.monotonic() < deadline:
                         try:
@@ -293,7 +298,7 @@ def connect_solidworks(version=None, wait_seconds=5, visible=True, return_metada
                         except Exception:
                             time.sleep(.1)
                     if sw is None:
-                        raise SolidWorksConnectionError("SW_INSTANCE_NOT_READY", "attach", "已有实例尚不可连接，已阻止重复启动")
+                        raise SolidWorksConnectionError("SW_INSTANCE_NOT_READY", "attach", "Mevcut örneğe henüz bağlanılamıyor; yinelenen başlatma engellendi")
                 if sw is None:
                     sw = win32com_client.Dispatch(prog_id)
                     dispatched = True
@@ -306,7 +311,7 @@ def connect_solidworks(version=None, wait_seconds=5, visible=True, return_metada
                     sw.Visible = visible
                 except Exception:
                     pass
-                print(f"已连接 SolidWorks（ProgID: {prog_id}）")
+                print(f"SOLIDWORKS bağlantısı kuruldu (ProgID: {prog_id})")
                 _wait_until_ready(sw, wait_seconds)
             except SolidWorksConnectionError:
                 close_owned_solidworks(sw, launched_here)
@@ -314,7 +319,7 @@ def connect_solidworks(version=None, wait_seconds=5, visible=True, return_metada
             except Exception as launch_error:
                 close_owned_solidworks(sw, launched_here)
                 raise SolidWorksConnectionError(
-                    "SW_LAUNCH_FAILED", "launch", f"无法启动 {prog_id}: {launch_error}; attach={attach_error}"
+                    "SW_LAUNCH_FAILED", "launch", f"Başlatılamadı: {prog_id}: {launch_error}; attach={attach_error}"
                 ) from launch_error
 
         _wait_until_ready(sw, wait_seconds)
@@ -324,19 +329,19 @@ def connect_solidworks(version=None, wait_seconds=5, visible=True, return_metada
         actual = get_sw_version(sw)
         if version is not None and actual["year"] != int(version):
             close_owned_solidworks(sw, launched_here)
-            raise SolidWorksConnectionError("SW_VERSION_MISMATCH", "verify", f"请求 {version}，实际连接 {actual['year']}")
+            raise SolidWorksConnectionError("SW_VERSION_MISMATCH", "verify", f"İstenen {version}; bağlanılan {actual['year']}")
 
     if sw is None:
-        raise SolidWorksConnectionError("SW_NO_INSTANCE", "connect", "未获得 SolidWorks COM 实例")
+        raise SolidWorksConnectionError("SW_NO_INSTANCE", "connect", "SOLIDWORKS COM örneği alınamadı")
 
     model = _read_active_document(sw)
     if model:
-        doc_types = {1: "零件", 2: "装配体", 3: "工程图"}
+        doc_types = {1: "parça", 2: "montaj", 3: "teknik çizim"}
         doc_type = get_com_member(model, "GetType")
         title = get_com_member(model, "GetTitle")
-        print(f"当前文档: {title} (类型: {doc_types.get(doc_type, '未知')})")
+        print(f"Etkin belge: {title} (tür: {doc_types.get(doc_type, 'Bilinmiyor')})")
     else:
-        print("当前没有打开的文档")
+        print("Şu anda açık belge yok")
 
     metadata = {
         "prog_id": prog_id,
@@ -350,7 +355,7 @@ def connect_solidworks(version=None, wait_seconds=5, visible=True, return_metada
 
 
 def get_sw_version(sw):
-    """获取 SolidWorks 版本信息。"""
+    """Get SOLIDWORKS version information."""
     rev = get_com_member(sw, "RevisionNumber")
     major = int(rev.split(".")[0])
     year = major - 8 + 2000
@@ -359,14 +364,14 @@ def get_sw_version(sw):
 
 def find_template(sw, doc_type="part"):
     """
-    自动查找 SolidWorks 文档模板。
+    Find a SOLIDWORKS document template automatically.
 
-    参数:
-        sw: SolidWorks 应用对象
-        doc_type: "part" | "assembly" | "drawing"
+    Args:
+        sw: SOLIDWORKS application object.
+        doc_type: "part" | "assembly" | "drawing".
 
-    返回:
-        模板文件路径字符串
+    Returns:
+        Template file path string.
     """
     doc_type, _ = normalize_doc_type(doc_type)
 
@@ -401,14 +406,14 @@ def find_template(sw, doc_type="part"):
         if matches:
             return matches[0]
 
-    raise FileNotFoundError(f"无法找到 {doc_type} 模板文件，请手动指定路径")
+    raise FileNotFoundError(f"Bulunamadı: {doc_type} şablon dosyası; yolu elle belirtin")
 
 
 def ensure_default_templates(sw):
     """
-    @brief 配置默认模板并关闭新建文件模板选择提示。
-    @param sw SolidWorks 应用对象。
-    @return 字典，包含已确认的默认模板路径。
+    @brief Configure default templates and disable the new-file template selection prompt.
+    @param sw SOLIDWORKS application object.
+    @return Dictionary of verified default template paths.
     """
     templates = {}
     for doc_type, preference in DEFAULT_TEMPLATE_PREFS.items():
@@ -420,42 +425,38 @@ def ensure_default_templates(sw):
     try:
         sw.SetUserPreferenceToggle(SW_ALWAYS_USE_DEFAULT_TEMPLATES, True)
     except Exception as exc:
-        print(f"提示: 无法设置始终使用默认模板: {exc}")
+        print(f"Bilgi: varsayılan şablonu her zaman kullan ayarı uygulanamadı: {exc}")
     return templates
 
 
 def snapshot_open_documents(sw, *, strict=False):
     """
-    快照当前已打开的文档标题集合。
+    Snapshot titles of currently open documents.
 
-    ISldWorks.GetDocuments 返回当前会话全部打开文档；部分版本在无文档时返回
-    None 而非空数组。标题是判定"新建结果"的稳定标识，因为 NewDocument 成功后
-    新文档尚未保存，GetPathName 为空字符串，无法用路径区分。
+    ISldWorks.GetDocuments returns all open session documents; some versions return None instead of an empty array. Titles identify newly created documents because unsaved NewDocument results have an empty GetPathName and cannot be distinguished by path.
     """
     titles = set()
     try:
         documents = get_com_member(sw, "GetDocuments")
     except Exception as error:
         if strict:
-            raise SolidWorksConnectionError("SW_DOCUMENT_STATE_UNAVAILABLE", "documents", "无法读取打开文档清单，已阻止新建") from error
+            raise SolidWorksConnectionError("SW_DOCUMENT_STATE_UNAVAILABLE", "documents", "Açık belge listesi okunamadı; yeni belge oluşturma engellendi") from error
         return titles
     for document in documents or ():
         try:
             titles.add(str(get_com_member(document, "GetTitle")))
         except Exception as error:
             if strict:
-                raise SolidWorksConnectionError("SW_DOCUMENT_STATE_UNAVAILABLE", "documents", "无法确认已有文档身份，已阻止新建") from error
+                raise SolidWorksConnectionError("SW_DOCUMENT_STATE_UNAVAILABLE", "documents", "Mevcut belge kimliği doğrulanamadı; yeni belge oluşturma engellendi") from error
             continue
     return titles
 
 
 def _find_new_document(sw, preexisting_titles):
     """
-    在新建文档后定位真正的新文档。
+    Locate the actual new document after creation.
 
-    只返回标题不在 preexisting_titles 中的文档。绝不回退到裸 ActiveDoc：
-    当 NewDocument 失败或返回 None 时，ActiveDoc 可能是用户先前打开的另一个
-    文档，把它当作新建结果会让后续所有特征静默画到错误的文档上。
+    Return only a title absent from preexisting_titles. Never fall back to bare ActiveDoc: if NewDocument fails or returns None, ActiveDoc may be another user document and subsequent features would silently be created in that wrong document.
     """
     try:
         documents = get_com_member(sw, "GetDocuments")
@@ -473,20 +474,18 @@ def _find_new_document(sw, preexisting_titles):
 
 def new_document(sw, doc_type="part", template_path=None, *, max_documents=None):
     """
-    创建新文档。
+    Create a new document.
 
-    参数:
-        sw: SolidWorks 应用对象
-        doc_type: "part" | "assembly" | "drawing"
-        template_path: 模板路径，None 则自动查找
+    Args:
+        sw: SOLIDWORKS application object.
+        doc_type: "part" | "assembly" | "drawing".
+        template_path: Template path; None auto-detects.
 
-    返回:
-        新建的 IModelDoc2 对象
+    Returns:
+        Newly created IModelDoc2.
 
-    异常:
-        RuntimeError: 无法创建文档。此前的实现会在 NewDocument 返回 None 时
-            盲取 sw.ActiveDoc，可能把用户已打开的文档误判为新建结果；现在改为
-            按文档标题差集定位，定位不到就显式报错。
+    Raises:
+        RuntimeError: Creation failed. The earlier implementation blindly used sw.ActiveDoc when NewDocument returned None, risking an existing user document. This implementation compares document titles and fails explicitly if no new document is identified.
     """
     doc_type, _ = normalize_doc_type(doc_type)
     if not template_path:
@@ -497,12 +496,12 @@ def new_document(sw, doc_type="part", template_path=None, *, max_documents=None)
     preexisting_titles = snapshot_open_documents(sw, strict=True)
     budget = int(max_documents if max_documents is not None else os.environ.get("SW_MAX_DOCUMENTS", "8"))
     if budget < 1 or len(preexisting_titles) >= budget:
-        raise SolidWorksConnectionError("SW_DOCUMENT_BUDGET", "new_document", f"打开文档数已达预算 {budget}；请保存并关闭本轮文档")
+        raise SolidWorksConnectionError("SW_DOCUMENT_BUDGET", "new_document", f"Açık belge sayısı bütçeye ulaştı: {budget}; bu çalıştırmadaki belgeleri kaydedip kapatın")
 
     model = sw.NewDocument(template_path, 0, 0, 0)
     if model is not None:
-        # 正常路径：NewDocument 直接返回文档。仍需确认它确实是新文档，
-        # 避免个别版本返回陈旧引用。
+        # Normal path: NewDocument returns a document; still verify it is new
+        # because some versions can return a stale reference.
         try:
             if str(get_com_member(model, "GetTitle")) in preexisting_titles:
                 model = None
@@ -510,7 +509,7 @@ def new_document(sw, doc_type="part", template_path=None, *, max_documents=None)
             pass
 
     if model is None:
-        # 退化路径：NewDocument 返回 None 时，按标题差集轮询新文档。
+        # Fallback: when NewDocument returns None, poll for a new title absent from the snapshot.
         deadline = time.monotonic() + 5.0
         while time.monotonic() < deadline:
             model = _find_new_document(sw, preexisting_titles)
@@ -520,44 +519,44 @@ def new_document(sw, doc_type="part", template_path=None, *, max_documents=None)
 
     if model is None:
         raise RuntimeError(
-            f"创建{DOC_TYPE_LABELS.get(doc_type, doc_type)}文档失败：SolidWorks 未返回新文档。"
-            f"请确认模板可用（{template_path}）且未弹出模态对话框阻塞自动化。"
+            f"Oluşturulacak {DOC_TYPE_LABELS.get(doc_type, doc_type)} belgesi başarısız: SOLIDWORKS yeni belge döndürmedi."
+            f"Şablonun kullanılabildiğini doğrulayın ({template_path}) ve otomasyonu engelleyen modal iletişim kutusu bulunmadığını denetleyin."
         )
 
-    print(f"已创建新{DOC_TYPE_LABELS.get(doc_type, doc_type)}文档")
+    print(f"Yeni oluşturulan {DOC_TYPE_LABELS.get(doc_type, doc_type)} belgesi")
     return model
 
 
 def open_document(sw, file_path, read_only=False, silent=False, raise_on_error=False):
     """
-    打开已有文档。
+    Open an existing document.
 
-    参数:
-        sw: SolidWorks 应用对象
-        file_path: 文件完整路径
-        read_only: 是否以只读模式打开
-        silent: 是否静默打开
-        raise_on_error: 打开失败时是否抛出异常
+    Args:
+        sw: SOLIDWORKS application object.
+        file_path: Full file path.
+        read_only: Open read-only when True.
+        silent: Open silently when True.
+        raise_on_error: Raise if opening fails.
 
-    返回:
-        IModelDoc2 对象
+    Returns:
+        IModelDoc2 object.
     """
     file_path = _expand_path(file_path)
     if not os.path.exists(file_path):
-        message = f"文件不存在: {file_path}"
+        message = f"Dosya yok: {file_path}"
         if raise_on_error:
             raise FileNotFoundError(message)
         print(message)
         return None
 
-    # 装配体会把组件文档加载到当前会话；再次 OpenDoc6 可能返回
-    # swFileWithSameTitleAlreadyOpen。复用同一路径对象也能保留文档所有权。
+    # Assemblies load component documents into the session; another OpenDoc6 may return
+    # swFileWithSameTitleAlreadyOpen. Reuse the same-path object to preserve document ownership.
     try:
         existing_model = sw.GetOpenDocumentByName(file_path)
     except Exception:
         existing_model = None
     if existing_model is not None:
-        print(f"已复用打开文档: {file_path}")
+        print(f"Açık belge yeniden kullanıldı: {file_path}")
         return existing_model
 
     ext = os.path.splitext(file_path)[1].lower()
@@ -572,25 +571,25 @@ def open_document(sw, file_path, read_only=False, silent=False, raise_on_error=F
 
     if ext in foreign_exts:
         if read_only:
-            print("提示: LoadFile4 导入外来 CAD 文件时不支持 read_only，已忽略该参数")
+            print("Bilgi: LoadFile4 ile dış CAD dosyası içe aktarımı read_only desteklemiyor; parametre yok sayıldı")
         if silent:
-            print("提示: LoadFile4 导入外来 CAD 文件时不支持 OpenDoc6 silent 选项，已忽略该参数")
+            print("Bilgi: LoadFile4 dış CAD içe aktarımında OpenDoc6 silent seçeneğini desteklemiyor; parametre yok sayıldı")
         ensure_default_templates(sw)
         import_data = sw.GetImportFileData(file_path)
         if import_data is None:
-            message = f"获取导入数据失败: {file_path}"
+            message = f"İçe aktarma verisi alınamadı: {file_path}"
             if raise_on_error:
                 raise RuntimeError(message)
             print(message)
             return None
-        # 非 DXF/DWG、非 Pro/E 外来文件应传 "r"，表示导入为新的 SolidWorks 文档；
-        # 空字符串会在部分 SW2024 环境中弹出模板选择对话框并阻塞自动化。
+        # For foreign files other than DXF/DWG and Pro/E, pass "r" to import as a new SOLIDWORKS document;
+        # an empty string may open a blocking template selection dialog in some SW2024 environments.
         try:
             model = sw.LoadFile4(file_path, "r", import_data, errors)
         except TypeError:
-            # SW2026 的 makepy 强类型代理会对 LoadFile4 的 [out] long
-            # 再执行 int(VARIANT)，与 OpenDoc6 的已知问题相同。动态代理
-            # 可以正确保留 by-ref 错误码，同时继续复用已取得的导入选项。
+            # The SW2026 makepy strongly typed proxy applies int(VARIANT) again to the LoadFile4 [out] long,
+            # matching the known OpenDoc6 issue. A dynamic proxy
+            # preserves the by-ref error code while reusing the import options already obtained.
             ole_object = getattr(sw, "_oleobj_", None)
             if ole_object is None:
                 raise
@@ -602,8 +601,8 @@ def open_document(sw, file_path, read_only=False, silent=False, raise_on_error=F
         try:
             model = sw.OpenDoc6(file_path, doc_type, options, "", errors, warnings)
         except TypeError:
-            # SW2024 的 makepy 强类型代理可能对 [out] long 再做 int(VARIANT)，
-            # 动态代理会把显式 by-ref VARIANT 正确传给原生 OpenDoc6。
+            # The SW2024 makepy strongly typed proxy may apply int(VARIANT) again to [out] long;
+            # a dynamic proxy passes the explicit by-ref VARIANT correctly to native OpenDoc6.
             ole_object = getattr(sw, "_oleobj_", None)
             if ole_object is None:
                 raise
@@ -617,9 +616,9 @@ def open_document(sw, file_path, read_only=False, silent=False, raise_on_error=F
             if len(values) > 2 and values[2] is not None:
                 warnings.value = int(values[2])
     if model:
-        print(f"已打开: {file_path}")
+        print(f"Açıldı: {file_path}")
     else:
-        message = f"打开失败, 错误码: {errors.value} ({classify_sw_file_load_errors(errors.value)}), 警告码: {warnings.value} ({classify_sw_file_load_warnings(warnings.value)})"
+        message = f"Açma başarısız; hata kodu: {errors.value} ({classify_sw_file_load_errors(errors.value)}), uyarı kodu: {warnings.value} ({classify_sw_file_load_warnings(warnings.value)})"
         if raise_on_error:
             raise SolidWorksDocumentOpenError(message, errors.value, warnings.value)
         print(message)
@@ -628,14 +627,14 @@ def open_document(sw, file_path, read_only=False, silent=False, raise_on_error=F
 
 def save_document(model, file_path=None):
     """
-    保存文档。
+    Save a document.
 
-    参数:
-        model: IModelDoc2 对象
-        file_path: 另存为路径，None 则保存到当前位置
+    Args:
+        model: IModelDoc2 object.
+        file_path: Save-as path; None saves at the current location.
 
-    返回:
-        bool 成功/失败
+    Returns:
+        bool indicating success.
     """
     errors = VARIANT(pythoncom.VT_BYREF | pythoncom.VT_I4, 0)
     warnings = VARIANT(pythoncom.VT_BYREF | pythoncom.VT_I4, 0)
@@ -650,18 +649,18 @@ def save_document(model, file_path=None):
         success = model.Save3(1, errors, warnings)
 
     if success:
-        print(f"保存成功: {file_path or get_com_member(model, 'GetPathName')}")
+        print(f"Kaydedildi: {file_path or get_com_member(model, 'GetPathName')}")
     else:
-        print(f"保存失败, 错误码: {errors.value}, 警告码: {warnings.value}")
+        print(f"Kaydetme başarısız; hata kodu: {errors.value}, uyarı kodu: {warnings.value}")
     return bool(success)
 
 
 def mm(value):
-    """毫米转米（SolidWorks API 单位）。"""
+    """Convert millimeters to meters (SOLIDWORKS API units)."""
     return value / 1000.0
 
 
 def deg(value):
-    """角度转弧度。"""
+    """Convert degrees to radians."""
     import math
     return value * math.pi / 180.0

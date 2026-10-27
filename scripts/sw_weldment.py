@@ -1,4 +1,4 @@
-"""SolidWorks 原生焊件结构构件与切割清单封装。"""
+"""SOLIDWORKS native weldment structural members and cut-list wrappers."""
 from __future__ import annotations
 
 import csv
@@ -22,39 +22,42 @@ pythoncom, _win32com, VARIANT = import_com_dependencies()
 SW_CONNECTED_SEGMENTS_SIMPLE_CUT = 1
 SW_END_CONDITION_MITER = 1
 SW_SOLID_BODY = 0
+# Escaped legacy CAD property names preserve existing document lookup semantics.
 CORE_CUT_LIST_PROPERTY_NAMES = {
     "length",
-    "长度",
+    "\u957f\u5ea6",
     "angle1",
-    "角度1",
+    "\u89d2\u5ea61",
     "angle2",
-    "角度2",
+    "\u89d2\u5ea62",
     "angle direction",
-    "角度方向",
+    "\u89d2\u5ea6\u65b9\u5411",
     "angle rotation",
-    "角度旋转",
+    "\u89d2\u5ea6\u65cb\u8f6c",
     "description",
-    "说明",
+    "\u8bf4\u660e",
     "material",
-    "材料",
+    "\u6750\u6599",
     "weight",
-    "质量",
-    "单重",
+    "\u8d28\u91cf",
+    "\u5355\u91cd",
     "quantity",
-    "数量",
+    "\u6570\u91cf",
     "total length",
-    "总长度",
+    "\u603b\u957f\u5ea6",
     "unit_of_measure",
-    "计量单位",
+    "\u8ba1\u91cf\u5355\u4f4d",
     "profile_designation",
     "material_spec",
     "source_repository",
     "source_sku",
+    "uzunluk", "açı1", "açı2", "açı yönü", "açı dönüşü",
+    "açıklama", "malzeme", "kütle", "birim ağırlık", "adet", "toplam uzunluk", "ölçü birimi",
 }
 
 
 def _as_tuple(value) -> tuple:
-    """@brief 把 COM 单对象、SAFEARRAY 或空值规范为元组。"""
+    """@brief Normalize a COM object, SAFEARRAY, or empty value to a tuple."""
     if value is None:
         return ()
     if isinstance(value, (tuple, list)):
@@ -63,7 +66,7 @@ def _as_tuple(value) -> tuple:
 
 
 def _active_configuration_name(model) -> str:
-    """@brief 回读活动配置名，供自定义配置型材调用使用。"""
+    """@brief Read the active configuration for configurable custom-profile calls."""
     manager = get_com_member(model, "ConfigurationManager")
     configuration = get_com_member(manager, "ActiveConfiguration")
     return str(get_com_member(configuration, "Name") or "")
@@ -76,10 +79,10 @@ def create_weldment_profile(
     *,
     properties: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """@brief 将选定轮廓草图保存为真实 ``.sldlfp`` 焊件型材。"""
+    """@brief Save the selected profile sketch as an actual .sldlfp weldment profile."""
     target = Path(output_path).expanduser().resolve()
     if target.suffix.casefold() != ".sldlfp":
-        raise ValueError("焊件型材输出必须使用 .sldlfp 扩展名")
+        raise ValueError("Weldment profil çıktısı .sldlfp uzantısı kullanmalı")
     target.parent.mkdir(parents=True, exist_ok=True)
     _ensure_sketch_selected(model, sketch_ref)
     configuration_name = _active_configuration_name(model)
@@ -92,9 +95,9 @@ def create_weldment_profile(
         )
         _ensure_sketch_selected(model, sketch_ref)
     if not save_document(model, str(target)):
-        raise RuntimeError("自定义焊件型材保存失败")
+        raise RuntimeError("Özel Weldment profili kaydedilemedi")
     if not target.is_file() or target.stat().st_size == 0:
-        raise RuntimeError("SolidWorks 返回成功，但未生成 .sldlfp 文件")
+        raise RuntimeError("SOLIDWORKS başarı bildirdi ancak .sldlfp dosyası oluşmadı")
     return {
         "path": str(target),
         "configuration_name": configuration_name,
@@ -114,10 +117,10 @@ def create_structural_member(
     connected_segments_option: int = SW_CONNECTED_SEGMENTS_SIMPLE_CUT,
     allow_protrusion: bool = False,
 ):
-    """@brief 用 ``InsertStructuralWeldment5`` 创建一组原生结构构件。"""
+    """@brief Create native structural members using InsertStructuralWeldment5."""
     profile = Path(profile_path).expanduser().resolve()
     if not profile.is_file() or profile.suffix.casefold() != ".sldlfp":
-        raise FileNotFoundError(f"焊件型材不存在或格式错误: {profile}")
+        raise FileNotFoundError(f"Weldment profili yok veya biçimi yanlış: {profile}")
     manager = get_com_member(model, "FeatureManager")
     existing_types = {
         str(get_com_member(feature, "GetTypeName2") or "")
@@ -127,24 +130,24 @@ def create_structural_member(
         model.ClearSelection2(True)
         weldment_feature = get_com_member(manager, "InsertWeldmentFeature")
         if weldment_feature is None:
-            raise RuntimeError("InsertWeldmentFeature 创建失败")
+            raise RuntimeError("InsertWeldmentFeature başarısız")
     groups = []
     for index, raw_segments in enumerate(segment_groups, start=1):
         segments = tuple(item for item in raw_segments if item is not None)
         if not segments:
-            raise ValueError(f"结构构件第 {index} 组没有路径段")
+            raise ValueError(f"Structural Member grup {index} yol segmenti içermiyor")
         group = get_com_member(manager, "CreateStructuralMemberGroup")
         if group is None:
-            raise RuntimeError("CreateStructuralMemberGroup 未返回对象")
+            raise RuntimeError("CreateStructuralMemberGroup nesne döndürmedi")
         group.Segments = VARIANT(pythoncom.VT_ARRAY | pythoncom.VT_DISPATCH, segments)
         group.ApplyCornerTreatment = bool(apply_corner_treatment)
         if apply_corner_treatment:
             group.CornerTreatmentType = int(corner_treatment_type)
-            # 保留每条路径段为独立切料实体，切割清单才能按长度正确分组。
+            # Keep each path segment as a separate cut body so the cut list groups correctly by length.
             group.MiterMergeCondition = False
         groups.append(group)
 
-    # pywin32 会把 Python 元组封送为 VARIANT SAFEARRAY；不传模糊的预选择集。
+    # pywin32 marshals Python tuples as VARIANT SAFEARRAY; avoid ambiguous preselection sets.
     feature = get_com_member(
         manager,
         "InsertStructuralWeldment5",
@@ -155,37 +158,35 @@ def create_structural_member(
         str(configuration_name),
     )
     if feature is None:
-        raise RuntimeError("InsertStructuralWeldment5 创建失败")
+        raise RuntimeError("InsertStructuralWeldment5 başarısız")
     model.ClearSelection2(True)
     if not bool(get_com_member(model, "EditRebuild3")):
-        raise RuntimeError("结构构件创建后的模型重建失败")
+        raise RuntimeError("Structural Member oluşturulduktan sonra model Rebuild başarısız")
     return feature
 
 
 def _body_length_key(body) -> int:
-    """@brief 用实体包围盒最长边生成微米级分组键。"""
+    """@brief Build a micrometer-resolution grouping key from the longest bounding-box side."""
     box = tuple(float(item) for item in (get_com_member(body, "GetBodyBox") or ()))
     if len(box) != 6:
-        raise RuntimeError("结构构件实体未返回 6 值包围盒")
+        raise RuntimeError("Structural Member gövdesi 6 değerli bounding box döndürmedi")
     spans = (abs(box[3] - box[0]), abs(box[4] - box[1]), abs(box[5] - box[2]))
     return int(round(max(spans) * 1_000_000.0))
 
 
 def _body_cut_list_key(body) -> tuple[int, int, int]:
-    """@brief 生成旋转不变的三轴微米包围盒键，避免同长异型材误合并。"""
+    """@brief Build a rotation-invariant three-axis micrometer bounding-box key to avoid merging different same-length profiles."""
     box = tuple(float(item) for item in (get_com_member(body, "GetBodyBox") or ()))
     if len(box) != 6:
-        raise RuntimeError("结构构件实体未返回 6 值包围盒")
+        raise RuntimeError("Structural Member gövdesi 6 değerli bounding box döndürmedi")
     spans = sorted((abs(box[3] - box[0]), abs(box[4] - box[1]), abs(box[5] - box[2])))
     return tuple(int(round(item * 1_000_000.0)) for item in spans)
 
 
 def ensure_cut_list(model) -> list[Any]:
-    """@brief 为尚无清单的焊件按实体长度创建原生 CutListFolder。
+    """@brief Create native CutListFolder entries by body length for a weldment without a list.
 
-    ``InsertWeldmentCutList2`` 的每次调用接收一组应属于同一切料项的实体。
-    这里按包围盒最长边分组，使矩形框架的等长横梁/立柱分别形成数量为 2 的
-    清单项；不把不同长度实体误合并为一项。
+    Each InsertWeldmentCutList2 call accepts bodies belonging to the same cut item. Group by longest bounding-box side so equal-length rectangular-frame beams/posts form quantity-two entries without merging different lengths.
     """
     existing_by_name = {}
     for feature in iter_features_recursive(model):
@@ -196,7 +197,7 @@ def ensure_cut_list(model) -> list[Any]:
         return existing
     bodies = _as_tuple(get_com_member(model, "GetBodies2", SW_SOLID_BODY, False))
     if not bodies:
-        raise RuntimeError("没有可写入切割清单的结构构件实体")
+        raise RuntimeError("Cut List içine yazılabilecek Structural Member gövdesi yok")
     grouped: dict[tuple[int, int, int], list[Any]] = {}
     for body in bodies:
         grouped.setdefault(_body_cut_list_key(body), []).append(body)
@@ -213,9 +214,9 @@ def ensure_cut_list(model) -> list[Any]:
         else:
             ole_object = getattr(manager, "_oleobj_", None)
             if ole_object is None:
-                raise RuntimeError("FeatureManager 不支持 InsertWeldmentCutList2")
-            # SW2026 IDispatch 将 DISPID 174 的方法同时暴露成值为 None 的伪属性，
-            # 直接按官方类型库 DISPATCH_METHOD 语义调用，避免把 None 当函数。
+                raise RuntimeError("FeatureManager InsertWeldmentCutList2 desteklemiyor")
+            # SW2026 IDispatch also exposes DISPID 174 as a pseudo-property valued None;
+            # call directly with the official DISPATCH_METHOD semantics instead of treating None as a function.
             feature = ole_object.Invoke(
                 174,
                 0,
@@ -224,15 +225,15 @@ def ensure_cut_list(model) -> list[Any]:
                 body_array,
             )
         if feature is None:
-            raise RuntimeError(f"InsertWeldmentCutList2 创建失败: length_key={length_key}")
+            raise RuntimeError(f"InsertWeldmentCutList2 başarısız: length_key={length_key}")
         created.append(feature)
     if not bool(get_com_member(model, "EditRebuild3")):
-        raise RuntimeError("切割清单创建后的模型重建失败")
+        raise RuntimeError("Cut List oluşturulduktan sonra model Rebuild başarısız")
     return created
 
 
 def _iter_feature_chain(first_feature, next_member: str):
-    """@brief 遍历顶层或同级子特征链。"""
+    """@brief Traverse a top-level or sibling subfeature chain."""
     feature = first_feature
     count = 0
     while feature is not None and count < 4096:
@@ -242,7 +243,7 @@ def _iter_feature_chain(first_feature, next_member: str):
 
 
 def iter_features_recursive(model):
-    """@brief 深度遍历焊件文件夹中的 CutListFolder 等子特征。"""
+    """@brief Recursively traverse weldment folder children such as CutListFolder."""
     def walk(feature):
         yield feature
         try:
@@ -257,7 +258,7 @@ def iter_features_recursive(model):
 
 
 def _read_property(manager, name: str) -> dict[str, Any]:
-    """@brief 使用 Get6 读取切割清单属性并保留原始/解析值。"""
+    """@brief Read cut-list properties using Get6 and preserve raw/resolved values."""
     raw = VARIANT(pythoncom.VT_BYREF | pythoncom.VT_BSTR, "")
     resolved = VARIANT(pythoncom.VT_BYREF | pythoncom.VT_BSTR, "")
     was_resolved = VARIANT(pythoncom.VT_BYREF | pythoncom.VT_BOOL, False)
@@ -274,7 +275,7 @@ def _read_property(manager, name: str) -> dict[str, Any]:
 
 
 def read_property_manager(manager, *, core_only: bool = True) -> dict[str, dict[str, Any]]:
-    """@brief 枚举属性管理器中的制造属性，默认排除模板标题栏噪声。"""
+    """@brief Enumerate manufacturing properties, excluding template title-block noise by default."""
     names = _as_tuple(get_com_member(manager, "GetNames"))
     if core_only:
         names = tuple(
@@ -284,9 +285,9 @@ def read_property_manager(manager, *, core_only: bool = True) -> dict[str, dict[
 
 
 def set_cut_list_properties(model, properties: dict[str, Any]) -> list[dict[str, Any]]:
-    """@brief 将型材来源和材料规格写入每个原生切割清单项并回读。"""
+    """@brief Write profile source and material specification to each native cut-list item and read back."""
     if not properties:
-        raise ValueError("切割清单属性不能为空")
+        raise ValueError("Cut List özellikleri boş olamaz")
     ensure_cut_list(model)
     results = []
     seen_names = set()
@@ -302,20 +303,20 @@ def set_cut_list_properties(model, properties: dict[str, Any]) -> list[dict[str,
         for raw_name, raw_value in properties.items():
             name = str(raw_name).strip()
             if not name:
-                raise ValueError("切割清单属性名不能为空")
+                raise ValueError("Cut List özellik adı boş olamaz")
             value = str(raw_value)
             add_status = int(manager.Add3(name, 30, value, 2))
             readback = _read_property(manager, name)
             verified = readback["raw"] == value or readback["resolved"] == value
             if not verified:
-                raise RuntimeError(f"切割清单属性回读失败: {item['name']} / {name}")
+                raise RuntimeError(f"Cut List özellik readback başarısız: {item['name']} / {name}")
             item["properties"][name] = {"add_status": add_status, **readback}
         results.append(item)
     return results
 
 
 def update_cut_list(model) -> list[dict[str, Any]]:
-    """@brief 更新所有原生 CutListFolder 并返回文件夹级几何证据。"""
+    """@brief Update all native CutListFolder entries and return folder-level geometry evidence."""
     folders = []
     seen_names = set()
     for feature in iter_features_recursive(model):
@@ -340,7 +341,7 @@ def update_cut_list(model) -> list[dict[str, Any]]:
 
 
 def weldment_evidence(model, *, create_missing_cut_list: bool = False) -> dict[str, Any]:
-    """@brief 回读结构构件、实体数量和 SW2024+ 配置切割清单项目。"""
+    """@brief Read structural members, body count, and SW2024+ configuration cut-list items."""
     if create_missing_cut_list:
         ensure_cut_list(model)
     folders = update_cut_list(model)
@@ -383,7 +384,7 @@ def weldment_evidence(model, *, create_missing_cut_list: bool = False) -> dict[s
 
 
 def export_cut_list_csv(evidence: dict[str, Any], output_path: str | Path) -> Path:
-    """@brief 将完整切割清单属性导出为 UTF-8-SIG CSV。"""
+    """@brief Export complete cut-list properties as UTF-8-SIG CSV."""
     target = Path(output_path).expanduser().resolve()
     target.parent.mkdir(parents=True, exist_ok=True)
     rows = evidence.get("cut_list_folders") or evidence.get("cut_list_items") or []

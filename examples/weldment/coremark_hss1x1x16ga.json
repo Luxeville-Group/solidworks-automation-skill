@@ -18,7 +18,7 @@
   "regressionGeometry": {
     "outer_mm": 25.4,
     "wall_mm": 1.5875,
-    "profile_note": "双闭合圆角方管轮廓按来源数据使用外圆角 3.175 mm、内圆角 1.5875 mm。",
+    "profile_note": "The two closed rounded square-tube profiles use the source dimensions: outer radius 3.175 mm and inner radius 1.5875 mm.",
     "frame_width_mm": 300.0,
     "frame_height_mm": 180.0
   }

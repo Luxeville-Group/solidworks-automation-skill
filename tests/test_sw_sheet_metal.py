@@ -1,4 +1,4 @@
-"""原生钣金封装的离线契约测试。"""
+'Offline native sheet-metal wrapper contracts.'
 from __future__ import annotations
 
 import sys
@@ -20,7 +20,7 @@ from sw_sheet_metal import BaseFlangeSpec  # noqa: E402
 
 
 class FakePart:
-    """@brief 记录 ExportToDWG2 入参的最小零件替身。"""
+    'Minimal part stub recording ExportToDWG2 arguments.'
 
     def __init__(self, path: str):
         self.path = path
@@ -53,17 +53,17 @@ def test_flat_pattern_export_uses_alignment_array_and_option_bitmask(tmp_path):
 
 
 def test_flat_pattern_export_requires_saved_model(tmp_path):
-    with pytest.raises(ValueError, match="必须先保存"):
+    with pytest.raises(ValueError, match='parçasını kaydedin'):
         export_flat_pattern_dxf(FakePart(""), tmp_path / "flat.dxf")
 
 
 @pytest.mark.parametrize(
     "spec,message",
     [
-        (BaseFlangeSpec(0, 0.001, 0.1), "厚度"),
-        (BaseFlangeSpec(0.002, -0.001, 0.1), "半径"),
-        (BaseFlangeSpec(0.002, 0.001, 0), "深度"),
-        (BaseFlangeSpec(0.002, 0.001, 0.1, k_factor=1.0), "K 因子"),
+        (BaseFlangeSpec(0, 0.001, 0.1), 'kalınlığı'),
+        (BaseFlangeSpec(0.002, -0.001, 0.1), 'yarıçapı'),
+        (BaseFlangeSpec(0.002, 0.001, 0), 'derinliği'),
+        (BaseFlangeSpec(0.002, 0.001, 0.1, k_factor=1.0), 'K faktörü'),
     ],
 )
 def test_base_flange_spec_rejects_invalid_manufacturing_values(spec, message):

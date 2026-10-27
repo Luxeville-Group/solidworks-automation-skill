@@ -1,4 +1,4 @@
-"""@brief 验证共享实例、用户文档和预算；不启动真实 CAD。"""
+'Verify shared instances, user documents and budgets without starting CAD.'
 import contextlib
 import sys
 from pathlib import Path
@@ -11,7 +11,7 @@ from scripts import sw_connect, sw_session
 
 
 class App:
-    """@brief 用户实例与文档的只读/关闭替身。"""
+    'Read-only/close stub for user instances/documents.'
     def __init__(self):
         self.docs = []
         self.closed = []
@@ -37,7 +37,7 @@ class App:
 
 
 def connection_fixture(monkeypatch, app, before):
-    """@brief 配置实例归属检查的独立上下文。"""
+    'Independent context for instance-ownership checks.'
     monkeypatch.setattr(sw_connect, "ensure_solidworks_installed", lambda: None)
     monkeypatch.setattr(sw_connect, "solidworks_processes", lambda: before)
     monkeypatch.setattr(sw_connect, "_LaunchGuard", contextlib.nullcontext)
@@ -79,11 +79,11 @@ def test_dispatch_cannot_claim_a_preexisting_pid(monkeypatch):
 
 def test_context_closes_only_created_documents(monkeypatch):
     app = App()
-    user = SimpleNamespace(GetTitle=lambda: "用户未保存零件", GetPathName=lambda: "")
+    user = SimpleNamespace(GetTitle=lambda: 'Kullanıcının kaydedilmemiş parçası', GetPathName=lambda: "")
     app.docs = [user]
     app.ActiveDoc = user
     monkeypatch.setattr(sw_session, "connect_solidworks", lambda **_: (app, user, {"started_by_cad_studio": False, "process_id": 7}))
-    created = SimpleNamespace(GetTitle=lambda: "本轮零件", GetPathName=lambda: "")
+    created = SimpleNamespace(GetTitle=lambda: 'Bu çalıştırmanın parçası', GetPathName=lambda: "")
     def new(*args, **kwargs):
         app.docs.append(created)
         app.ActiveDoc = created
@@ -91,26 +91,26 @@ def test_context_closes_only_created_documents(monkeypatch):
     monkeypatch.setattr(sw_session, "new_document", new)
     with sw_session.SolidWorksSession() as session:
         session.new_part()
-    assert app.closed == ["本轮零件"]
+    assert app.closed == ['Bu çalıştırmanın parçası']
     assert app.docs == [user]
     assert app.exited is False
 
 
 def test_budget_blocks_creation_without_closing_user_documents(monkeypatch):
     app = App()
-    app.docs = [SimpleNamespace(GetTitle=lambda: "用户零件")]
+    app.docs = [SimpleNamespace(GetTitle=lambda: 'Kullanıcı parçası')]
     with pytest.raises(sw_connect.SolidWorksConnectionError, match="SW_DOCUMENT_BUDGET"):
         sw_connect.new_document(app, template_path="fixture.prtdot", max_documents=1)
     assert app.closed == []
 
 
 def test_unreadable_document_list_blocks_creation_without_guessing_empty():
-    """@brief COM 清单读取失败时，禁止把用户文档误判为空并继续创建。"""
+    'Failed COM document listing must not be treated as an empty instance followed by creation.'
     app = App()
     created = []
     app.NewDocument = lambda *args: created.append(args)
     def unavailable():
-        raise RuntimeError("文档清单暂不可读")
+        raise RuntimeError('Document list temporarily unreadable')
     app.GetDocuments = unavailable
     with pytest.raises(sw_connect.SolidWorksConnectionError, match="SW_DOCUMENT_STATE_UNAVAILABLE"):
         sw_connect.new_document(app, template_path="fixture.prtdot")

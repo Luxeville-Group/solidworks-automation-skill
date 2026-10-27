@@ -1,26 +1,26 @@
 # SolidWorks VibeCAD
 
-`solidworks-vibecad` 是 `solidworks-automation` 仓库里的参数化设计规划子技能，用来把自然语言机械设计需求转换为结构化设计计划、制造规则检查、SolidWorks API 执行摘要和审查门禁。
+`solidworks-vibecad` is the parametric-design planning subskill in `solidworks-automation`. It converts natural-language mechanical-design requirements into structured plans, manufacturing-rule checks, SolidWorks API execution outlines and review gates.
 
-## 为什么放在子技能里
+## Why this is a subskill
 
-这个方向的价值不在于临时生成宏，而在于把重复机械设计沉淀成可复用工程资产：
+The value is in making repeated mechanical-design work reusable:
 
 ```text
-行业知识库 + 参数 schema + 提示词模板 + 稳定 API 封装 + 自动审查
+Domain knowledge + parameter schemas + prompt templates + stable API wrappers + automated review.
 ```
 
-因此它应该作为 SolidWorks 自动化大仓库的一部分，和 CNC 圆角/倒角、螺纹孔、装配、MCP 等能力并列管理。
+It therefore belongs in the SolidWorks automation repository alongside CNC fillets/chamfers, threaded holes, assemblies and MCP capabilities.
 
-## 当前能力
+## Current capabilities
 
-- 从自然语言需求生成参数化设计计划 JSON。
-- 内置 M3-M12 攻丝底孔、通孔、CNC 圆角/倒角、最小壁厚等规则。
-- 给 LLM 提供严格规划提示词，避免直接输出不稳定宏。
-- 生成 SolidWorks API 执行摘要，明确每一步对应父技能的哪个稳定封装。
-- 生成审查门禁，要求保存、导出、多视角预览和 review report。
+- Generate parametric design-plan JSON from natural-language requirements.
+- Include initial M3-M12 tap-drill, clearance-hole, CNC fillet/chamfer and minimum-wall rules.
+- Provide a strict LLM planning prompt to avoid unstable directly generated macros.
+- Generate a SolidWorks API execution outline mapping each step to a stable parent-skill wrapper.
+- Generate review gates requiring save, export, multiview previews and a review report.
 
-## 目录
+## Directory
 
 ```text
 solidworks-vibecad/
@@ -44,9 +44,9 @@ solidworks-vibecad/
     └── vibecad-roadmap.md
 ```
 
-## 快速运行
+## Quick run
 
-在 `solidworks-automation` 仓库根目录执行：
+Run from the `solidworks-automation` repository root:
 
 ```powershell
 py subskills\solidworks-vibecad\scripts\plan_from_brief.py `
@@ -58,25 +58,25 @@ py subskills\solidworks-vibecad\scripts\sw_execution_outline.py `
   --out subskills\solidworks-vibecad\examples\motor_mount_execution.md
 ```
 
-## 示例输出
+## Example output
 
-示例需求会识别：
+The example requirement identifies:
 
-- 底板：`90 x 60 x 8 mm`
-- 固定孔：`M5` 螺丝通孔，通孔直径 `5.5 mm`
-- 中心孔：`22 mm`
-- 外轮廓圆角：`R6`
-- 顶边倒角：`C1`
-- 审查：`SLDPRT + STEP + parameters_json + review_report_json + isometric_preview`
+- Base plate: `90 x 60 x 8 mm`.
+- Mounting holes: clearance for `M5` screws, diameter `5.5 mm`.
+- Center hole: `22 mm`.
+- Outline fillets: `R6`.
+- Top-edge chamfer: `C1`.
+- Review: `SLDPRT + STEP + parameters_json + review_report_json + isometric_preview`.
 
-## 下一步
+## Next step
 
-优先把 `cnc_mount` 执行器接到父技能：
+Prioritize connecting the `cnc_mount` executor to the parent skill:
 
-1. 读取 `design_plan.json`。
-2. 调用 `sw_preflight.py`。
-3. 使用 `SolidWorksSession()` 新建零件。
-4. 按计划创建底板、孔、口袋、圆角、倒角。
-5. 保存 `SLDPRT` 并导出 `STEP`。
-6. 运行 `sw_review.run_review()`。
-7. 不通过时按计划里的 `risk_register` 降级重试。
+1. Read `design_plan.json`.
+2. Call `sw_preflight.py`.
+3. Create a part with `SolidWorksSession()`.
+4. Create the planned base plate, holes, pockets, fillets and chamfers.
+5. Save `SLDPRT` and export `STEP`.
+6. Run `sw_review.run_review()`.
+7. On failure, retry with the plan's bounded `risk_register` fallback.

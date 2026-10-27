@@ -9,7 +9,7 @@ using SolidWorks.Interop.swconst;
 namespace CadStudio.SolidWorks
 {
     /// <summary>
-    /// 使用 SolidWorks 官方 PIA 的强类型 setter 创建保持线面圆角。
+    /// Create hold-line face fillets using strongly typed official SolidWorks PIA setters.
     /// </summary>
     internal static class HoldLineBridge
     {
@@ -17,7 +17,7 @@ namespace CadStudio.SolidWorks
         private const string FeatureName = "Advanced_Hold_Line_Fillet";
 
         /// <summary>
-        /// 控制台入口。参数 1 是 Python 会话当前文档标题。
+        /// Console entry point; argument 1 is the active document title in the Python session.
         /// </summary>
         [STAThread]
         private static int Main(string[] args)
@@ -28,7 +28,7 @@ namespace CadStudio.SolidWorks
             {
                 if (args.Length != 1 || String.IsNullOrWhiteSpace(args[0]))
                 {
-                    throw new ArgumentException("必须传入当前 SolidWorks 文档标题");
+                    throw new ArgumentException("Etkin SolidWorks belge başlığı gerekir / Active SolidWorks document title required");
                 }
 
                 CreateHoldLineFillet(args[0], result);
@@ -47,7 +47,7 @@ namespace CadStudio.SolidWorks
         }
 
         /// <summary>
-        /// 附着当前 SolidWorks 会话，按几何签名找面组和保持线并创建特征。
+        /// Attach to SolidWorks, find face sets and hold lines by geometric signatures, and create the feature.
         /// </summary>
         private static void CreateHoldLineFillet(string expectedTitle, IDictionary<string, object> result)
         {
@@ -55,7 +55,7 @@ namespace CadStudio.SolidWorks
             IModelDoc2 model = application.IActiveDoc2 as IModelDoc2;
             if (model == null)
             {
-                throw new InvalidOperationException("SolidWorks 当前没有活动文档");
+                throw new InvalidOperationException("SolidWorks etkin belgesi yok / No active SolidWorks document");
             }
 
             string actualTitle = model.GetTitle();
@@ -64,19 +64,19 @@ namespace CadStudio.SolidWorks
             if (!String.Equals(actualTitle, expectedTitle, StringComparison.OrdinalIgnoreCase))
             {
                 throw new InvalidOperationException(
-                    String.Format("桥接器附着到错误文档：期望 {0}，实际 {1}", expectedTitle, actualTitle));
+                    String.Format("Köprü yanlış belgeye bağlandı / Wrong document: expected {0}, actual {1}", expectedTitle, actualTitle));
             }
 
             var part = model as IPartDoc;
             if (part == null)
             {
-                throw new InvalidOperationException("活动文档不是零件");
+                throw new InvalidOperationException("Etkin belge parça değil / Active document is not a part");
             }
 
             object[] bodies = AsObjectArray(part.GetBodies2((int)swBodyType_e.swSolidBody, false));
             if (bodies.Length != 1)
             {
-                throw new InvalidOperationException(String.Format("验证零件应只有一个实体，实际 {0}", bodies.Length));
+                throw new InvalidOperationException(String.Format("Test parçası tek katı olmalıdır / Test part requires one body; actual {0}", bodies.Length));
             }
 
             var body = (IBody2)bodies[0];
@@ -117,14 +117,14 @@ namespace CadStudio.SolidWorks
                             || !((IEntity)side).Select2(true, 4)
                             || !((IEntity)holdLine).Select2(true, 8))
                         {
-                            throw new InvalidOperationException("面组或保持线选择失败");
+                            throw new InvalidOperationException("Yüz grubu veya tutma çizgisi seçilemedi / Face-set or hold-line selection failed");
                         }
 
                         var data = model.FeatureManager.CreateDefinition(
                             (int)swFeatureNameID_e.swFmFillet) as ISimpleFilletFeatureData2;
                         if (data == null || !data.Initialize((int)swSimpleFilletType_e.swFaceFillet))
                         {
-                            throw new InvalidOperationException("ISimpleFilletFeatureData2 初始化失败");
+                            throw new InvalidOperationException("ISimpleFilletFeatureData2 başlatılamadı / initialization failed");
                         }
 
                         data.ConicTypeForCrossSectionProfile =
@@ -142,24 +142,24 @@ namespace CadStudio.SolidWorks
                         if (count != 1)
                         {
                             throw new InvalidOperationException(
-                                String.Format("HoldLines setter 回读数量为 {0}", count));
+                                String.Format("HoldLines setter okunan adet / readback count: {0}", count));
                         }
 
                         feature = model.FeatureManager.CreateFeature(data);
                         if (feature == null)
                         {
-                            throw new InvalidOperationException("CreateFeature 返回 null");
+                            throw new InvalidOperationException("CreateFeature null döndürdü / returned null");
                         }
                         feature.Name = FeatureName;
                         if (!model.ForceRebuild3(false))
                         {
-                            throw new InvalidOperationException("保持线圆角重建失败");
+                            throw new InvalidOperationException("Tutma çizgisi radyüsü rebuild başarısız / Hold-line fillet rebuild failed");
                         }
 
                         var persistedData = feature.GetDefinition() as ISimpleFilletFeatureData2;
                         if (persistedData == null)
                         {
-                            throw new InvalidOperationException("无法回读保持线圆角 FeatureData");
+                            throw new InvalidOperationException("Tutma çizgisi FeatureData okunamıyor / Cannot read hold-line FeatureData");
                         }
                         bool selectionAccess = persistedData.AccessSelections(model, null);
                         int persistedCount = persistedData.GetHoldLineCount();
@@ -174,7 +174,7 @@ namespace CadStudio.SolidWorks
                         if (persistedCount != 1)
                         {
                             throw new InvalidOperationException(
-                                String.Format("持久化后保持线数量为 {0}", persistedCount));
+                                String.Format("Kalıcı tutma çizgisi adedi / Persisted hold-line count: {0}", persistedCount));
                         }
 
                         result["backend"] = "csharp-pia";
@@ -195,10 +195,10 @@ namespace CadStudio.SolidWorks
 
             result["backend"] = "csharp-pia";
             result["attempts"] = attempts;
-            throw new InvalidOperationException("C# PIA HoldLines 属性无法形成可读回的保持线圆角");
+            throw new InvalidOperationException("C# PIA HoldLines okunabilir radyüs oluşturamadı / C# PIA HoldLines produced no readable hold-line fillet");
         }
 
-        /// <summary>按包围盒语义查找唯一面。</summary>
+        /// <summary>Find a unique face by bounding-box semantics.</summary>
         private static IFace2 FindUniqueFace(IBody2 body, Predicate<double[]> predicate)
         {
             var matches = new List<IFace2>();
@@ -212,12 +212,12 @@ namespace CadStudio.SolidWorks
             }
             if (matches.Count != 1)
             {
-                throw new InvalidOperationException(String.Format("目标面匹配数量为 {0}", matches.Count));
+                throw new InvalidOperationException(String.Format("Hedef yüz eşleşme adedi / Target face match count: {0}", matches.Count));
             }
             return matches[0];
         }
 
-        /// <summary>按端点语义查找唯一保持线边。</summary>
+        /// <summary>Find a unique hold-line edge by endpoint semantics.</summary>
         private static IEdge FindUniqueEdge(
             IBody2 body,
             Func<double[], double[], bool> predicate)
@@ -236,12 +236,12 @@ namespace CadStudio.SolidWorks
             }
             if (matches.Count != 1)
             {
-                throw new InvalidOperationException(String.Format("目标保持线匹配数量为 {0}", matches.Count));
+                throw new InvalidOperationException(String.Format("Hedef tutma çizgisi adedi / Target hold-line match count: {0}", matches.Count));
             }
             return matches[0];
         }
 
-        /// <summary>把 COM SAFEARRAY 转成对象数组。</summary>
+        /// <summary>Convert COM SAFEARRAY to an object array.</summary>
         private static object[] AsObjectArray(object value)
         {
             var array = value as Array;
@@ -258,7 +258,7 @@ namespace CadStudio.SolidWorks
             return result;
         }
 
-        /// <summary>把 COM SAFEARRAY 转成双精度数组。</summary>
+        /// <summary>Convert COM SAFEARRAY to a double array.</summary>
         private static double[] AsDoubleArray(object value)
         {
             var array = value as Array;
@@ -275,13 +275,13 @@ namespace CadStudio.SolidWorks
             return result;
         }
 
-        /// <summary>按米制容差比较坐标。</summary>
+        /// <summary>Compare coordinates with tolerances in meters.</summary>
         private static bool Near(double left, double right)
         {
             return Math.Abs(left - right) <= ToleranceM;
         }
 
-        /// <summary>生成不依赖第三方库的最小 JSON。</summary>
+        /// <summary>Generate minimal JSON without third-party dependencies.</summary>
         private static string ToJson(object value)
         {
             if (value == null)

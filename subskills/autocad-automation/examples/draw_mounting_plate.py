@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """@file draw_mounting_plate.py
-@brief AutoCAD 自动绘制安装板示例。
+@brief AutoCAD example that automatically draws a mounting plate.
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ from acad_session import AutoCADSession  # noqa: E402
 
 
 def main() -> int:
-    """@brief 示例入口。"""
+    """@brief Example entry point."""
     output = Path(r"C:\temp\autocad_mounting_plate.dwg")
     session = AutoCADSession(create_if_missing=True, visible=True).connect()
     session.new_document()
@@ -44,4 +44,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

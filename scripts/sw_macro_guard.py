@@ -1,11 +1,11 @@
 """
-SolidWorks VBA 宏生成防护层。
+SOLIDWORKS VBA macro generation guard.
 
-本模块用于稳定对接 GPT / Kimi / Claude 等多模型场景：
-- 按模型族选择提示词策略。
-- 对模型输出做 VBA 合法性校验。
-- 解析失败时自动重试，并追加更强格式约束。
-- 多次失败后按关键词使用本地模板兜底。
+Supports GPT, Kimi, Claude, and other model integrations:
+- Select prompting strategy by model family.
+- Validate generated VBA.
+- Retry parsing failures with stronger format constraints.
+- Fall back to local keyword-based templates after repeated failures.
 """
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ MAX_RETRIES = 2
 
 
 def _configure_stdio_utf8() -> None:
-    """在 Windows 旧代码页下尽量使用 UTF-8 输出中文提示。"""
+    """Prefer UTF-8 diagnostics on Windows systems with legacy code pages."""
     for stream in (sys.stdout, sys.stderr):
         if hasattr(stream, "reconfigure"):
             stream.reconfigure(encoding="utf-8", errors="replace")
@@ -36,22 +36,22 @@ MODELDOC_PATTERNS = (r"\bModelDoc2\b", r"\bswModel\b")
 SUB_PATTERN = r"\bSub\s+\w+\s*\("
 END_SUB_PATTERN = r"\bEnd\s+Sub\b"
 
-GPT_PROMPT = """你是 SolidWorks VBA 自动化工程师。请只输出可执行的 VBA 宏代码。"""
+GPT_PROMPT = """You are a SOLIDWORKS VBA automation engineer. Output executable VBA macro source only."""
 
-STRICT_FORMAT_PROMPT = """你是 SolidWorks VBA 自动化工程师。
-必须遵守以下格式：
-1. 只输出一个完整 VBA 代码块，不要 Markdown，不要解释。
-2. 必须包含 `Sub main()` 与 `End Sub`。
-3. 必须声明并初始化 `SldWorks.SldWorks` 与 `ModelDoc2` 核心对象。
-4. 所有长度单位使用米，毫米必须显式除以 1000#。
-5. 禁止输出 JSON、自然语言说明、伪代码或省略号。
+STRICT_FORMAT_PROMPT = """You are a SOLIDWORKS VBA automation engineer.
+Follow these formatting requirements:
+1. Output one complete VBA source listing, without Markdown or explanations.
+2. Include Sub main() and End Sub.
+3. Declare and initialize the SldWorks.SldWorks and ModelDoc2 core objects.
+4. Use meters for all lengths; explicitly divide millimeters by 1000#.
+5. Do not output JSON, natural-language explanations, pseudocode, or ellipses.
 """
 
 RETRY_PROMPT_SUFFIX = """
-上一轮输出未通过自动校验。请严格修正：
-- 只输出 VBA 源码。
-- 必须包含 SldWorks / ModelDoc2 / Sub main() / End Sub。
-- 不要包含 Markdown 围栏、解释文字、JSON 或占位符。
+The previous output failed automatic validation. Correct it strictly:
+- Output VBA source only.
+- Include SldWorks / ModelDoc2 / Sub main() / End Sub.
+- Do not include Markdown fences, explanations, JSON, or placeholders.
 """
 
 
@@ -66,7 +66,7 @@ Sub main()
     Set swApp = Application.SldWorks
     Set swModel = swApp.NewPart
     If swModel Is Nothing Then
-        MsgBox "无法新建零件文档"
+        MsgBox "Yeni parça belgesi oluşturulamadı"
         Exit Sub
     End If
 
@@ -88,7 +88,7 @@ Sub main()
     Set swApp = Application.SldWorks
     Set swModel = swApp.NewPart
     If swModel Is Nothing Then
-        MsgBox "无法新建零件文档"
+        MsgBox "Yeni parça belgesi oluşturulamadı"
         Exit Sub
     End If
 
@@ -110,7 +110,7 @@ Sub main()
     Set swApp = Application.SldWorks
     Set swModel = swApp.NewPart
     If swModel Is Nothing Then
-        MsgBox "无法新建零件文档"
+        MsgBox "Yeni parça belgesi oluşturulamadı"
         Exit Sub
     End If
 
@@ -132,7 +132,7 @@ Sub main()
     Set swApp = Application.SldWorks
     Set swModel = swApp.NewPart
     If swModel Is Nothing Then
-        MsgBox "无法新建零件文档"
+        MsgBox "Yeni parça belgesi oluşturulamadı"
         Exit Sub
     End If
 
@@ -148,16 +148,16 @@ End Sub
 
 
 KEYWORD_TEMPLATE_MAP = {
-    "cube": ("立方体", "正方体", "方块", "cube", "box"),
-    "cylinder": ("圆柱", "圆柱体", "cylinder"),
-    "extrude": ("拉伸", "凸台", "extrude", "boss"),
-    "sketch": ("草图", "sketch"),
+    "cube": ("küp", "kup", "blok", "cube", "box"),
+    "cylinder": ("silindir", "silindirik", "cylinder"),
+    "extrude": ("ekstrüzyon", "ekstruzyon", "çıkıntı", "cikinti", "extrude", "boss"),
+    "sketch": ("eskiz", "çizim", "cizim", "sketch"),
 }
 
 
 @dataclass
 class MacroValidationResult:
-    """VBA 宏校验结果。"""
+    """VBA macro validation result."""
 
     ok: bool
     issues: List[str]
@@ -165,7 +165,7 @@ class MacroValidationResult:
 
 @dataclass
 class MacroGenerationResult:
-    """宏生成结果。"""
+    """Macro generation result."""
 
     code: str
     source: str
@@ -174,7 +174,7 @@ class MacroGenerationResult:
 
 
 def normalize_model_family(model_name: Optional[str]) -> str:
-    """将具体模型名归一为 gpt / kimi / claude / generic。"""
+    """Normalize a model name to gpt / kimi / claude / generic."""
     name = (model_name or "").strip().lower()
     if not name:
         return "generic"
@@ -188,15 +188,15 @@ def normalize_model_family(model_name: Optional[str]) -> str:
 
 
 def build_prompt(user_request: str, model_name: Optional[str] = None, strict: Optional[bool] = None) -> str:
-    """按模型族生成提示词。"""
+    """Build a prompt for the model family."""
     family = normalize_model_family(model_name)
     use_strict = strict if strict is not None else family in {"kimi", "claude", "generic"}
     system_prompt = STRICT_FORMAT_PROMPT if use_strict else GPT_PROMPT
-    return f"{system_prompt}\n\n用户需求：\n{user_request.strip()}\n"
+    return f"{system_prompt}\n\nUser request:\n{user_request.strip()}\n"
 
 
 def extract_vba_code(text: str) -> str:
-    """从模型输出中提取 VBA 代码。"""
+    """Extract VBA source from model output."""
     if not text:
         return ""
     fence = re.search(r"```(?:vb|vba|visualbasic)?\s*(.*?)```", text, re.IGNORECASE | re.DOTALL)
@@ -206,31 +206,31 @@ def extract_vba_code(text: str) -> str:
 
 
 def _contains_any_pattern(code: str, patterns: Iterable[str]) -> bool:
-    """检查代码是否包含任一正则模式。"""
+    """Check whether source matches any regular expression."""
     return any(re.search(pattern, code, re.IGNORECASE) for pattern in patterns)
 
 
 def validate_vba_macro(code: str) -> MacroValidationResult:
-    """校验 VBA 宏是否满足 SolidWorks 执行前的最低合法性要求。"""
+    """Check the minimum VBA validity requirements before SOLIDWORKS execution."""
     issues: List[str] = []
     normalized = code.strip()
     if not normalized:
-        issues.append("代码为空")
+        issues.append("Kod boş")
     if not _contains_any_pattern(normalized, CORE_OBJECT_PATTERNS):
-        issues.append("缺少 SolidWorks 核心对象 SldWorks")
+        issues.append("SOLIDWORKS temel nesnesi SldWorks eksik")
     if not _contains_any_pattern(normalized, MODELDOC_PATTERNS):
-        issues.append("缺少 ModelDoc2 文档对象")
+        issues.append("ModelDoc2 belge nesnesi eksik")
     if not re.search(SUB_PATTERN, normalized, re.IGNORECASE):
-        issues.append("缺少 Sub 入口")
+        issues.append("Sub giriş noktası eksik")
     if not re.search(END_SUB_PATTERN, normalized, re.IGNORECASE):
-        issues.append("缺少 End Sub")
+        issues.append("End Sub eksik")
     if "..." in normalized or "TODO" in normalized.upper():
-        issues.append("包含占位符或未完成代码")
+        issues.append("Placeholder veya tamamlanmamış kod içeriyor")
     return MacroValidationResult(ok=not issues, issues=issues)
 
 
 def select_template_key(user_request: str) -> Optional[str]:
-    """根据用户指令关键词选择本地 VBA 模板。"""
+    """Select a local VBA template using user-request keywords."""
     text = user_request.lower()
     for key, keywords in KEYWORD_TEMPLATE_MAP.items():
         if any(keyword.lower() in text for keyword in keywords):
@@ -239,7 +239,7 @@ def select_template_key(user_request: str) -> Optional[str]:
 
 
 def fallback_macro_for_request(user_request: str) -> Optional[str]:
-    """按用户需求返回本地兜底 VBA 模板。"""
+    """Return a local fallback VBA template for the request."""
     key = select_template_key(user_request)
     if key is None:
         return None
@@ -254,11 +254,11 @@ def generate_macro_with_guard(
     max_retries: int = MAX_RETRIES,
 ) -> MacroGenerationResult:
     """
-    生成 SolidWorks VBA 宏并执行校验、重试、模板兜底。
+    Generate a SOLIDWORKS VBA macro with validation, retries, and template fallback.
 
-    model_call 由具体代理实现，签名为 `model_call(prompt, timeout_seconds)`。
+    The integration supplies model_call(prompt, timeout_seconds).
     """
-    last_validation = MacroValidationResult(ok=False, issues=["尚未调用模型"])
+    last_validation = MacroValidationResult(ok=False, issues=["Model henüz çağrılmadı"])
     prompt = build_prompt(user_request, model_name=model_name)
     attempts = 0
 
@@ -268,7 +268,7 @@ def generate_macro_with_guard(
             raw_output = model_call(prompt, timeout_seconds)
         except TimeoutError:
             raw_output = ""
-            last_validation = MacroValidationResult(ok=False, issues=["模型请求超时"])
+            last_validation = MacroValidationResult(ok=False, issues=["Model isteği zaman aşımına uğradı"])
         else:
             code = extract_vba_code(raw_output)
             validation = validate_vba_macro(code)
@@ -283,7 +283,7 @@ def generate_macro_with_guard(
 
         prompt = build_prompt(user_request, model_name=model_name, strict=True) + RETRY_PROMPT_SUFFIX
         if last_validation.issues:
-            prompt += "\n当前校验问题：\n" + "\n".join(f"- {issue}" for issue in last_validation.issues)
+            prompt += "\nMevcut doğrulama sorunları:\n" + "\n".join(f"- {issue}" for issue in last_validation.issues)
 
     fallback = fallback_macro_for_request(user_request)
     if fallback:
@@ -295,11 +295,11 @@ def generate_macro_with_guard(
             validation=validation,
         )
 
-    raise ValueError("模型输出未通过校验，且没有匹配到本地 VBA 兜底模板: " + "; ".join(last_validation.issues))
+    raise ValueError("Model çıktısı doğrulamadan geçemedi ve yerel VBA fallback şablonu eşleşmedi: " + "; ".join(last_validation.issues))
 
 
 def write_macro_file(code: str, output_path: str) -> str:
-    """将 VBA 代码写入本地文件，供代理或人工复制到 SolidWorks 宏环境。"""
+    """Write VBA source locally for an agent or user to copy into the SOLIDWORKS macro environment."""
     path = Path(output_path).expanduser().resolve()
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(code, encoding="utf-8")
@@ -307,25 +307,25 @@ def write_macro_file(code: str, output_path: str) -> str:
 
 
 def _parse_args():
-    """解析命令行参数。"""
-    parser = argparse.ArgumentParser(description="SolidWorks VBA 宏提示词、校验与本地模板工具。")
+    """Parse command-line arguments."""
+    parser = argparse.ArgumentParser(description="SOLIDWORKS VBA macro prompt, doğrulama ve yerel şablon aracı.")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    prompt_parser = subparsers.add_parser("prompt", help="按模型族输出提示词。")
-    prompt_parser.add_argument("--model", default="", help="模型名称，如 gpt-4.1、kimi、claude。")
-    prompt_parser.add_argument("request", help="用户建模需求。")
+    prompt_parser = subparsers.add_parser("prompt", help="Model ailesine göre prompt üret.")
+    prompt_parser.add_argument("--model", default="", help="Model adı; örneğin gpt-4.1, kimi veya claude.")
+    prompt_parser.add_argument("request", help="Kullanıcının modelleme isteği.")
 
-    validate_parser = subparsers.add_parser("validate", help="校验 VBA 文件。")
-    validate_parser.add_argument("file", help="VBA 文件路径。")
+    validate_parser = subparsers.add_parser("validate", help="VBA dosyasını doğrula.")
+    validate_parser.add_argument("file", help="VBA dosya yolu.")
 
-    template_parser = subparsers.add_parser("template", help="按关键词输出本地模板。")
-    template_parser.add_argument("request", help="用户建模需求。")
-    template_parser.add_argument("--output", help="写入输出文件。")
+    template_parser = subparsers.add_parser("template", help="Anahtar sözcüklerle yerel şablon seç.")
+    template_parser.add_argument("request", help="Kullanıcının modelleme isteği.")
+    template_parser.add_argument("--output", help="Çıktı dosyasını yaz.")
     return parser.parse_args()
 
 
 def main() -> int:
-    """命令行入口。"""
+    """CLI entry point."""
     args = _parse_args()
     if args.command == "prompt":
         print(build_prompt(args.request, model_name=args.model))
@@ -340,7 +340,7 @@ def main() -> int:
     if args.command == "template":
         code = fallback_macro_for_request(args.request)
         if not code:
-            print("未匹配到本地模板。")
+            print("Yerel şablon eşleşmedi.")
             return 1
         if args.output:
             path = write_macro_file(code, args.output)

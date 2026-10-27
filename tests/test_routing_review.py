@@ -2,7 +2,7 @@ from scripts import routing_review
 
 
 def test_review_routing_file_returns_stable_blocked_for_missing_input(tmp_path):
-    """@brief 输入缺失时返回结构化 blocked，而不是抛出 FileNotFoundError。"""
+    'Missing inputs return structured blocked rather than FileNotFoundError.'
     report = routing_review.review_routing_file(tmp_path / "missing.json", tmp_path / "report.json")
     assert report["status"] == "blocked"
     assert report["stage"] == "input_validation"
@@ -11,7 +11,7 @@ def test_review_routing_file_returns_stable_blocked_for_missing_input(tmp_path):
 
 
 def test_review_routing_file_rejects_invalid_root_and_json(tmp_path):
-    """@brief 损坏 JSON 或非 object 根节点必须被阻断。"""
+    'Block corrupt JSON or non-object roots.'
     invalid = tmp_path / "invalid.json"
     invalid.write_text("{broken", encoding="utf-8")
     report = routing_review.review_routing_file(invalid, tmp_path / "invalid-report.json")
@@ -24,7 +24,7 @@ def test_review_routing_file_rejects_invalid_root_and_json(tmp_path):
 
 
 def test_review_routing_file_rejects_oversized_input(tmp_path, monkeypatch):
-    """@brief 超过输入上限时不解析、不写报告。"""
+    'Oversized inputs must not be parsed or produce reports.'
     source = tmp_path / "large.json"
     source.write_text("{}", encoding="utf-8")
     monkeypatch.setattr(routing_review, "_MAX_INPUT_BYTES", 1)
@@ -35,7 +35,7 @@ def test_review_routing_file_rejects_oversized_input(tmp_path, monkeypatch):
 
 
 def test_routing_report_calculates_lengths_and_endpoint_table(monkeypatch):
-    """@brief 中性路由必须给出端点、分段长度和明确的原生前置。"""
+    'Neutral routing requires endpoints, segment lengths and explicit native prerequisites.'
     monkeypatch.setattr(routing_review, "probe_solidworks_routing", lambda: {"status": "blocked", "readyForNativeWrite": False})
     report = routing_review.build_routing_report({
         "routeType": "cable",
@@ -62,7 +62,7 @@ def test_routing_report_calculates_lengths_and_endpoint_table(monkeypatch):
 
 
 def test_routing_report_blocks_missing_endpoint_reference(monkeypatch):
-    """@brief 不存在的端点引用必须阻断，不能生成假路线。"""
+    'Missing endpoint references block rather than create a fictitious route.'
     monkeypatch.setattr(routing_review, "probe_solidworks_routing", lambda: {"status": "blocked", "readyForNativeWrite": False})
     report = routing_review.build_routing_report({
         "routeType": "pipe",
@@ -80,7 +80,7 @@ def test_routing_report_blocks_missing_endpoint_reference(monkeypatch):
 
 
 def test_routing_report_detects_clearance_collision_and_support_gap(monkeypatch):
-    """@brief 穿越障碍物或支撑不足必须形成结构化复核证据。"""
+    'Obstacle crossings or insufficient support produce structured review evidence.'
     monkeypatch.setattr(routing_review, "probe_solidworks_routing", lambda: {"status": "blocked", "readyForNativeWrite": False})
     report = routing_review.build_routing_report({
         "routeType": "hydraulic",
@@ -103,7 +103,7 @@ def test_routing_report_detects_clearance_collision_and_support_gap(monkeypatch)
 
 
 def test_routing_report_blocks_disconnected_subgraphs_and_orphan_support(monkeypatch):
-    """@brief 所有端点均被引用也不能掩盖互不连通的路线网络。"""
+    'Referencing all endpoints does not conceal disconnected route networks.'
     monkeypatch.setattr(routing_review, "probe_solidworks_routing", lambda: {"status": "blocked", "readyForNativeWrite": False})
     report = routing_review.build_routing_report({
         "routeType": "tube",
@@ -129,7 +129,7 @@ def test_routing_report_blocks_disconnected_subgraphs_and_orphan_support(monkeyp
 
 
 def test_routing_report_blocks_duplicate_support_and_zero_length_leg(monkeypatch):
-    """@brief 重复支撑和路径重复点不能进入可复核状态。"""
+    'Duplicate supports and path points cannot reach reviewable status.'
     monkeypatch.setattr(routing_review, "probe_solidworks_routing", lambda: {"status": "blocked", "readyForNativeWrite": False})
     report = routing_review.build_routing_report({
         "routeType": "cable",
@@ -150,7 +150,7 @@ def test_routing_report_blocks_duplicate_support_and_zero_length_leg(monkeypatch
 
 
 def test_routing_preflight_requires_registered_addin(monkeypatch, tmp_path):
-    """@brief 类型库接口齐全但加载项未注册时仍必须 blocked。"""
+    'Complete type-library interfaces still return blocked if the add-in is unregistered.'
     typelib = tmp_path / "SWRoutingLib.tlb"
     typelib.write_text("tlb", encoding="utf-8")
     monkeypatch.setattr(routing_review, "discover_installation", lambda _name: {"installed": True, "executable": str(tmp_path / "SLDWORKS.exe")})

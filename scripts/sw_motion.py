@@ -1,8 +1,7 @@
 """
-SolidWorks Motion Study 自动化工具。
+SOLIDWORKS Motion Study automation.
 
-本模块封装 Motion Study 中最容易踩坑的流程：加载专用类型库、创建运动算例、
-创建匀速旋转马达并触发计算。SolidWorks API 使用米作为长度单位；转速参数使用 RPM。
+Wrap type-library loading, study creation, constant-speed rotary motor creation, and calculation. SOLIDWORKS API lengths use meters; rotational speeds use RPM.
 """
 import glob
 import os
@@ -27,7 +26,7 @@ SW_MOTION_STUDY_BASIC_MOTION = 1
 
 
 def _motion_typelib_candidates():
-    """@brief 从已发现安装和兼容目录枚举 Motion Study 类型库路径。"""
+    """@brief Enumerate Motion Study type libraries from discovered installations and compatibility directories."""
     discovered = []
     for installation in discover_installations("solidworks"):
         executable = installation.get("executable")
@@ -52,13 +51,11 @@ def _motion_typelib_candidates():
 
 def ensure_motion_type_library(raise_on_error=False):
     """
-    @brief 生成 SolidWorks Motion Study 类型库的 pywin32 包装。
-    @param raise_on_error 找不到或加载失败时是否抛异常。
-    @return 成功加载的类型库路径；失败且 raise_on_error=False 时返回 None。
+    @brief Generate the pywin32 wrapper for the SOLIDWORKS Motion Study type library.
+    @param raise_on_error Raise when unavailable or loading fails.
+    @return Loaded type-library path, or None on failure when raise_on_error=False.
 
-    Motion Study 的 `IMotionStudyManager` 位于 `swmotionstudy.tlb`，不在主
-    `sldworks` 类型库里。未加载该类型库时，pywin32 动态对象常出现
-    `CreateMotionStudy`、`GetMotionStudyCount` 等成员像属性不像方法的情况。
+    IMotionStudyManager is in swmotionstudy.tlb, not the main sldworks library. Without it, dynamic pywin32 members such as CreateMotionStudy and GetMotionStudyCount may appear as properties rather than methods.
     """
     errors = []
     for path in _motion_typelib_candidates():
@@ -71,22 +68,20 @@ def ensure_motion_type_library(raise_on_error=False):
             errors.append(f"{path}: {exc}")
 
     if raise_on_error:
-        detail = "\n".join(errors) if errors else "未找到 swmotionstudy.tlb"
-        raise RuntimeError("无法加载 SolidWorks Motion Study 类型库:\n" + detail)
+        detail = "\n".join(errors) if errors else "swmotionstudy.tlb bulunamadı"
+        raise RuntimeError("SOLIDWORKS Motion Study type library yüklenemedi:\n" + detail)
     return None
 
 
 def motion_member(obj, attr_name, *args):
     """
-    @brief 兼容 Motion Study COM 成员“属性/方法”双态。
-    @param obj COM 对象。
-    @param attr_name 成员名。
-    @param args 当成员可调用时传入的参数。
-    @return 成员值或方法返回值。
+    @brief Support property/method duality in Motion Study COM members.
+    @param obj COM object.
+    @param attr_name Member name.
+    @param args Arguments for callable members.
+    @return Member value or method result.
 
-    实测 SolidWorks 2024 + pywin32 下，`CreateMotionStudy`、`Activate`、
-    `Calculate`、`Play` 可能表现为属性，`SetDuration`、`CreateDefinition`、
-    `CreateFeature` 通常表现为方法。本函数统一隐藏差异。
+    In upstream SOLIDWORKS 2024 + pywin32 checks, CreateMotionStudy, Activate, Calculate, and Play may be properties; SetDuration, CreateDefinition, and CreateFeature are usually methods. This wrapper hides those differences.
     """
     member = getattr(obj, attr_name)
     if args:
@@ -94,44 +89,44 @@ def motion_member(obj, attr_name, *args):
             return member(*args)
         if len(args) == 0:
             return member
-        raise TypeError(f"Motion Study 成员不可调用: {attr_name}")
+        raise TypeError(f"Motion Study üyesi çağrılabilir değil: {attr_name}")
     try:
         return member() if callable(member) else member
     except Exception as exc:
         message = str(exc)
-        if "-2147352573" in message or "找不到成员" in message or "Member not found" in message:
+        if "-2147352573" in message or "\u627e\u4e0d\u5230\u6210\u5458" in message or "Member not found" in message:
             return member
         raise
 
 
 def get_motion_study_manager(asm_model, load_type_library=True):
     """
-    @brief 获取装配体的 MotionStudyManager。
-    @param asm_model 装配体 IModelDoc2/IAssemblyDoc。
-    @param load_type_library 是否先加载 `swmotionstudy.tlb`。
-    @return MotionStudyManager COM 对象。
+    @brief Get the assembly MotionStudyManager.
+    @param asm_model Assembly IModelDoc2/IAssemblyDoc.
+    @param load_type_library Load swmotionstudy.tlb first.
+    @return MotionStudyManager COM object.
     """
     if load_type_library:
         ensure_motion_type_library(raise_on_error=False)
     manager = safe_get_com_member(asm_model.Extension, "GetMotionStudyManager")
     if manager is None:
-        raise RuntimeError("无法获取 MotionStudyManager，请确认当前文档是装配体且 SolidWorks Motion 可用")
+        raise RuntimeError("MotionStudyManager alınamadı; etkin belgenin montaj olduğunu ve SOLIDWORKS Motion kullanılabildiğini doğrulayın")
     return manager
 
 
 def create_motion_study(asm_model, name=None, duration=4.0, study_type=None):
     """
-    @brief 创建并激活一个 Motion Study。
-    @param asm_model 装配体 IModelDoc2/IAssemblyDoc。
-    @param name 可选算例名称。
-    @param duration 动画时长，单位秒。
-    @param study_type 可选 Motion Study 类型；None 时保持 SolidWorks 默认。
-    @return Motion Study COM 对象。
+    @brief Create and activate a Motion Study.
+    @param asm_model Assembly IModelDoc2/IAssemblyDoc.
+    @param name Optional study name.
+    @param duration Animation duration in seconds.
+    @param study_type Optional type; None preserves the SOLIDWORKS default.
+    @return Motion Study COM object.
     """
     manager = get_motion_study_manager(asm_model)
     study = motion_member(manager, "CreateMotionStudy")
     if study is None:
-        raise RuntimeError("新建 Motion Study 失败")
+        raise RuntimeError("Motion Study oluşturulamadı")
     if name:
         try:
             study.Name = name
@@ -143,7 +138,7 @@ def create_motion_study(asm_model, name=None, duration=4.0, study_type=None):
         except Exception:
             pass
     if not bool(motion_member(study, "Activate")):
-        raise RuntimeError("激活 Motion Study 失败")
+        raise RuntimeError("Motion Study etkinleştirilemedi")
     if duration is not None:
         try:
             motion_member(study, "SetDuration", float(duration))
@@ -153,7 +148,7 @@ def create_motion_study(asm_model, name=None, duration=4.0, study_type=None):
 
 
 def _set_first_supported(obj, names, value):
-    """按候选属性名设置第一个可用属性。"""
+    """Set the first available property from candidate names."""
     last_error = None
     for name in names:
         try:
@@ -163,15 +158,15 @@ def _set_first_supported(obj, names, value):
             last_error = exc
     if last_error:
         raise last_error
-    raise ValueError("候选属性名不能为空")
+    raise ValueError("Aday özellik adları boş olamaz")
 
 
 def _set_load_references(motor_data, references):
     """
-    @brief 为马达设置载荷引用，兼容 tuple/list/VARIANT 多种 COM 接收方式。
-    @param motor_data ISimulationMotorFeatureData。
-    @param references 装配体上下文实体列表。
-    @return True 表示设置成功。
+    @brief Set motor load references with tuple/list/VARIANT COM compatibility.
+    @param motor_data ISimulationMotorFeatureData.
+    @param references Assembly-context entities.
+    @return True on success.
     """
     variants = [
         tuple(references),
@@ -198,19 +193,19 @@ def add_constant_speed_rotary_motor(
     reverse=False,
 ):
     """
-    @brief 给 Motion Study 添加匀速旋转马达。
-    @param motion_study Motion Study COM 对象。
-    @param direction_reference 旋转方向引用，通常为装配体上下文中的轴或圆柱面。
-    @param load_reference 被驱动组件引用，通常为叶轮/转子圆柱面。
-    @param rpm 转速，单位 RPM。
-    @param relative_component 可选相对静止组件。
-    @param name 可选马达特征名。
-    @param reverse 是否反向旋转。
-    @return 创建出的马达 Feature。
+    @brief Add a constant-speed rotary motor to a Motion Study.
+    @param motion_study Motion Study COM object.
+    @param direction_reference Rotation direction, usually an assembly-context axis or cylinder.
+    @param load_reference Driven component reference, usually an impeller/rotor cylinder.
+    @param rpm Speed in RPM.
+    @param relative_component Optional stationary relative component.
+    @param name Optional motor feature name.
+    @param reverse Reverse rotation when True.
+    @return Created motor Feature.
     """
     motor_data = motion_member(motion_study, "CreateDefinition", SW_FM_AEM_ROTATIONAL_MOTOR)
     if motor_data is None:
-        raise RuntimeError("创建旋转马达 FeatureData 失败")
+        raise RuntimeError("Rotary motor FeatureData oluşturulamadı")
 
     motor_data.DirectionReference = direction_reference
     motion_member(motor_data, "ConstantSpeedMotor", float(rpm))
@@ -224,10 +219,10 @@ def add_constant_speed_rotary_motor(
         pass
 
     if not _set_load_references(motor_data, [load_reference]):
-        raise RuntimeError("设置旋转马达 LoadReferences 失败")
+        raise RuntimeError("Rotary motor LoadReferences ayarlanamadı")
     motor_feature = motion_member(motion_study, "CreateFeature", motor_data)
     if motor_feature is None:
-        raise RuntimeError("创建旋转马达特征失败")
+        raise RuntimeError("Rotary motor özelliği oluşturulamadı")
     if name:
         try:
             motor_feature.Name = name
@@ -247,16 +242,16 @@ def add_constant_speed_rotary_motor_by_cylinders(
     reverse=False,
 ):
     """
-    @brief 通过两个圆柱面查找旋转轴和被驱动转子，并添加匀速旋转马达。
-    @param motion_study Motion Study COM 对象。
-    @param shaft_component 静止轴/支架组件。
-    @param rotor_component 被驱动旋转组件。
-    @param shaft_radius 轴圆柱半径范围 `(min, max)`，单位米；None 表示不限。
-    @param rotor_radius 转子圆柱半径范围 `(min, max)`，单位米；None 表示不限。
-    @param rpm 转速，单位 RPM。
-    @param name 可选马达特征名。
-    @param reverse 是否反向旋转。
-    @return 创建出的马达 Feature。
+    @brief Find shaft and rotor cylinders and add a constant-speed rotary motor.
+    @param motion_study Motion Study COM object.
+    @param shaft_component Stationary shaft/support component.
+    @param rotor_component Driven rotating component.
+    @param shaft_radius Shaft cylinder radius range (min, max), meters; None means unrestricted.
+    @param rotor_radius Rotor cylinder radius range (min, max), meters; None means unrestricted.
+    @param rpm Speed in RPM.
+    @param name Optional motor feature name.
+    @param reverse Reverse rotation when True.
+    @return Created motor Feature.
     """
     shaft_radius = shaft_radius or (0.0, None)
     rotor_radius = rotor_radius or (0.0, None)
@@ -283,10 +278,10 @@ def add_constant_speed_rotary_motor_by_cylinders(
 
 def calculate_and_play(motion_study, play=True):
     """
-    @brief 计算 Motion Study，并可选播放动画。
-    @param motion_study Motion Study COM 对象。
-    @param play True 时计算成功后调用 Play。
-    @return Calculate 的布尔结果。
+    @brief Calculate the Motion Study and optionally play animation.
+    @param motion_study Motion Study COM object.
+    @param play Call Play after successful calculation when True.
+    @return Boolean Calculate result.
     """
     calculated = bool(motion_member(motion_study, "Calculate"))
     if play and calculated:
@@ -298,7 +293,7 @@ def calculate_and_play(motion_study, play=True):
 
 
 def _collect_motion_features(motion_study):
-    """@brief 读取 Motion 特征名称和类型，用于识别旋转马达等真实特征。"""
+    """@brief Read Motion feature names/types to identify actual features such as rotary motors."""
     try:
         raw_features = motion_member(motion_study, "GetMotionFeatures") or []
     except Exception:
@@ -328,12 +323,11 @@ def _collect_motion_features(motion_study):
 
 def collect_motion_study_summary(asm_model):
     """
-    @brief 收集装配体全部 Motion Study 的机器可读摘要。
-    @param asm_model 装配体 IModelDoc2/IAssemblyDoc。
-    @return 包含算例名称、类型、时长、马达/外力数量和结果状态的字典。
+    @brief Collect machine-readable summaries of all assembly Motion Studies.
+    @param asm_model Assembly IModelDoc2/IAssemblyDoc.
+    @return Names, types, durations, motor/force counts, and result state.
 
-    本函数只读取官方类型库已公开的成员，不修改算例，也不把“存在算例”误报成
-    “运动结果正确”。`results_out_of_date` 为 True 时必须重新 Calculate。
+    Read only members exposed by the official type library. Do not modify studies or equate study existence with correct motion results. Recalculate whenever results_out_of_date is True.
     """
     manager = get_motion_study_manager(asm_model)
     count = int(motion_member(manager, "GetMotionStudyCount") or 0)
@@ -393,20 +387,20 @@ def validate_motion_study_summary(
     require_results=True,
 ):
     """
-    @brief 验证 Motion Study 是否具备可交付的机器证据。
-    @param summary collect_motion_study_summary() 的结果。
-    @param study_name 可选目标算例名；None 时验证全部可用算例。
-    @param expected_study_type 可选期望 StudyType 枚举值。
-    @param minimum_duration_seconds 最小时长。
-    @param minimum_motor_count 最少马达数量。
-    @param require_results 是否强制要求已计算且结果不过期。
-    @return 包含 status、checks、issues 和 matched_studies 的字典。
+    @brief Validate delivery evidence for Motion Studies.
+    @param summary collect_motion_study_summary() result.
+    @param study_name Optional target name; None checks all available studies.
+    @param expected_study_type Optional expected StudyType enum.
+    @param minimum_duration_seconds Minimum duration.
+    @param minimum_motor_count Minimum motor count.
+    @param require_results Require calculated, current results.
+    @return dict with status, checks, issues, and matched_studies.
     """
     checks = []
     issues = []
 
     def check(check_id, passed, failure_message, study=None, success_message=None):
-        """@brief 追加单条验收检查。"""
+        """@brief Append one acceptance check."""
         message = success_message if passed and success_message else failure_message
         item = {"id": check_id, "passed": bool(passed), "message": message}
         if study:
@@ -421,55 +415,55 @@ def validate_motion_study_summary(
     check(
         "study-present",
         bool(studies),
-        f"未找到可用 Motion Study: {study_name or '任意算例'}",
-        success_message=f"已找到 Motion Study: {study_name or '任意算例'}",
+        f"Kullanılabilir Motion Study bulunamadı: {study_name or 'Herhangi bir çalışma'}",
+        success_message=f"Motion Study bulundu: {study_name or 'Herhangi bir çalışma'}",
     )
     check(
         "type-library",
         bool(summary.get("motion_type_library")),
-        "未确认 swmotionstudy.tlb，Motion 结果读取可能不完整",
-        success_message="已确认 swmotionstudy.tlb",
+        "swmotionstudy.tlb doğrulanamadı; Motion sonuçları eksik okunabilir",
+        success_message="swmotionstudy.tlb doğrulandı",
     )
 
     for study in studies:
-        name = str(study.get("name") or "未命名算例")
+        name = str(study.get("name") or "Adsız çalışma")
         duration = float(study.get("duration_seconds") or 0.0)
         motor_count = int(study.get("motor_count") or 0)
         check(
             "duration",
             duration >= float(minimum_duration_seconds),
-            f"{name} 时长 {duration:g}s 小于要求 {minimum_duration_seconds:g}s",
+            f"{name} süresi {duration:g} s; gereken süreden kısa: {minimum_duration_seconds:g}s",
             name,
-            f"{name} 时长 {duration:g}s 满足要求",
+            f"{name} süresi {duration:g} s gereksinimi karşılıyor",
         )
         check(
             "motor-count",
             motor_count >= int(minimum_motor_count),
-            f"{name} 马达数量 {motor_count} 小于要求 {minimum_motor_count}",
+            f"{name} motor sayısı {motor_count} gereken değerden küçük: {minimum_motor_count}",
             name,
-            f"{name} 检测到 {motor_count} 个马达特征",
+            f"{name} bulunan {motor_count} motor özelliği",
         )
         if expected_study_type is not None:
             actual_type = int(study.get("study_type") or 0)
             check(
                 "study-type",
                 actual_type == int(expected_study_type),
-                f"{name} StudyType={actual_type}，期望 {expected_study_type}",
+                f"{name} StudyType={actual_type}; beklenen {expected_study_type}",
                 name,
-                f"{name} StudyType={actual_type} 符合要求",
+                f"{name} StudyType={actual_type} gereksinimi karşılıyor",
             )
         if require_results:
             available = bool(study.get("results_available"))
-            check("results-present", available, f"{name} 没有可读取的计算结果", name, f"{name} 计算结果可读取")
+            check("results-present", available, f"{name} okunabilir hesaplama sonucu yok", name, f"{name} hesaplama sonuçları okunabilir")
             check(
                 "results-fresh",
                 available and study.get("results_out_of_date") is False,
-                f"{name} 结果不存在或已经过期，必须重新 Calculate",
+                f"{name} sonuç yok veya güncelliğini yitirmiş; Calculate yeniden çalıştırılmalı",
                 name,
-                f"{name} 结果存在且未过期",
+                f"{name} sonuç mevcut ve güncel",
             )
         if study.get("results_error"):
-            check("results-readable", False, f"{name} 结果读取失败: {study['results_error']}", name)
+            check("results-readable", False, f"{name} sonuçları okunamadı: {study['results_error']}", name)
 
     return {
         "status": "pass" if checks and all(item["passed"] for item in checks) else "fail",
@@ -487,7 +481,7 @@ def validate_motion_study_summary(
 
 
 def validate_motion_studies(asm_model, **requirements):
-    """@brief 读取装配体 Motion 摘要并执行交付门禁。"""
+    """@brief Read assembly Motion summaries and apply the delivery gate."""
     summary = collect_motion_study_summary(asm_model)
     validation = validate_motion_study_summary(summary, **requirements)
     return {"summary": summary, "validation": validation}

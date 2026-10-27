@@ -25,7 +25,7 @@ if ([string]$latest.version -ne $version) {
 
 $platform = $latest.platforms."windows-x86_64"
 if (-not $platform) { throw "latest.json is missing windows-x86_64." }
-$expectedUrl = "https://github.com/wzyn20051216/solidworks-automation-skill/releases/download/v$version/CAD-Studio-$version-Setup-x64.exe"
+$expectedUrl = "https://github.com/Luxeville-Group/solidworks-automation-skill/releases/download/v$version/CAD-Studio-$version-Setup-x64.exe"
 if ([string]$platform.url -ne $expectedUrl) {
     throw "Updater URL mismatch: $($platform.url)"
 }

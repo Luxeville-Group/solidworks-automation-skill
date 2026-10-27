@@ -1,4 +1,4 @@
-"""@brief CAD Studio 任务交付物账本。"""
+"""@brief CAD Studio Job artifact ledger."""
 
 from __future__ import annotations
 
@@ -12,19 +12,19 @@ from .core import now_iso
 
 
 def ledger_dir(queue_dir: Path) -> Path:
-    """@brief 返回交付物账本目录。"""
+    """@brief Return the artifact-ledger directory."""
     directory = Path(queue_dir) / "ledgers"
     directory.mkdir(parents=True, exist_ok=True)
     return directory
 
 
 def ledger_path_for(queue_dir: Path, job_id: Any) -> Path:
-    """@brief 返回指定任务的交付物账本路径。"""
+    """@brief Return the ledger path for the specified job."""
     return ledger_dir(queue_dir) / f"{safe_job_id(job_id)}.ledger.json"
 
 
 def sha256_file(path: Path) -> str:
-    """@brief 计算文件 SHA-256。"""
+    """@brief Compute a file's SHA-256."""
     digest = hashlib.sha256()
     with Path(path).open("rb") as handle:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
@@ -33,7 +33,7 @@ def sha256_file(path: Path) -> str:
 
 
 def _candidate_paths(value: Any) -> list[tuple[str, Path]]:
-    """@brief 从 result/artifacts 字段提取可能的交付物路径。"""
+    """@brief Extract candidate artifact paths from result and artifacts fields."""
     paths: list[tuple[str, Path]] = []
     if isinstance(value, str):
         paths.append(("artifact", Path(value)))
@@ -57,7 +57,7 @@ def _candidate_paths(value: Any) -> list[tuple[str, Path]]:
 
 
 def _artifact_base_dir(job: dict[str, Any]) -> Path:
-    """@brief 返回相对交付物路径的解析基准目录。"""
+    """@brief Return the base directory for resolving relative artifact paths."""
     if job.get("cwd"):
         return Path(str(job["cwd"]))
     if job.get("projectPath"):
@@ -69,7 +69,7 @@ def _artifact_base_dir(job: dict[str, Any]) -> Path:
 
 
 def collect_artifact_paths(job: dict[str, Any], result: dict[str, Any]) -> list[tuple[str, Path]]:
-    """@brief 从任务和执行结果中收集交付物路径。"""
+    """@brief Collect artifact paths from the job and execution results."""
     collected: list[tuple[str, Path]] = []
     if result.get("outputPath"):
         collected.append(("codex_output", Path(str(result["outputPath"]))))
@@ -92,7 +92,7 @@ def collect_artifact_paths(job: dict[str, Any], result: dict[str, Any]) -> list[
 
 
 def describe_artifact(kind: str, path: Path, artifact_baseline: dict[str, Any] | None = None) -> dict[str, Any]:
-    """@brief 返回单个交付物的存在性、大小和 hash。"""
+    """@brief Return artifact existence, size, and hash."""
     resolved = Path(path).expanduser()
     exists = resolved.exists()
     item: dict[str, Any] = {
@@ -115,7 +115,7 @@ def describe_artifact(kind: str, path: Path, artifact_baseline: dict[str, Any] |
 
 
 def build_artifact_ledger(queue_dir: Path, job: dict[str, Any], result: dict[str, Any]) -> dict[str, Any]:
-    """@brief 构建任务交付物账本对象。"""
+    """@brief Build the job artifact ledger object."""
     baseline = result.get("artifactBaseline") if isinstance(result.get("artifactBaseline"), dict) else None
     artifacts = [describe_artifact(kind, path, baseline) for kind, path in collect_artifact_paths(job, result)]
     return {
@@ -151,7 +151,7 @@ def build_artifact_ledger(queue_dir: Path, job: dict[str, Any], result: dict[str
 
 
 def write_artifact_ledger(queue_dir: Path, job: dict[str, Any], result: dict[str, Any]) -> dict[str, Any]:
-    """@brief 写入任务交付物账本并返回账本对象。"""
+    """@brief Write the job artifact ledger and return its object."""
     ledger = build_artifact_ledger(queue_dir, job, result)
     path = ledger_path_for(queue_dir, job.get("id"))
     path.write_text(json.dumps(ledger, ensure_ascii=False, indent=2), encoding="utf-8")

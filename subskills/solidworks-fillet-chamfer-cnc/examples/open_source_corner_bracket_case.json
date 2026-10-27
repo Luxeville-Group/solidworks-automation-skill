@@ -26,5 +26,5 @@
       ]
     }
   },
-  "purpose": "复杂支架 STEP 导入、唯一签名边 C0.2/C0.4 宽度-宽度倒角、原生另存、STEP 回导、重开与多视角审查回归"
+  "purpose": "Complex bracket STEP import, unique-edge C0.2/C0.4 distance-distance chamfer, native save-as, STEP round trip, reopen and multiview review regression"
 }

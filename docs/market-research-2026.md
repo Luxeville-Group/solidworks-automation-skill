@@ -1,426 +1,426 @@
-# SolidWorks Automation Skill 市场调研与产品定位
+# SolidWorks Automation Skill Market Research and Product Positioning
 
-调研日期: 2026-07-25
+Research date: 2026-07-25
 
-## 1. 结论先行
+## 1. Main conclusion
 
-不要把项目做成一个新的 CAD 软件，也不要先做一个漂亮但空的可视化外壳。
+Do not build a new CAD application or begin with an attractive visualization shell without functional substance.
 
-更值得做的是:
-
-```text
-面向机械工程师和打样团队的本地 CAD 自动化交付助手
-```
-
-核心价值:
+The more valuable direction is:
 
 ```text
-传参考图/填参数 -> 自动建模 -> 自动出工程图 -> 按国标和制造规则复核 -> 输出可交付文件包
+A local CAD automation delivery assistant for mechanical engineers and prototyping teams
 ```
 
-这个方向避开了和 SolidWorks、Inventor、Fusion、NX、Creo 的正面竞争，重点解决工程师每天重复、容易出错、但又必须做对的工作。
-
-## 2. 市场信号
-
-### 2.1 CAD 和工业研发设计软件仍在增长
-
-- Research and Markets 的 2026 CAD 市场报告显示，CAD 软件市场按 3D/2D、部署方式、建模方式、应用行业等细分，工程公司、工业设计公司是主要终端用户之一。
-- 智研咨询 2025 年报告提到，2024 年全球工业研发设计软件市场规模约 550 亿美元，中国工业研发设计软件市场规模约 350 亿元，受智能制造、数字化转型、国产替代推动。
-
-判断:
-
-CAD 本体市场很大，但大厂垄断强，做完整 CAD 的投入极高。我们应该做 CAD 周边的自动化增效工具。
-
-### 2.2 AI 在机械工程中的落点已经清晰
-
-Colab Software 在 2026 年机械工程 AI 工具梳理中，把 AI 落点归纳到五类:
-
-- 工程知识管理
-- 生成式设计和 AI CAD 建模
-- AI 仿真
-- 自动设计审查和 DFM
-- PLM 与数字线程
-
-其中最适合本项目切入的是:
+Core value:
 
 ```text
-自动设计审查和 DFM + 工程图自动化 + 本地知识库/规范库
+Upload reference images/enter parameters -> Automatically model -> Generate engineering drawings -> Review against national standards and manufacturing rules -> Produce a deliverable file package
 ```
 
-原因是这些工作有明确输入、明确规则、明确交付物，适合自动化，也便于验证是否做对。
+This avoids competing directly with SolidWorks, Inventor, Fusion, NX, and Creo, focusing on daily engineering tasks that are repetitive, error-prone, and must be done correctly.
 
-### 2.3 大厂正在做 AI，但仍留下垂直机会
+## 2. Market signals
 
-SOLIDWORKS 官方已经把 AI CAD automation、Virtual Companions、AURA/LEO 等作为设计流程的一部分，强调让工程师聚焦高价值工作、减少重复劳动。
+### 2.1 CAD and industrial R&D/design software continue growing
 
-Autodesk Fusion 强调的不只是 CAD，而是设计、仿真、生成式设计、网格编辑、塑料件规则和生命周期管理。
+- Research and Markets' 2026 CAD market report segments CAD by 3D/2D, deployment, modeling approach, and industry, identifying engineering and industrial design companies among major end users.
+- A 2025 Zhiyan Consulting report estimates the 2024 global industrial R&D/design software market at approximately USD 55 billion and the Chinese market at approximately CNY 35 billion, driven by smart manufacturing, digital transformation, and domestic substitution.
 
-AutoCAD Mechanical 2026 强调机械工程任务自动化、BOM、零件明细、气泡序号、自动尺寸、GD&T 符号和标准化标注。
+Assessment:
 
-判断:
+The CAD market is large, but strongly dominated by established vendors, and a complete CAD system requires enormous investment. We should build surrounding automation tools that improve productivity.
 
-大厂方向证明了需求存在，但大厂产品通常更偏通用、企业化、订阅化。我们的机会在:
+### 2.2 AI applications in mechanical engineering are becoming clear
 
-- 本地 Windows 工作流
-- 中文机械工程师习惯
-- 国标工程图复核
-- SolidWorks + AutoCAD 联动
-- 3D 打印/小批量打样交付
-- 可由 AI 代理直接调用
+CoLab Software's 2026 mechanical engineering AI overview groups applications into five categories:
 
-## 3. 竞品观察
+- Engineering knowledge management
+- Generative design and AI CAD modeling
+- AI simulation
+- Automated design review and DFM
+- PLM and digital threads
 
-| 产品/方向 | 主要能力 | 对我们的启发 | 我们不应硬碰的点 |
+The best entry points for this project are:
+
+```text
+Automated design review and DFM + engineering drawing automation + local knowledge/standards libraries
+```
+
+These tasks have clear inputs, rules, and deliverables, making them suitable for automation and straightforward to verify.
+
+### 2.3 Major vendors are building AI, with room for specialized products
+
+SOLIDWORKS officially positions AI CAD automation, Virtual Companions, and AURA/LEO within design workflows, emphasizing higher-value engineering work and reduced repetition.
+
+Autodesk Fusion emphasizes design, simulation, generative design, mesh editing, plastic-part rules, and lifecycle management alongside CAD.
+
+AutoCAD Mechanical 2026 emphasizes mechanical engineering task automation, BOM, parts lists, balloons, automatic dimensions, GD&T symbols, and standardized annotations.
+
+Assessment:
+
+Major vendors validate demand, but their products tend toward general-purpose, enterprise, subscription offerings. Our opportunities are:
+
+- Local Windows workflows
+- Workflows familiar to Chinese-speaking mechanical engineers (the original research's target market)
+- Review of GB/T engineering drawings
+- SolidWorks + AutoCAD integration
+- 3D printing/small-batch prototype delivery
+- Direct invocation by AI agents
+
+## 3. Competitor observations
+
+| Product/direction | Main capabilities | Lessons for us | Areas to avoid competing directly |
 |---|---|---|---|
-| SOLIDWORKS AI | 嵌入式 AI、虚拟助手、设计流程提效 | 证明 CAD 内 AI 助手是趋势 | 不做完整 CAD 内核 |
-| Autodesk Fusion | CAD + 仿真 + 生成式设计 + 生命周期 | 设计到制造一体化是主线 | 不做云端全平台 CAD |
-| AutoCAD Mechanical | 机械制图自动化、标准化标注、BOM | 图纸标准和自动标注是刚需 | 不做 AutoCAD 替代品 |
-| Siemens Solid Edge 2D Drafting | 2D 图纸、标注、标准兼容 | 2D 工程图仍有生命力 | 不做独立 2D CAD |
-| DraftAid | 从 3D 模型自动生成 2D 制造图 | 工程图自动化是强痛点 | 避免只做英文/国外标准 |
-| CoLab AutoReview | 设计审查、DFM、问题跟踪、知识沉淀 | 审查比生成更容易进入企业流程 | 不先做大型协同平台 |
-| Leo AI | CAD-aware 知识管理、工程知识复用 | 工程知识库和历史经验很有价值 | 不承诺复杂 B-rep AI 语义能力 |
-| Zoo.dev | Text-to-CAD、现代几何引擎、API | 文本生成 CAD 是趋势 | 不自研几何内核 |
+| SOLIDWORKS AI | Embedded AI, virtual assistants, design productivity | Confirms the trend toward AI assistants in CAD | Do not build a complete CAD kernel |
+| Autodesk Fusion | CAD + simulation + generative design + lifecycle | Design-to-manufacturing integration is central | Do not build a full cloud CAD platform |
+| AutoCAD Mechanical | Mechanical drawing automation, standardized annotations, BOM | Drawing standards and automatic annotations solve essential needs | Do not replace AutoCAD |
+| Siemens Solid Edge 2D Drafting | 2D drawings, annotations, standards compatibility | 2D engineering drawings remain relevant | Do not build standalone 2D CAD |
+| DraftAid | Automatic 2D manufacturing drawings from 3D models | Drawing automation addresses a major pain point | Avoid limiting support to English/non-Chinese standards in the original target market |
+| CoLab AutoReview | Design review, DFM, issue tracking, knowledge capture | Review fits enterprise workflows more readily than generation | Do not start with a large collaboration platform |
+| Leo AI | CAD-aware knowledge management and engineering knowledge reuse | Engineering knowledge and historical experience are valuable | Do not promise complex B-rep AI semantics |
+| Zoo.dev | Text-to-CAD, modern geometry engine, API | Text-driven CAD is a trend | Do not develop a geometry kernel |
 
-## 4. 目标用户
+## 4. Target users
 
-### 4.1 第一目标用户
+### 4.1 Primary users
 
-个人机械设计师、创客、小型工作室、自动化设备工程师、3D 打印打样用户。
+Independent mechanical designers, makers, small studios, automation-equipment engineers, and 3D-printing prototype users.
 
-共同特征:
+Shared characteristics:
 
-- 有 SolidWorks 或 AutoCAD 使用习惯
-- 经常做结构外壳、支架、安装板、面板、散热壳
-- 需要快速出 STL/STEP/DWG/DXF/PDF
-- 不想每次重复画孔、倒角、螺丝柱、工程图
-- 对国标图纸和可制造交付有要求
+- Familiar with SolidWorks or AutoCAD
+- Frequently design enclosures, brackets, mounting plates, panels, and heat-dissipation housings
+- Need rapid STL/STEP/DWG/DXF/PDF output
+- Want to avoid repeatedly drawing holes, chamfers, screw bosses, and engineering drawings
+- Require GB/T-style drawings and manufacturable deliverables
 
-### 4.2 第二目标用户
+### 4.2 Secondary users
 
-中小制造企业、非标自动化团队、教学/培训机构。
+Small and medium manufacturing businesses, custom automation teams, and educational/training organizations.
 
-需求:
+Needs:
 
-- 统一制图规范
-- 降低新人工程师出图错误
-- 建立模板库和检查清单
-- 缩短从需求到打样的时间
+- Consistent drawing standards
+- Fewer drawing errors by new engineers
+- Template libraries and checklists
+- Less time from requirements to prototype
 
-### 4.3 暂不优先服务的用户
+### 4.3 Users outside initial priorities
 
-- 大型汽车/航空/军工企业的完整 PLM 流程
-- 超复杂曲面和拓扑优化场景
-- 云端多人协同 CAD 平台
-- 替代 SolidWorks/NX/CATIA 的完整 CAD 系统
+- Complete PLM workflows for large automotive/aerospace/defense enterprises
+- Extremely complex surfaces and topology optimization
+- Cloud collaborative CAD platforms
+- Complete CAD systems replacing SolidWorks/NX/CATIA
 
-## 5. 机械工程师高频痛点
+## 5. Frequent engineering pain points
 
-| 痛点 | 具体表现 | 自动化机会 |
+| Pain point | Manifestation | Automation opportunity |
 |---|---|---|
-| 相似零件重复建模 | 外壳、支架、面板、安装板反复改尺寸 | 参数化模板库 |
-| 图纸标注返工 | 孔有规格但没有定位尺寸，尺寸线压线，引线穿视图 | 国标图纸复核引擎 |
-| 3D 打印不可用 | 壁厚太薄、孔没真实打穿、孔径没补偿、装配间隙不足 | 3D 打印制造规则库 |
-| 导出交付繁琐 | STL、STEP、DWG、DXF、PDF、预览图分散导出 | 一键交付包 |
-| 经验不可复用 | 老工程师知道的规则没有沉淀 | 规则库 + 项目复盘 |
-| Prompt 不稳定 | 用户一句话说不全孔位、公差、材料 | 表单化输入 + AI 追问 |
-| 软件链割裂 | SolidWorks 建模，AutoCAD 出图，文件再手动整理 | 本地任务编排 |
+| Repeated modeling of similar parts | Repeated dimension changes to enclosures, brackets, panels, and mounting plates | Parametric template library |
+| Drawing annotation rework | Hole specifications without locating dimensions, overlapping dimension lines, leaders crossing views | GB/T drawing review engine |
+| Unusable 3D prints | Thin walls, holes not cut through, uncompensated diameters, insufficient assembly clearance | 3D printing manufacturing rule library |
+| Tedious export/delivery | Separate STL, STEP, DWG, DXF, PDF, and preview exports | One-click delivery package |
+| Experience cannot be reused | Senior engineers' knowledge is not recorded | Rule library + project retrospectives |
+| Unstable prompts | One sentence omits hole positions, tolerances, or materials | Form inputs + AI follow-up questions |
+| Fragmented software chain | SolidWorks modeling, AutoCAD drawings, manual file organization | Local task orchestration |
 
-## 6. 本项目当前资产
+## 6. Existing project assets
 
-已有资产:
+Available assets:
 
-- SolidWorks 自动化脚本
-- AutoCAD 自动化子技能
-- 工程图生成经验
-- 开孔/开槽/定位尺寸的规范教训
-- GitHub skill 仓库
-- MCP server 雏形
-- 示例脚本和测试脚本
+- SolidWorks automation scripts
+- AutoCAD automation subskill
+- Engineering drawing generation experience
+- Lessons about holes, slots, and locating dimensions
+- GitHub skill repository
+- Initial MCP server
+- Example and test scripts
 
-短板:
+Gaps:
 
-- 没有面向用户的任务入口
-- 没有结构化模板库
-- 缺少正式的国标制图规则库
-- 缺少系统化 DFM/3D 打印规则库
-- 缺少图纸自动复核报告的稳定 schema
-- 缺少项目文件管理和历史记录
-- 缺少可打包的 Windows 软件壳
+- No user-facing task entry point
+- No structured template library
+- No formal GB/T drawing rules library
+- No systematic DFM/3D printing rules library
+- No stable schema for automatic drawing review reports
+- No project file management or history
+- No distributable Windows application shell
 
-## 7. 产品定位
+## 7. Product positioning
 
-建议产品名:
-
-```text
-CAD 自动化交付工作台
-```
-
-一句话:
+Suggested product name:
 
 ```text
-把机械工程师重复的建模、出图、开孔检查和交付文件整理，变成可复核的一键流程。
+CAD Automation Delivery Workbench
 ```
 
-不是:
-
-- 不是新 CAD
-- 不是纯 AI 聊天机器人
-- 不是云端协同平台
-- 不是只会生成漂亮预览图的玩具
-
-是:
-
-- SolidWorks/AutoCAD 的本地自动化控制台
-- 中国机械图纸规范检查器
-- 3D 打印/打样交付助手
-- 机械结构模板库
-- AI + 规则 + CAD 脚本的任务编排器
-
-## 8. MVP 功能建议
-
-### MVP 目标
-
-让用户完成一个真实任务:
+One sentence:
 
 ```text
-做一个可 3D 打印的外壳，并输出符合中国机械制图习惯的工程图和交付包。
+Turn repetitive modeling, drawing, hole verification, and delivery-file organization into a reviewable one-click workflow.
 ```
 
-### 必做功能
+Not intended as:
 
-1. 项目创建
-   - 选择项目类型: 3D 打印外壳
-   - 设置输出目录
-   - 上传参考图
+- A new CAD system
+- A pure AI chatbot
+- A cloud collaboration platform
+- A toy that only generates attractive previews
 
-2. 参数表单
-   - 外形长宽高
-   - 壁厚
-   - 圆角/倒角
-   - 显示孔、接口孔、螺丝孔、水口、散热槽
-   - 每类孔槽必须填写规格、数量、定位基准
+Intended as:
 
-3. 生成模型
-   - 调 SolidWorks 脚本
-   - 确保孔/槽真实切除
-   - 导出 STL/STEP/SLDPRT
+- A local automation console for SolidWorks/AutoCAD
+- A checker for Chinese mechanical drawing standards
+- A 3D printing/prototype delivery assistant
+- A mechanical structure template library
+- A task orchestrator combining AI, rules, and CAD scripts
 
-4. 生成图纸
-   - 调 AutoCAD 或 SolidWorks Drawing
-   - 输出 DWG/DXF/PDF/PNG
-   - 默认 A3 或 A4 图框、标题栏、比例、单位 mm
+## 8. Suggested MVP features
 
-5. 规范复核
-   - 图纸幅面和标题栏
-   - 孔/槽规格、数量、定位尺寸
-   - 尺寸线、引线、文字重叠
-   - 开孔是否真实存在
-   - 3D 打印壁厚/孔径/间隙基础规则
+### MVP goal
 
-6. 交付包
-   - 输出文件统一归档
-   - 生成 `review.json`
-   - 生成 `README_交付说明.md`
+Enable one real task:
 
-### 暂缓功能
+```text
+Create a 3D-printable enclosure and output engineering drawings following Chinese mechanical drawing conventions, plus a delivery package.
+```
 
-- 云账号
-- 多人协作
-- PLM/PDM 集成
-- 拓扑优化
-- 复杂曲面生成
-- 自动报价
-- 全自动大模型生成任意 CAD
+### Required features
 
-## 9. 图纸规范能力优先级
+1. Project creation
+   - Select project type: 3D-printed enclosure
+   - Set output directory
+   - Upload reference images
 
-### P0 硬规则
+2. Parameter form
+   - Overall length, width, and height
+   - Wall thickness
+   - Fillets/chamfers
+   - Display openings, connector openings, screw holes, fluid ports, and ventilation slots
+   - Require specifications, quantity, and locating datums for every hole/slot category
 
-- 任何孔、槽、接口、水口、螺丝孔、螺丝柱都必须有规格、数量、定位尺寸。
-- 不能用长引线代替关键尺寸链。
-- 引线不能跨视图、穿孔、穿中心线、穿标题栏。
-- 尺寸不能压线、压字、压图框。
-- 图纸必须有图框、标题栏、单位、比例、视图名称、技术要求。
-- 3D 打印件的开孔必须在模型中真实切除，不能只在图纸上画示意。
+3. Model generation
+   - Invoke SolidWorks scripts
+   - Ensure holes/slots are real cuts
+   - Export STL/STEP/SLDPRT
 
-### P1 建议规则
+4. Drawing generation
+   - Invoke AutoCAD or SolidWorks Drawing
+   - Output DWG/DXF/PDF/PNG
+   - Default A3/A4 frame, title block, scale, and millimeter units
 
-- 拥挤区域优先使用孔表/槽表/孔槽明细表。
-- 对称孔优先用中心线和基准尺寸表达。
-- 重复孔使用 `n×Φd` 或孔表表达，避免散乱标注。
-- 对 3D 打印孔径给出工艺补偿建议。
-- 对装配配合给出推荐间隙。
+5. Standards review
+   - Sheet format and title block
+   - Hole/slot specifications, quantities, and locating dimensions
+   - Overlapping dimension lines, leaders, and text
+   - Whether holes actually exist
+   - Basic 3D printing wall-thickness/diameter/clearance rules
 
-### P2 增强规则
+6. Delivery package
+   - Archive outputs together
+   - Generate `review.json`
+   - Generate `README_delivery.md`
 
-- 自动检测未约束草图。
-- 自动检测过薄壁、尖角、悬垂、孤岛小特征。
-- 自动检测 STL 非流形、反法线、开边。
-- 自动生成 DFM 建议。
+### Deferred features
 
-## 10. 3D 打印规则库初版
+- Cloud accounts
+- Collaboration
+- PLM/PDM integration
+- Topology optimization
+- Complex surface generation
+- Automatic quoting
+- Fully autonomous generation of arbitrary CAD by language models
 
-FDM 方向优先，因为个人用户和小工作室最常见。
+## 9. Drawing-standards priorities
 
-建议默认值:
+### P0 mandatory rules
 
-| 项目 | 初版建议 |
+- Every hole, slot, interface opening, fluid port, screw hole, and screw boss must have specifications, quantity, and locating dimensions.
+- Long leaders must not replace critical dimension chains.
+- Leaders must not cross views, holes, centerlines, or title blocks.
+- Dimensions must not overlap lines, text, or drawing frames.
+- Drawings require a frame, title block, units, scale, view names, and technical requirements.
+- Holes in 3D-printed parts must be actual model cuts, not drawing-only illustrations.
+
+### P1 recommended rules
+
+- Prefer hole/slot tables or feature schedules in crowded areas.
+- Prefer centerlines and datum dimensions for symmetric holes.
+- Describe repeated holes with `n×Φd` or a hole table to avoid scattered annotations.
+- Provide process-compensation suggestions for 3D-printed hole diameters.
+- Recommend clearances for assembly fits.
+
+### P2 advanced rules
+
+- Automatically detect underdefined sketches.
+- Detect thin walls, sharp corners, overhangs, and isolated small features.
+- Detect non-manifold STL geometry, reversed normals, and open edges.
+- Generate DFM suggestions automatically.
+
+## 10. Initial 3D printing rule library
+
+Prioritize FDM because it is common among individual users and small studios.
+
+Suggested defaults:
+
+| Item | Initial suggestion |
 |---|---|
-| 结构壁厚 | 优先 1.6 mm 以上 |
-| 最低可打印壁厚 | 不低于 0.8-1.0 mm，具体看喷嘴 |
-| 螺丝柱外径 | 至少为螺丝直径 2-2.5 倍，后续按 M2/M3/M4 模板细化 |
-| 普通孔补偿 | FDM 孔通常偏小，可给 0.2-0.4 mm 放量选项 |
-| 装配间隙 | 滑配/插接预留 0.2-0.5 mm |
-| 水平圆孔 | 优先提示水滴孔或加支撑 |
-| 小孔精度要求高 | 提示后钻/铰孔 |
+| Structural wall thickness | Prefer at least 1.6 mm |
+| Minimum printable wall thickness | At least 0.8–1.0 mm, depending on nozzle |
+| Screw-boss outside diameter | At least 2–2.5 times screw diameter; refine with M2/M3/M4 templates later |
+| General hole compensation | FDM holes tend to undersize; offer 0.2–0.4 mm oversizing |
+| Assembly clearance | Allow 0.2–0.5 mm for sliding/insertion fits |
+| Horizontal circular holes | Prefer suggesting teardrop holes or supports |
+| Small holes requiring high accuracy | Suggest post-drilling/reaming |
 
-这些规则必须可配置，不能写死。不同打印机、材料、喷嘴、切片参数会改变最终建议。
+These rules must be configurable, not hardcoded. Printer, material, nozzle, and slicer settings affect final recommendations.
 
-## 11. 软件形态建议
+## 11. Suggested software format
 
-第一阶段做 Windows 本地软件，不做云端服务。
+Build local Windows software first, not a cloud service.
 
-推荐形态:
-
-```text
-PySide6 桌面软件 + Python 自动化脚本 + 本地项目目录 + GitHub 更新 skill
-```
-
-理由:
-
-- 不需要租服务器
-- 能直接调用 SolidWorks/AutoCAD COM
-- 能复用现有 Python 脚本
-- 更容易打包成 exe
-- 数据留在用户本机，更符合工程文件隐私需求
-
-后续如要做更漂亮界面，可再考虑:
+Recommended form:
 
 ```text
-Tauri/Electron + 本地 Python 后端
+PySide6 desktop application + Python automation scripts + local project directory + GitHub skill updates
 ```
 
-## 12. MVP 验证指标
+Reasons:
 
-不要先追求功能多，先验证是否真的省时间、少返工。
+- No rented server required
+- Direct SolidWorks/AutoCAD COM access
+- Reuse existing Python scripts
+- Easier executable packaging
+- Engineering data remains local, fitting privacy requirements
 
-建议指标:
+For a more polished interface later, consider:
 
-| 指标 | 目标 |
+```text
+Tauri/Electron + local Python backend
+```
+
+## 12. MVP validation metrics
+
+First validate saved time and reduced rework, rather than maximizing feature count.
+
+Suggested metrics:
+
+| Metric | Target |
 |---|---|
-| 外壳建模到 STL | 10 分钟内完成 |
-| 工程图初稿 | 5 分钟内生成 |
-| 孔/槽漏标率 | P0 规则漏标为 0 |
-| 可打印性问题 | 至少检查壁厚、孔径、真实切除、间隙 |
-| 返工次数 | 从多轮返工降到 1 轮以内 |
-| 用户输入 | 以表单为主，prompt 为辅 |
+| Enclosure modeling to STL | Within 10 minutes |
+| Initial engineering drawing | Within five minutes |
+| Missing hole/slot annotations | Zero omissions under P0 rules |
+| Printability issues | Check at least wall thickness, diameter, actual cuts, and clearance |
+| Rework | Reduce multiple iterations to at most one |
+| User input | Primarily forms, supplemented by prompts |
 
-## 13. 90 天路线图
+## 13. 90-day roadmap
 
-### 第 1-2 周: 产品骨架
+### Weeks 1–2: Product foundation
 
-- 建立 `apps/desktop` 或独立桌面项目
-- 做 PySide6 主窗口
-- 做项目创建、输出目录、日志面板
-- 能读取本地 skill 状态和版本
+- Create `apps/desktop` or a separate desktop project
+- Build a PySide6 main window
+- Add project creation, output directory, and log panel
+- Read local skill status and version
 
-### 第 3-4 周: 外壳模板
+### Weeks 3–4: Enclosure template
 
-- 做 3D 打印外壳参数表
-- 打通 SolidWorks 建模脚本
-- 输出 STL/STEP/SLDPRT
-- 加真实开孔检查
+- Build a 3D-printing enclosure parameter form
+- Connect SolidWorks modeling scripts
+- Output STL/STEP/SLDPRT
+- Add actual-hole checks
 
-### 第 5-6 周: 工程图与复核
+### Weeks 5–6: Drawings and review
 
-- 打通 AutoCAD/SolidWorks Drawing 出图
-- 输出 DWG/DXF/PDF/PNG
-- 实现 P0 图纸规范检查
-- 生成 review.json
+- Connect AutoCAD/SolidWorks Drawing generation
+- Output DWG/DXF/PDF/PNG
+- Implement P0 drawing-standards checks
+- Generate review.json
 
-### 第 7-8 周: 交付包
+### Weeks 7–8: Delivery package
 
-- 一键归档交付文件
-- 生成交付说明
-- 做历史项目列表
-- 做失败原因可视化
+- Archive deliverables in one action
+- Generate delivery instructions
+- Add a project history list
+- Visualize failure reasons
 
-### 第 9-12 周: 模板扩展
+### Weeks 9–12: Template expansion
 
-- 安装板模板
-- 支架模板
-- 散热壳模板
-- 螺丝柱/嵌件模板
-- 3D 打印规则库可配置
+- Mounting plate template
+- Bracket template
+- Heat-dissipation housing template
+- Screw-boss/insert templates
+- Configurable 3D printing rule library
 
-## 14. 风险
+## 14. Risks
 
-| 风险 | 应对 |
+| Risk | Response |
 |---|---|
-| SolidWorks/AutoCAD COM 不稳定 | 任务串行执行，增加重试和超时恢复 |
-| 用户需求尺寸不完整 | 表单强约束 + AI 追问 |
-| 图纸规范难完全自动化 | 先做 P0 规则，保留人工复核预览 |
-| 不同公司制图习惯不同 | 规则库可配置，默认国标风格 |
-| 3D 打印参数差异大 | 默认建议 + 用户打印机配置 |
-| 产品边界膨胀 | 坚持外壳/支架/安装件高频模板优先 |
+| Unstable SolidWorks/AutoCAD COM | Serialize tasks; add retries and timeout recovery |
+| Incomplete user dimensions | Required form fields + AI follow-up questions |
+| Difficult fully automatic drawing-standard checks | Start with P0 rules; retain human review previews |
+| Different company drawing conventions | Configurable rule library, GB/T-style defaults |
+| Large variation in printing parameters | Default suggestions + user printer profiles |
+| Expanding product scope | Prioritize frequent enclosure/bracket/mounting-part templates |
 
-## 15. 下一步任务
+## 15. Next tasks
 
-建议下一步直接做产品原型规格，而不是马上写代码。
+Create a product prototype specification before writing code.
 
-需要产出:
+Required output:
 
 ```text
 docs/product-mvp-spec.md
 ```
 
-内容:
+Contents:
 
-- 软件首页信息架构
-- 第一个任务向导: 3D 打印外壳
-- 参数字段定义
-- 输出文件结构
+- Home-page information architecture
+- First task wizard: 3D-printed enclosure
+- Parameter field definitions
+- Output file structure
 - review.json schema
-- P0 规范检查清单
-- 首版界面草图
+- P0 standards checklist
+- Initial interface sketches
 
-完成这个规格后，再开始写 PySide6 原型，方向会稳很多。
+Completing this specification before the PySide6 prototype gives development a clearer direction.
 
-## 16. 调研来源
+## 16. Research sources
 
-- Research and Markets: Computer Aided Design CAD Software Market Report 2026  
+- Research and Markets: Computer Aided Design CAD Software Market Report 2026
   https://www.researchandmarkets.com/reports/5972859/computer-aided-design-cad-software-market-report
-- 智研咨询: 2025 年中国工业研发设计软件行业市场规模、产业链、竞争格局及行业发展趋势研判  
+- Zhiyan Consulting: 2025 assessment of China's industrial R&D/design software market size, industry chain, competitive landscape, and development trends
   https://www.chyxx.com/industry/1217927.html
-- SOLIDWORKS: AI Product Design with Embedded AI Tools  
+- SOLIDWORKS: AI Product Design with Embedded AI Tools
   https://www.solidworks.com/product/solidworks-design/ai-overview
-- SOLIDWORKS: AI CAD Tools for Workflow Optimization  
+- SOLIDWORKS: AI CAD Tools for Workflow Optimization
   https://www.solidworks.com/solution/solidworks-ai-cad-tools-workflow-optimization
-- Autodesk Fusion: Design AI solutions  
+- Autodesk Fusion: Design AI solutions
   https://www.autodesk.com/solutions/generative-design-ai-software
-- Autodesk AutoCAD Mechanical Toolset  
+- Autodesk AutoCAD Mechanical Toolset
   https://www.autodesk.com/products/autocad/included-toolsets/autocad-mechanical
-- Siemens Solid Edge 2D Drafting  
+- Siemens Solid Edge 2D Drafting
   https://resources.sw.siemens.com/en-US/download-free-2d-cad-software/
-- CoLab Software: Best AI Tools & Agents for Mechanical Engineers 2026  
+- CoLab Software: Best AI Tools & Agents for Mechanical Engineers 2026
   https://www.colabsoftware.com/ai-tools-for-mechanical-engineers-guide
-- CoLab Software: Design for Manufacturability Reviews  
+- CoLab Software: Design for Manufacturability Reviews
   https://www.colabsoftware.com/use-case/design-for-manufacturability
-- DraftAid: AI CAD Drawing Automation  
+- DraftAid: AI CAD Drawing Automation
   https://draftaid.io/
-- Zoo.dev: Zookeeper and Text-to-CAD  
+- Zoo.dev: Zookeeper and Text-to-CAD
   https://zoo.dev/zookeeper
-- Leo AI: Engineering-grade AI for mechanical engineers  
+- Leo AI: Engineering-grade AI for mechanical engineers
   https://www.getleo.ai/
-- 国家标准全文公开: GB/T 4458.4-2003 机械制图 尺寸注法  
+- National Standards Full-Text Disclosure: GB/T 4458.4-2003, Mechanical drawings — Dimensioning
   https://openstd.samr.gov.cn/bzgk/std/newGbInfo?hcno=08588A5F3FE19F16B9EE8D5D87E064D5
-- 国家标准全文公开: GB/T 4457.4-2002 机械制图 图样画法 图线  
+- National Standards Full-Text Disclosure: GB/T 4457.4-2002, Mechanical drawings — General principles of presentation — Lines
   https://openstd.samr.gov.cn/bzgk/std/newGbInfo?hcno=5B789BF5B537CF6F89B5D743DA71D883
-- 国家标准全文公开: GB/T 10609.1-2008 技术制图 标题栏  
+- National Standards Full-Text Disclosure: GB/T 10609.1-2008, Technical drawings — Title blocks
   https://openstd.samr.gov.cn/bzgk/std/newGbInfo?hcno=0F8577CB9AB82D5819048A87920CABAB
-- JLC3DP: 3D Printing Design Guideline  
+- JLC3DP: 3D Printing Design Guideline
   https://jlc3dp.com/help/article/3d-printing-design-guideline
-- Prusa Knowledge Base: Modeling with 3D printing in mind  
+- Prusa Knowledge Base: Modeling with 3D printing in mind
   https://help.prusa3d.com/article/modeling-with-3d-printing-in-mind_164135
-- Formlabs: Minimum Wall Thickness for 3D Printing  
+- Formlabs: Minimum Wall Thickness for 3D Printing
   https://formlabs.com/blog/minimum-wall-thickness-3d-printing/

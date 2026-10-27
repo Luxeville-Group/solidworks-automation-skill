@@ -59,9 +59,9 @@ async function main() {
   const initial = await page.evaluate(() => ({
     size: [innerWidth, innerHeight],
     overflowX: document.documentElement.scrollWidth > document.documentElement.clientWidth,
-    connected: document.body.innerText.includes("Codex 已连接"),
-    solidworks: document.body.innerText.includes("SolidWorks 可用"),
-    autocad: document.body.innerText.includes("AutoCAD 可用"),
+    connected: document.body.innerText.includes("Codex Bağlandı"),
+    solidworks: document.body.innerText.includes("SolidWorks Kullanılabilir"),
+    autocad: document.body.innerText.includes("AutoCAD Kullanılabilir"),
   }));
   const originalSettingsRaw = await page.evaluate(() => localStorage.getItem("cad-studio.settings.v1"));
   const originalChatRaw = await page.evaluate(() => localStorage.getItem("cad-studio.agent-chat.v1"));
@@ -69,9 +69,9 @@ async function main() {
 
   const originalProjectName = process.env.CAD_STUDIO_E2E_RESTORE_PROJECT
     || await page.locator(".project-name-row strong").innerText();
-  const testProjectName = originalProjectName === "桌面交互回归项目" ? "CAD Studio 交互回归" : "桌面交互回归项目";
-  await page.getByRole("button", { name: "修改项目名称", exact: true }).click();
-  const projectNameInput = page.getByRole("textbox", { name: "项目名称", exact: true });
+  const testProjectName = originalProjectName === "Masaüstü etkileşim regresyon projesi" ? "CAD Studio etkileşim regresyonu" : "Masaüstü etkileşim regresyon projesi";
+  await page.getByRole("button", { name: "Proje adını değiştir", exact: true }).click();
+  const projectNameInput = page.getByRole("textbox", { name: "Proje adı", exact: true });
   await projectNameInput.fill(testProjectName);
   await projectNameInput.press("Enter");
   await waitUntil(
@@ -79,7 +79,7 @@ async function main() {
     "project name persisted",
   );
 
-  await queuePanel.getByRole("button", { name: "启动", exact: true }).click();
+  await queuePanel.getByRole("button", { name: "Başlat", exact: true }).click();
   let lastWorkerStatus = null;
   let lastWorkerError = null;
   let started;
@@ -109,13 +109,13 @@ async function main() {
   }
 
   const firstWorker = started;
-  await queuePanel.getByRole("button", { name: "重启执行器", exact: true }).click();
+  await queuePanel.getByRole("button", { name: "Yürütücüyü yeniden başlat", exact: true }).click();
   const restarted = await waitUntil(async () => {
     const status = await invoke("worker_status");
     return status.running && status.pid !== firstWorker.pid ? status : false;
   }, "worker restart");
 
-  await queuePanel.getByRole("button", { name: "停止", exact: true }).click();
+  await queuePanel.getByRole("button", { name: "Durdur", exact: true }).click();
   await waitUntil(async () => !(await invoke("worker_status")).running, "worker stop before retry");
   const retryFile = "e2e-retry.json";
   fs.writeFileSync(
@@ -126,8 +126,8 @@ async function main() {
         id: "e2e-retry",
         runId: "run-e2e-retry-old",
         kind: "codex_task",
-        title: "失败任务重试测试",
-        detail: "验证失败任务重新排队",
+        title: "Başarısız görev yeniden deneme testi",
+        detail: "Başarısız görevin yeniden kuyruğa alınmasını doğrula",
         status: "failed",
         progress: 100,
         createdAt: new Date().toISOString(),
@@ -135,20 +135,20 @@ async function main() {
         attempt: 1,
         approvedAt: "unix:1",
         approvedBy: "local-user",
-        approvedPolicyReasons: ["已批准"],
-        error: "Windows 拒绝访问",
-        result: { message: "旧结果" },
+        approvedPolicyReasons: ["Onaylandı"],
+        error: "Windows Erişim reddedildi",
+        result: { message: "Önceki sonuç" },
         artifacts: [{ path: "old.step" }],
         reviewGate: { status: "fail" },
-        workerLog: [{ status: "failed", message: "旧错误" }],
+        workerLog: [{ status: "failed", message: "ÖncekiHata" }],
       },
       null,
       2,
     ),
   );
   await page.waitForTimeout(1_700);
-  const retryCard = queuePanel.locator(".queue-job").filter({ hasText: "失败任务重试测试" }).first();
-  await retryCard.getByRole("button", { name: "重新执行", exact: true }).click();
+  const retryCard = queuePanel.locator(".queue-job").filter({ hasText: "Başarısız görev yeniden deneme testi" }).first();
+  await retryCard.getByRole("button", { name: "Yeniden yürüt", exact: true }).click();
   const retried = await waitUntil(() => {
     const value = readJob(retryFile);
     return value.status === "queued" ? value : false;
@@ -188,8 +188,8 @@ async function main() {
         id: "e2e-recovery",
         runId: "run-e2e-recovery",
         kind: "codex_task",
-        title: "停止恢复测试",
-        detail: "验证 Worker 停止恢复",
+        title: "Durdurma kurtarma testi",
+        detail: "Worker durdurma kurtarmasını doğrula",
         status: "running",
         progress: 42,
         createdAt: new Date().toISOString(),
@@ -211,8 +211,8 @@ async function main() {
         id: "e2e-recovery-cancel",
         runId: "run-e2e-recovery-cancel",
         kind: "codex_task",
-        title: "停止时取消测试",
-        detail: "验证独立取消标记不会在 Worker 停止时丢失",
+        title: "Durdurma sırasında iptal testi",
+        detail: "Worker dururken bağımsız iptal işaretinin korunduğunu doğrula",
         status: "running",
         progress: 42,
         createdAt: new Date().toISOString(),
@@ -227,7 +227,7 @@ async function main() {
   );
   fs.writeFileSync(path.join(queue, `${cancelledRecoveryFile}.cancel`), "cancel\n");
   await page.waitForTimeout(1_700);
-  await queuePanel.getByRole("button", { name: "停止", exact: true }).click();
+  await queuePanel.getByRole("button", { name: "Durdur", exact: true }).click();
   await waitUntil(() => readJob(recoveryFile).status === "queued", "running job requeued");
   await waitUntil(() => readJob(cancelledRecoveryFile).status === "cancelled", "cancel marker preserved during stop");
   const recovered = readJob(recoveryFile);
@@ -247,32 +247,32 @@ async function main() {
   }
   await page.waitForTimeout(1_600);
 
-  await page.getByRole("button", { name: "建模", exact: true }).click();
+  await page.getByRole("button", { name: "Modelleme", exact: true }).click();
   const beforeTemplateFiles = jobFiles();
-  await page.locator(".capability-card").filter({ hasText: "通用零件" }).first().click();
+  await page.locator(".capability-card").filter({ hasText: "Genel parça" }).first().click();
   await page.waitForTimeout(800);
   const afterTemplateFiles = jobFiles();
   if (afterTemplateFiles.length !== beforeTemplateFiles.length) {
     throw new Error(`template click created a queue job: ${JSON.stringify(afterTemplateFiles)}`);
   }
-  const selectedTemplate = await page.locator(".capability-card.selected").filter({ hasText: "通用零件" }).first().innerText();
+  const selectedTemplate = await page.locator(".capability-card.selected").filter({ hasText: "Genel parça" }).first().innerText();
   await page.locator(".bridge-run").click();
   const createdFile = await waitUntil(
     () => jobFiles().find((file) => !beforeTemplateFiles.includes(file)),
     "confirmed template job file",
   );
   await waitUntil(() => readJob(createdFile).status === "approval_required", "policy approval");
-  await queuePanel.getByRole("button", { name: "停止", exact: true }).click();
+  await queuePanel.getByRole("button", { name: "Durdur", exact: true }).click();
   const createdId = readJob(createdFile).id;
-  const createdCard = queuePanel.locator(".queue-job").filter({ hasText: "通用零件" }).first();
-  await createdCard.getByRole("button", { name: "批准", exact: true }).click();
+  const createdCard = queuePanel.locator(".queue-job").filter({ hasText: "Genel parça" }).first();
+  await createdCard.getByRole("button", { name: "Onayla", exact: true }).click();
   await waitUntil(() => readJob(createdFile).status === "queued", "approved queued");
-  await createdCard.getByRole("button", { name: "取消", exact: true }).click();
+  await createdCard.getByRole("button", { name: "İptal", exact: true }).click();
   await waitUntil(() => readJob(createdFile).status === "cancelled", "queued cancelled");
   const createdStatusBeforeDelete = readJob(createdFile).status;
-  const projectMenuTrigger = page.getByRole("button", { name: /切换项目，当前为/ });
+  const projectMenuTrigger = page.getByRole("button", { name: /Proje değiştir; mevcut: / });
   if (await projectMenuTrigger.getAttribute("aria-expanded") === "true") await projectMenuTrigger.click();
-  const sidebarCreatedItem = page.locator(".project-sequence-item").filter({ hasText: "通用零件" }).first();
+  const sidebarCreatedItem = page.locator(".project-sequence-item").filter({ hasText: "Genel parça" }).first();
   await sidebarCreatedItem.locator(".project-sequence-delete").click();
   await sidebarCreatedItem.locator(".project-sequence-delete.confirm").click();
   await waitUntil(() => !fs.existsSync(path.join(queue, createdFile)), "cancelled job deleted");
@@ -288,8 +288,8 @@ async function main() {
         id: "e2e-review",
         runId: "run-e2e-review",
         kind: "codex_task",
-        title: "人工复核测试",
-        detail: "验证复核证据闭环",
+        title: "İnsan incelemesi testi",
+        detail: "İnceleme kanıtı sürecini doğrula",
         status: "review_required",
         progress: 100,
         createdAt: new Date().toISOString(),
@@ -307,7 +307,7 @@ async function main() {
         ],
         reviewGate: {
           status: "warning",
-          checks: [{ id: "native-open", status: "warning", severity: "P1", message: "需 CAD 原生打开复核" }],
+          checks: [{ id: "native-open", status: "warning", severity: "P1", message: "Yerel CAD uygulamasında açıp incelemek gerekli" }],
         },
       },
       null,
@@ -315,25 +315,25 @@ async function main() {
     ),
   );
   await page.waitForTimeout(1_900);
-  const sidebarReviewItem = page.locator(".project-sequence-item").filter({ hasText: "人工复核测试" }).first();
+  const sidebarReviewItem = page.locator(".project-sequence-item").filter({ hasText: "İnsan incelemesi testi" }).first();
   const sidebarReviewText = await sidebarReviewItem.innerText();
-  if (!sidebarReviewText.includes("已完成 · 100%") || sidebarReviewText.includes("待复核")) {
+  if (!sidebarReviewText.includes("Tamamlandı · 100%") || sidebarReviewText.includes("İnceleme bekliyor")) {
     throw new Error(`sidebar completion label is incorrect: ${sidebarReviewText}`);
   }
   let manualReviewBypassRejected = false;
   try {
     await invoke("approve_review_job", {
       id: "e2e-review",
-      reason: "尝试使用任意检查项绕过人工复核后端校验。",
+      reason: "Rastgele kontrol öğeleriyle insan incelemesi backend doğrulamasını atlama denemesi.",
       checks: ["one", "two", "three"],
     });
   } catch (error) {
-    manualReviewBypassRejected = String(error).includes("全部人工检查项");
+    manualReviewBypassRejected = String(error).includes("tüm insan kontrol öğeleri");
   }
   if (!manualReviewBypassRejected || readJob(reviewFile).status !== "review_required") {
     throw new Error("manual review backend accepted an incomplete checklist");
   }
-  await page.getByRole("button", { name: /人工复核测试/ }).first().click();
+  await page.getByRole("button", { name: /İnsan incelemesi testi/ }).first().click();
   const form = page.locator(".manual-review-form");
   await form.waitFor({ state: "visible" });
   for (const checkbox of await form.locator('input[type="checkbox"]').all()) await checkbox.check();
@@ -347,8 +347,8 @@ async function main() {
   );
   await form
     .locator("textarea")
-    .fill("已在 SolidWorks 原生打开，核对关键尺寸、真实孔槽和 STEP 文件版本，未发现异常。");
-  const approveReviewButton = form.getByRole("button", { name: "通过复核", exact: true });
+    .fill("SOLIDWORKS içinde açıldı; kritik ölçüler, gerçek delik/slot özellikleri ve STEP dosya sürümü denetlendi; sorun bulunamadı.");
+  const approveReviewButton = form.getByRole("button", { name: "İnceleme geçti", exact: true });
   await waitUntil(() => approveReviewButton.isEnabled(), "manual review action enabled");
   await approveReviewButton.click();
   const reviewed = await waitUntil(
@@ -363,11 +363,11 @@ async function main() {
   try {
     await invoke("save_queue_job", { job: { ...reviewed, status: "queued" } });
   } catch (error) {
-    duplicateRejected = String(error).includes("任务已存在");
+    duplicateRejected = String(error).includes("Job already exists");
   }
 
   const tabResults = {};
-  for (const label of ["总览", "建模", "特征", "图纸", "复核", "交付", "设置", "帮助"]) {
+  for (const label of ["Genel bakış", "Modelleme", "Özellik (feature)", "Çizim", "İncele", "Teslim", "Ayarlar", "Yardım"]) {
     await page.getByRole("button", { name: label, exact: true }).click();
     await page.waitForTimeout(120);
     tabResults[label] = await page.evaluate(() => ({
@@ -375,41 +375,41 @@ async function main() {
       heading: document.querySelector(".project-title strong")?.textContent,
     }));
   }
-  await page.getByRole("button", { name: "总览", exact: true }).click();
+  await page.getByRole("button", { name: "Genel bakış", exact: true }).click();
 
-  const conversationSelect = page.getByLabel("切换 AI 对话", { exact: true });
-  await page.getByLabel("选择 AI 公司", { exact: true }).selectOption("codex");
-  await page.getByRole("button", { name: "新建 AI 对话", exact: true }).click();
+  const conversationSelect = page.getByLabel("Değiştir AI Konuşma", { exact: true });
+  await page.getByLabel("Seç AI Sağlayıcı", { exact: true }).selectOption("codex");
+  await page.getByRole("button", { name: "Yeni AI Konuşma", exact: true }).click();
   const firstConversationId = await conversationSelect.inputValue();
-  await page.getByLabel("选择对话模型", { exact: true }).selectOption("gpt-5.6-sol");
-  await page.getByRole("button", { name: "新建 AI 对话", exact: true }).click();
+  await page.getByLabel("Konuşma modelini seç", { exact: true }).selectOption("gpt-5.6-sol");
+  await page.getByRole("button", { name: "Yeni AI Konuşma", exact: true }).click();
   const secondConversationId = await conversationSelect.inputValue();
-  await page.getByLabel("选择对话模型", { exact: true }).selectOption("gpt-5.6-terra");
+  await page.getByLabel("Konuşma modelini seç", { exact: true }).selectOption("gpt-5.6-terra");
   await conversationSelect.selectOption(firstConversationId);
   const conversationIsolation = {
     separateIds: firstConversationId !== secondConversationId,
-    firstModelRestored: await page.getByLabel("选择对话模型", { exact: true }).inputValue() === "gpt-5.6-sol",
-    providerLabel: await page.getByLabel("选择 AI 公司", { exact: true }).locator("option:checked").innerText(),
+    firstModelRestored: await page.getByLabel("Konuşma modelini seç", { exact: true }).inputValue() === "gpt-5.6-sol",
+    providerLabel: await page.getByLabel("Seç AI Sağlayıcı", { exact: true }).locator("option:checked").innerText(),
   };
 
-  await page.getByRole("button", { name: new RegExp(`切换项目，当前为 ${testProjectName}`) }).click();
-  await page.getByRole("menuitem", { name: "新建项目", exact: true }).click();
-  await page.getByRole("textbox", { name: "项目名称", exact: true }).fill("项目切换回归");
-  await page.getByRole("textbox", { name: "项目名称", exact: true }).press("Enter");
+  await page.getByRole("button", { name: new RegExp(`Proje değiştir; mevcut:  ${testProjectName}`) }).click();
+  await page.getByRole("menuitem", { name: "Yeni proje", exact: true }).click();
+  await page.getByRole("textbox", { name: "Proje adı", exact: true }).fill("Proje değiştirme regresyonu");
+  await page.getByRole("textbox", { name: "Proje adı", exact: true }).press("Enter");
   await waitUntil(() => page.locator(".project-sequence-item").count().then((count) => count === 0), "new project starts empty");
-  await page.getByRole("button", { name: /切换项目，当前为 项目切换回归/ }).click();
+  await page.getByRole("button", { name: /Proje değiştir; mevcut:  Proje değiştirme regresyonu/ }).click();
   await page.getByRole("menuitem", { name: new RegExp(testProjectName) }).click();
-  await page.locator(".project-sequence-item").filter({ hasText: "人工复核测试" }).first().waitFor({ state: "visible" });
-  await page.getByRole("button", { name: new RegExp(`切换项目，当前为 ${testProjectName}`) }).click();
-  await page.getByRole("menuitem", { name: /项目切换回归/ }).click();
+  await page.locator(".project-sequence-item").filter({ hasText: "İnsan incelemesi testi" }).first().waitFor({ state: "visible" });
+  await page.getByRole("button", { name: new RegExp(`Proje değiştir; mevcut:  ${testProjectName}`) }).click();
+  await page.getByRole("menuitem", { name: /Proje değiştirme regresyonu/ }).click();
   await waitUntil(() => page.locator(".project-sequence-item").count().then((count) => count === 0), "switched project remains empty");
-  await page.getByRole("button", { name: /切换项目，当前为 项目切换回归/ }).click();
-  await page.getByRole("button", { name: "删除项目 项目切换回归", exact: true }).click();
-  await page.getByRole("button", { name: "确认删除项目 项目切换回归", exact: true }).click();
-  await page.getByRole("button", { name: new RegExp(`切换项目，当前为 ${testProjectName}`) }).waitFor({ state: "visible" });
-  await page.locator(".project-sequence-item").filter({ hasText: "人工复核测试" }).first().waitFor({ state: "visible" });
-  await page.getByRole("button", { name: new RegExp(`切换项目，当前为 ${testProjectName}`) }).click();
-  const deletedProjectAbsent = await page.getByRole("menuitem", { name: /项目切换回归/ }).count() === 0;
+  await page.getByRole("button", { name: /Proje değiştir; mevcut:  Proje değiştirme regresyonu/ }).click();
+  await page.getByRole("button", { name: "Projeyi sil Proje değiştirme regresyonu", exact: true }).click();
+  await page.getByRole("button", { name: "Proje silmeyi onayla Proje değiştirme regresyonu", exact: true }).click();
+  await page.getByRole("button", { name: new RegExp(`Proje değiştir; mevcut:  ${testProjectName}`) }).waitFor({ state: "visible" });
+  await page.locator(".project-sequence-item").filter({ hasText: "İnsan incelemesi testi" }).first().waitFor({ state: "visible" });
+  await page.getByRole("button", { name: new RegExp(`Proje değiştir; mevcut:  ${testProjectName}`) }).click();
+  const deletedProjectAbsent = await page.getByRole("menuitem", { name: /Proje değiştirme regresyonu/ }).count() === 0;
   await page.keyboard.press("Escape");
   const projectSwitch = {
     newProjectEmpty: true,
@@ -419,9 +419,9 @@ async function main() {
   await page.screenshot({ path: path.join(repo, "ai_team", "ui_review", "final-e2e-desktop.png") });
 
   const verifiedProjectName = await page.locator(".project-name-row strong").innerText();
-  await page.getByRole("button", { name: "修改项目名称", exact: true }).click();
-  await page.getByRole("textbox", { name: "项目名称", exact: true }).fill(originalProjectName);
-  await page.getByRole("textbox", { name: "项目名称", exact: true }).press("Enter");
+  await page.getByRole("button", { name: "Proje adını değiştir", exact: true }).click();
+  await page.getByRole("textbox", { name: "Proje adı", exact: true }).fill(originalProjectName);
+  await page.getByRole("textbox", { name: "Proje adı", exact: true }).press("Enter");
   await waitUntil(
     () => page.evaluate((expected) => JSON.parse(localStorage.getItem("cad-studio.settings.v1") || "{}").projectName === expected, originalProjectName),
     "project name restored",
@@ -467,7 +467,7 @@ async function main() {
     rendered: wallpaperBackground !== "none",
     kind: importedWallpaper.kind,
   };
-  conversationIsolation.modelAfterReload = await page.getByLabel("选择对话模型", { exact: true }).inputValue() === "gpt-5.6-sol";
+  conversationIsolation.modelAfterReload = await page.getByLabel("Konuşma modelini seç", { exact: true }).inputValue() === "gpt-5.6-sol";
 
   const result = {
     initial,
@@ -498,7 +498,7 @@ async function main() {
     wallpaper,
     settingsRestored: false,
     template: {
-      selected: selectedTemplate.includes("已载入配置"),
+      selected: selectedTemplate.includes("Ayarlar yüklendi"),
       createdOnSelect: afterTemplateFiles.length !== beforeTemplateFiles.length,
       createdAfterConfirm: Boolean(createdFile),
     },

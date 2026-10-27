@@ -1,49 +1,49 @@
-# 高级功能参考
+# Advanced Features Reference
 
-## 目录
+## Contents
 
-- [自定义属性](#自定义属性)
-- [设计表与配置](#设计表与配置)
-- [钣金设计](#钣金设计)
-- [焊件设计](#焊件设计)
-- [曲面建模](#曲面建模)
-- [仿真/FEA](#仿真fea)
+- [Custom properties](#custom-properties)
+- [Design tables and configurations](#design-tables-and-configurations)
+- [Sheet metal](#sheet-metal)
+- [Weldments](#weldments)
+- [Surface modeling](#surface-modeling)
+- [Simulation/FEA](#simulationfea)
 
 ---
 
-## 自定义属性
+## Custom properties
 
 ```python
-# 获取属性管理器
-# 空字符串 = 文件级属性，配置名 = 配置特定属性
+# Get the property manager.
+# Empty string = file-level properties; configuration name = configuration-specific properties.
 props = model.Extension.CustomPropertyManager("")
 
-# 读取属性
+# Read a property.
 val = ""
 resolved = ""
 was_resolved = False
 is_linked = False
 result = props.Get6("Description", False, val, resolved, was_resolved, is_linked)
-# resolved 包含解析后的值
+# resolved contains the evaluated value.
 
-# 写入/更新属性
-# 类型: 30=文本, 2=数字, 11=Yes/No, 64=日期
-props.Add3("Description", 30, "主轴零件 Rev A", 1)  # 1=覆盖
+# Write/update a property.
+# Types: 30=text, 2=number, 11=Yes/No, 64=date.
+props.Add3("Description", 30, "Main shaft Rev A", 1)  # 1=overwrite
 props.Add3("Material", 30, "Steel 1045", 1)
 props.Add3("Weight", 2, "2.5", 1)
 props.Add3("PartNumber", 30, "PN-001-001", 1)
 
-# 删除属性
+# Delete a property.
 props.Delete2("OldProperty")
 
-# 获取所有属性名称
+# Get all property names.
 count = props.Count
 names = props.GetNames()
 ```
 
-## 设计表与配置
+## Design tables and configurations
 
-### 配置管理
+### Configuration management
 
 ```python
 from sw_document_data import (
@@ -53,55 +53,55 @@ from sw_document_data import (
     update_dimension_mm,
 )
 
-# 使用官方 AddConfiguration3 创建并激活；默认同名配置幂等复用。
+# Create and activate using the official AddConfiguration3; reuse an existing name idempotently by default.
 created = create_configuration(
     model,
-    "加工",
-    comment="CNC 工况",
+    "Machining",
+    comment="CNC operating condition",
     alternate_name="MACHINED",
 )
 
-# 使用官方 ShowConfiguration2，并以活动配置名回读而非单独 COM 返回值判定。
-activated = activate_configuration(model, "加工")
+# Use official ShowConfiguration2; verify the active configuration name rather than the COM return value alone.
+activated = activate_configuration(model, "Machining")
 
-# 用显式 VT_ARRAY|VT_BSTR 写入指定配置，API 内部单位自动换算为米。
+# Use explicit VT_ARRAY|VT_BSTR for the target configuration; lengths are converted to the API's internal meters.
 dimension = update_dimension_mm(
     model,
     "D1@Boss-Extrude1",
     50.0,
     configuration_mode="specific",
-    configuration_names=["加工"],
+    configuration_names=["Machining"],
 )
 
 evidence = inspect_configurations(model)
 ```
 
-SW2026 真机已验证配置创建、切换、配置级尺寸/属性以及保存重开回读。`AddConfiguration3`
-会自动激活新配置，因此重复调用 `ShowConfiguration2` 可能返回 `False`；执行器会记录原始
-返回值，但以 `ConfigurationManager.ActiveConfiguration.Name` 回读和重建结果作为成功证据。
-设计表、派生配置、显示状态和大规模抑制矩阵仍是 `pilot` 范围外能力。
+Configuration creation, switching, configuration-level dimensions/properties and save/reopen readback have been validated on SW2026. `AddConfiguration3`
+automatically activates the new configuration, so a repeated `ShowConfiguration2` call may return `False`. The executor records the raw
+return value but uses `ConfigurationManager.ActiveConfiguration.Name` readback and rebuild results as success evidence.
+Design tables, derived configurations, display states and large suppression matrices remain outside the validated `pilot` scope.
 
-### 设计表
+### Design tables
 
 ```python
-# 插入设计表（从 Excel）
+# Insert a design table from Excel.
 design_table = model.InsertFamilyTableOpen(excelFilePath)
 
-# 编辑完成后关闭
+# Close after editing.
 model.CloseFamilyTable()
 
-# 更新设计表
+# Update the design table.
 model.InsertFamilyTableEdit()
 ```
 
-## 钣金设计
+## Sheet metal
 
-### 基本操作
+### Basic operations
 
 ```python
 from sw_sheet_metal import BaseFlangeSpec, create_base_flange
 
-# 先创建并退出开放或闭合草图，再使用现代 FeatureData API。
+# Create and exit an open or closed sketch before using the modern FeatureData API.
 feature = create_base_flange(
     model,
     sketch_name,
@@ -114,35 +114,35 @@ feature = create_base_flange(
 )
 ```
 
-该封装使用 `CreateDefinition(swFmBaseFlange)`、`IBaseFlangeFeatureData.Initialize`
-和 `CreateFeature`，不会猜测已废弃长参数接口。SW2026 SP01.1 已验证开放 U 型轮廓、
-两道真实折弯及保存重开；边线法兰、斜接法兰和放样折弯仍按 `pilot` 门禁处理。
+This wrapper uses `CreateDefinition(swFmBaseFlange)`, `IBaseFlangeFeatureData.Initialize`
+and `CreateFeature` rather than guessing deprecated long-argument interfaces. SW2026 SP01.1 validation covers an open U-shaped profile,
+two real bends and save/reopen; edge flanges, miter flanges and lofted bends remain subject to `pilot` gates.
 
-### 展开图导出
+### Flat-pattern export
 
 ```python
 from sw_export import export_flat_pattern_dxf
 
-# 零件必须先保存；选项位掩码默认为“展开几何(1) + 折弯线(4)”。
+# Save the part first; the default option mask is flat-pattern geometry (1) + bend lines (4).
 export_flat_pattern_dxf(model, dxfPath, include_bend_lines=True)
 ```
 
-`ExportToDWG2` 的第五个参数是 12 个双精度数值组成的对齐数组，第八个参数才是
-钣金选项位掩码；不要把多个布尔值误当作“轮廓/折弯线/草图/隐藏边线”。
+The fifth argument of `ExportToDWG2` is an alignment array of 12 doubles; the eighth argument is
+the sheet-metal option mask. Do not mistake multiple Boolean arguments for outline/bend-line/sketch/hidden-edge flags.
 
-### 钣金参数
+### Sheet-metal parameters
 
 ```python
-# 获取钣金特征数据
+# Get sheet-metal feature data.
 feat = model.FeatureByName("Sheet-Metal1")
 sheet_metal_data = feat.GetDefinition()
-thickness = sheet_metal_data.Thickness    # 板厚
-bend_radius = sheet_metal_data.BendRadius # 折弯半径
+thickness = sheet_metal_data.Thickness    # Sheet thickness
+bend_radius = sheet_metal_data.BendRadius # Bend radius
 ```
 
-## 焊件设计
+## Weldments
 
-### 切割清单
+### Cut list
 
 ```python
 from sw_weldment import (
@@ -165,17 +165,17 @@ evidence = weldment_evidence(model)
 export_cut_list_csv(evidence, csv_path)
 ```
 
-SW2026 的 `InsertWeldmentCutList2` 在 Python IDispatch 下可能被投影成值为
-`None` 的伪属性；封装会按本机类型库确认的 DISPID 174 以
-`DISPATCH_METHOD` 调用。矩形框架回归会按实体包围盒最长边分组，生成两个
-真实 `CutListFolder`，而不是把不同长度构件错误合并。
+In SW2026, Python IDispatch may expose `InsertWeldmentCutList2` as a pseudo-property with value
+`None`. The wrapper invokes it with `DISPATCH_METHOD` using DISPID 174,
+confirmed by the local type library. The rectangular-frame regression groups bodies by their longest bounding-box dimension and creates two
+actual `CutListFolder` entries instead of incorrectly merging members of different lengths.
 
-### 结构构件
+### Structural members
 
 ```python
 from sw_weldment import create_weldment_profile
 
-# 型材文档中先完成并退出闭合轮廓草图；可写入型材/BOM 来源属性。
+# Complete and exit the closed profile sketch in the profile document; profile/BOM provenance properties may be added.
 profile = create_weldment_profile(
     profile_model,
     profile_sketch,
@@ -184,77 +184,77 @@ profile = create_weldment_profile(
 )
 ```
 
-`create_structural_member()` 内部使用 `CreateStructuralMemberGroup` 与最新
-`InsertStructuralWeldment5`，路径段和组均作为 `VT_ARRAY | VT_DISPATCH`
-安全数组封送；调用者不需要猜长参数或依赖当前选择集。
+`create_structural_member()` uses `CreateStructuralMemberGroup` and the latest
+`InsertStructuralWeldment5`, marshaling both path segments and groups as `VT_ARRAY | VT_DISPATCH`
+SAFEARRAYs. Callers need not guess long argument lists or depend on the current selection set.
 
-## 曲面建模
+## Surface modeling
 
 ```python
-# 拉伸曲面
+# Extruded surface
 feature_mgr.InsertExtrudedSurface(depth, flip, dir, t1, t2, d1, d2)
 
-# 旋转曲面
+# Revolved surface
 feature_mgr.InsertRevolvedRefSurface(...)
 
-# 放样曲面
+# Lofted surface
 feature_mgr.InsertLoftRefSurface2(...)
 
-# 扫描曲面
+# Swept surface
 feature_mgr.InsertSweepRefSurface(...)
 
-# 平面区域
+# Planar region
 feature_mgr.InsertPlanarRefSurface()
 
-# 修剪曲面
+# Trim surface
 feature_mgr.InsertTrimSurface2(...)
 
-# 缝合曲面
+# Knit surfaces
 feature_mgr.InsertSewRefSurface(True, False, 0.001)
 
-# 曲面加厚为实体
+# Thicken a surface into a solid
 feature_mgr.InsertThickenSheet(thickness, False, True)
 ```
 
-## 仿真/FEA
+## Simulation/FEA
 
-> 需要安装 SolidWorks Simulation 插件
+> Requires the SolidWorks Simulation add-in.
 
 ```python
-# 获取 Simulation 插件
+# Get the Simulation add-in.
 cos_works = sw.GetAddInObject("SldWorks.Simulation")
 if not cos_works:
-    print("Simulation 插件未安装或未激活")
+    print("Simulation add-in is not installed or activated")
 
 study_mgr = cos_works.StudyManager
 
-# 创建静态分析算例
+# Create a static study.
 study = study_mgr.CreateStudy(
     model,
     "StaticStudy1",
     0  # 0=Static, 1=Frequency, 2=Buckling, 3=Thermal, 5=Fatigue
 )
 
-# 添加材料（通过 SolidBody）
-# 添加约束（Fixed, Roller/Slider, Prescribed）
-# 添加载荷（Force, Pressure, Gravity, Torque）
+# Add material through SolidBody.
+# Add restraints (Fixed, Roller/Slider, Prescribed).
+# Add loads (Force, Pressure, Gravity, Torque).
 
-# 运行分析
+# Run the analysis.
 study.RunAnalysis()
 
-# 获取结果
+# Get results.
 results = study.Results
-# 应力、位移、安全系数等
+# Stress, displacement, factor of safety, etc.
 ```
 
-### 算例类型
+### Study types
 
-| 值 | 类型 | 说明 |
+| Value | Type | Description |
 |---|---|---|
-| 0 | Static | 静态分析 |
-| 1 | Frequency | 频率分析 |
-| 2 | Buckling | 屈曲分析 |
-| 3 | Thermal | 热分析 |
-| 4 | Drop Test | 跌落测试 |
-| 5 | Fatigue | 疲劳分析 |
-| 6 | Nonlinear | 非线性分析 |
+| 0 | Static | Static analysis |
+| 1 | Frequency | Frequency analysis |
+| 2 | Buckling | Buckling analysis |
+| 3 | Thermal | Thermal analysis |
+| 4 | Drop Test | Drop test |
+| 5 | Fatigue | Fatigue analysis |
+| 6 | Nonlinear | Nonlinear analysis |

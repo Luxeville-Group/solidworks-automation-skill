@@ -1,4 +1,4 @@
-"""工程图制造交付审视器。"""
+"""Manufacturing delivery reviewer for engineering drawings."""
 from __future__ import annotations
 
 import copy
@@ -23,12 +23,12 @@ def _check(code: str, status: str, message: str, **extra: Any) -> dict[str, Any]
 
 
 def _normalise_token(value: Any) -> str:
-    """@brief 规范化用于精确比对的短文本，但不做子串匹配。"""
+    """Normalize short text for exact comparison without substring matching."""
     return re.sub(r"\s+", "", str(value or "")).casefold()
 
 
 def _dimension_identity(dimension: Mapping[str, Any]) -> str:
-    """@brief 提取尺寸的稳定标识；D1 与 D10 必须保持不同。"""
+    """Extract a stable dimension identifier, keeping D1 distinct from D10."""
     explicit = dimension.get("id") or dimension.get("dimension_id")
     if explicit:
         return str(explicit).strip()
@@ -36,7 +36,7 @@ def _dimension_identity(dimension: Mapping[str, Any]) -> str:
 
 
 def _dimension_view(dimension: Mapping[str, Any]) -> str:
-    """@brief 优先使用结构化视图名，兼容 SolidWorks 的 ID@View 名称。"""
+    """Prefer structured view names while accepting SolidWorks ID@View names."""
     explicit = str(dimension.get("semantic_view") or dimension.get("view") or "").strip()
     if explicit:
         return explicit.lstrip("*")
@@ -45,12 +45,12 @@ def _dimension_view(dimension: Mapping[str, Any]) -> str:
 
 
 def _dimension_text(dimension: Mapping[str, Any]) -> str:
-    """@brief 最终 PDF 回读文字优先于 COM 的空字符串。"""
+    """Prefer text read back from the final PDF over empty COM strings."""
     return str(dimension.get("rendered_text") or dimension.get("text") or "").strip()
 
 
 def _extract_numbers(value: Any) -> list[float]:
-    """@brief 从标注文字中提取有限数值，用于毫米值精确核验。"""
+    """Extract finite annotation numbers for exact millimeter-value checks."""
     result = []
     for token in re.findall(r"[-+]?\d+(?:\.\d+)?", str(value or "")):
         try:
@@ -63,7 +63,7 @@ def _extract_numbers(value: Any) -> list[float]:
 
 
 def _dimension_mismatches(requirement: Mapping[str, Any], dimension: Mapping[str, Any]) -> list[str]:
-    """@brief 返回单项尺寸证据与规格之间的全部语义差异。"""
+    """Return all semantic differences between one dimension and its specification."""
     mismatches = []
     expected_view = _normalise_token(str(requirement.get("view") or "").lstrip("*"))
     actual_view = _normalise_token(_dimension_view(dimension))
@@ -103,7 +103,7 @@ def _dimension_mismatches(requirement: Mapping[str, Any], dimension: Mapping[str
 
 
 def _required_dimension_report(spec: Mapping[str, Any], structure: Mapping[str, Any] | None) -> dict[str, Any]:
-    """@brief 按 ID、视图、种类和值逐项核验必需尺寸，禁止模糊子串放行。"""
+    """Verify required dimensions by ID, view, kind, and value; reject fuzzy substring matches."""
     requirements = list(spec.get("requiredDimensions") or [])
     dimensions = list((structure or {}).get("dimensions") or [])
     checks = []
@@ -143,21 +143,21 @@ def _required_dimension_report(spec: Mapping[str, Any], structure: Mapping[str, 
 
 
 def _hole_specification(specification: Any) -> dict[str, Any]:
-    """@brief 把孔规格解析为螺纹或孔径约束，并保留通孔语义。"""
+    """Parse hole specifications into thread or diameter constraints while preserving through-hole semantics."""
     text = str(specification or "").strip()
     compact = _normalise_token(text).replace("×", "x")
     thread = re.search(r"m(\d+(?:\.\d+)?)(?:x(\d+(?:\.\d+)?))?", compact)
-    diameter = re.search(r"(?:[ø⌀]|dia(?:meter)?|直径|孔径)(\d+(?:\.\d+)?)", compact)
+    diameter = re.search(r"(?:[ø⌀]|dia(?:meter)?|çap|delikçapı|\u76f4\u5f84|\u5b54\u5f84)(\d+(?:\.\d+)?)", compact)
     return {
         "raw": text,
         "thread": f"m{thread.group(1)}" + (f"x{thread.group(2)}" if thread and thread.group(2) else "") if thread else None,
         "diameter_mm": float(diameter.group(1)) if diameter else None,
-        "through_required": any(token in compact for token in ("通孔", "贯通", "thru", "through")),
+        "through_required": any(token in compact for token in ("\u901a\u5b54", "\u8d2f\u901a", "thru", "through", "geçişli", "boydanboya")),
     }
 
 
 def _distance_mm(expected: list[Any], actual: list[Any]) -> float:
-    """@brief 比较规格声明的二维或三维孔位坐标。"""
+    """Compare the specification's two- or three-dimensional hole coordinates."""
     if len(expected) not in {2, 3} or len(actual) < len(expected):
         return float("inf")
     try:
@@ -167,13 +167,13 @@ def _distance_mm(expected: list[Any], actual: list[Any]) -> float:
 
 
 def _group_semantic_text(group: Mapping[str, Any]) -> str:
-    """@brief 只读取专用语义字段，避免整个 JSON 的无关数字造成命中。"""
+    """Read only dedicated semantic fields so unrelated JSON numbers cannot satisfy a check."""
     fields = ("specification", "thread", "thread_specification", "callout", "hole_type")
     return " ".join(str(group.get(field) or "") for field in fields)
 
 
 def _hole_group_matches(parsed: Mapping[str, Any], group: Mapping[str, Any]) -> tuple[bool, list[str]]:
-    """@brief 核验单个孔组的规格证据，不允许 M8 被直径 8 或其他 M 规格替代。"""
+    """Verify one hole group's specification; diameter 8 or another M thread cannot satisfy M8."""
     mismatches = []
     semantic = _normalise_token(_group_semantic_text(group)).replace("×", "x")
     if parsed.get("thread"):
@@ -194,13 +194,13 @@ def _hole_group_matches(parsed: Mapping[str, Any], group: Mapping[str, Any]) -> 
     if parsed.get("through_required"):
         through = group.get("through")
         state = _normalise_token(group.get("through_state") or group.get("end_condition"))
-        if through is not True and state not in {"through", "thru", "throughall", "通孔", "贯通"}:
+        if through is not True and state not in {"through", "thru", "throughall", "geçişli", "boydanboya", "\u901a\u5b54", "\u8d2f\u901a"}:
             mismatches.append("through_state")
     return not mismatches, mismatches
 
 
 def _hole_report(spec: Mapping[str, Any], model_evidence: Mapping[str, Any] | None) -> dict[str, Any]:
-    """@brief 用规格、数量和逐孔位置一一匹配 B-Rep/特征证据。"""
+    """Match B-Rep/feature evidence one-to-one by specification, count, and individual hole position."""
     requirements = list(spec.get("holeRequirements") or [])
     if not requirements:
         return {"required_count": 0, "missing": [], "checks": [], "status": "pass"}
@@ -253,7 +253,7 @@ def _hole_report(spec: Mapping[str, Any], model_evidence: Mapping[str, Any] | No
 
 
 def _bom_report(spec: Mapping[str, Any], structure: Mapping[str, Any]) -> dict[str, Any]:
-    """@brief 只接受真实 BOM 类型、非空数据行及请求的配置。"""
+    """Accept only real BOM types with nonempty data rows and the requested configuration."""
     bom_spec = dict(spec.get("bom") or {})
     required = bool(bom_spec.get("required")) or spec.get("documentType") == "assembly"
     if not required:
@@ -293,7 +293,7 @@ def _bom_report(spec: Mapping[str, Any], structure: Mapping[str, Any]) -> dict[s
 
 
 def _title_block_report(spec: Mapping[str, Any], structure: Mapping[str, Any]) -> dict[str, Any]:
-    """@brief 标题栏候选只证明模板存在，字段内容必须回读后才能通过。"""
+    """A title-block candidate proves only template existence; read back its fields before passing."""
     title_spec = dict(spec.get("titleBlock") or {})
     if not title_spec.get("required"):
         return {"required": False, "status": "pass", "mismatches": []}
@@ -321,26 +321,26 @@ def _title_block_report(spec: Mapping[str, Any], structure: Mapping[str, Any]) -
 
 
 def _canonical_view_name(value: Any) -> str:
-    """@brief 统一 SolidWorks 标准视图英文名和常见中文名。"""
-    compact = re.sub(r"[^a-z0-9\u4e00-\u9fff]", "", str(value or "").casefold())
+    """Normalize English, Turkish, and legacy localized SolidWorks standard-view names."""
+    compact = re.sub(r"[^a-z0-9çğıöşü\u4e00-\u9fff]", "", str(value or "").casefold())
     aliases = {
-        "front": "front", "frontview": "front", "主视": "front", "前视": "front",
-        "top": "top", "topview": "top", "俯视": "top", "上视": "top",
-        "right": "right", "rightview": "right", "右视": "right",
-        "left": "left", "leftview": "left", "左视": "left",
-        "bottom": "bottom", "bottomview": "bottom", "仰视": "bottom",
-        "isometric": "isometric", "isometricview": "isometric", "轴测": "isometric", "等轴测": "isometric",
+        "front": "front", "frontview": "front", "ön": "front", "öngörünüş": "front", "\u4e3b\u89c6": "front", "\u524d\u89c6": "front",
+        "top": "top", "topview": "top", "üst": "top", "üstgörünüş": "top", "\u4fef\u89c6": "top", "\u4e0a\u89c6": "top",
+        "right": "right", "rightview": "right", "sağ": "right", "sağgörünüş": "right", "\u53f3\u89c6": "right",
+        "left": "left", "leftview": "left", "sol": "left", "solgörünüş": "left", "\u5de6\u89c6": "left",
+        "bottom": "bottom", "bottomview": "bottom", "alt": "bottom", "altgörünüş": "bottom", "\u4ef0\u89c6": "bottom",
+        "isometric": "isometric", "isometricview": "isometric", "izometrik": "isometric", "\u8f74\u6d4b": "isometric", "\u7b49\u8f74\u6d4b": "isometric",
     }
     return aliases.get(compact, compact)
 
 
 def _view_requirement_label(requirement: Mapping[str, Any], fallback: str) -> str:
-    """@brief 从剖视或局部视图规格中提取稳定标签。"""
+    """Extract stable labels from section and detail view specifications."""
     return str(requirement.get("id") or requirement.get("name") or requirement.get("label") or fallback).strip()
 
 
 def _view_report(spec: Mapping[str, Any], structure: Mapping[str, Any]) -> dict[str, Any]:
-    """@brief 核验标准、轴测、剖视和局部视图均有对应结构证据。"""
+    """Verify structural evidence for standard, isometric, section, and detail views."""
     requested = dict(spec.get("views") or {})
     actual = list(structure.get("views") or [])
     checks = []
@@ -392,7 +392,7 @@ def _view_report(spec: Mapping[str, Any], structure: Mapping[str, Any]) -> dict[
 
 
 def _annotation_evidence_text(record: Mapping[str, Any]) -> str:
-    """@brief 汇总专业标注的专用字段，不扫描无关结构数据。"""
+    """Collect dedicated professional-annotation fields without scanning unrelated structure data."""
     parts = [
         record.get("label"),
         record.get("name"),
@@ -407,7 +407,7 @@ def _annotation_evidence_text(record: Mapping[str, Any]) -> str:
 
 
 def _professional_annotation_report(spec: Mapping[str, Any], structure: Mapping[str, Any]) -> dict[str, Any]:
-    """@brief 按视图、类型、数量和文字核验专业工程图标注。"""
+    """Verify professional drawing annotations by view, type, count, and text."""
     requested = dict(spec.get("professionalAnnotations") or {})
     if not requested:
         return {"required_count": 0, "missing": [], "checks": [], "status": "pass"}
@@ -470,7 +470,7 @@ def _note_report(
     structure: Mapping[str, Any] | None,
     pdf_path: str | Path | None,
 ) -> dict[str, Any]:
-    """@brief 验证规格注释已在 COM 结构及最终 PDF 中真实出现。"""
+    """Verify that specified notes actually appear in both COM structure and the final PDF."""
     required = [str(item) for item in spec.get("notes") or [] if str(item).strip()]
     base = {
         "required_count": len(required),
@@ -532,7 +532,7 @@ def _note_report(
 
 
 def _boxes_overlap(first: Mapping[str, float], second: Mapping[str, float]) -> bool:
-    """@brief 判断 PDF 点坐标文字框是否有可见面积重叠。"""
+    """Determine whether PDF text boxes in point coordinates visibly overlap."""
     return (
         min(float(first["right"]), float(second["right"])) > max(float(first["left"]), float(second["left"]))
         and min(float(first["bottom"]), float(second["bottom"])) > max(float(first["top"]), float(second["top"]))
@@ -545,7 +545,7 @@ def inspect_pdf_dimension_rendering(
     *,
     match_tolerance_m: float = 0.012,
 ) -> dict[str, Any]:
-    """@brief 将 COM 尺寸位置与最终 PDF 的真实矢量文字框一一关联。"""
+    """Match COM dimension positions one-to-one to actual vector text boxes in the final PDF."""
     pdf = inspect_pdf_text_layout(pdf_path)
     dimensions = list(structure.get("dimensions") or [])
     sheet_size = structure.get("sheet_size") or {}
@@ -651,7 +651,7 @@ def inspect_pdf_dimension_rendering(
 
 
 def _with_rendered_dimension_boxes(structure: Mapping[str, Any], rendering: Mapping[str, Any]) -> dict[str, Any]:
-    """@brief 用已关联的最终 PDF 文字框替代 COM 估算尺寸框。"""
+    """Replace estimated COM dimension boxes with matched final-PDF text boxes."""
     result = copy.deepcopy(dict(structure))
     dimensions = list(result.get("dimensions") or [])
     for match in rendering.get("matched") or []:
@@ -673,7 +673,7 @@ def _with_rendered_dimension_boxes(structure: Mapping[str, Any], rendering: Mapp
 
 
 def _with_rendered_note_boxes(structure: Mapping[str, Any], note_report: Mapping[str, Any]) -> dict[str, Any]:
-    """@brief 用最终 PDF 的注释文字框补齐 SolidWorks 未返回的注释范围。"""
+    """Use final-PDF note boxes to fill annotation bounds absent from SolidWorks results."""
     result = copy.deepcopy(dict(structure))
     notes = list(result.get("notes") or [])
     sheet_size = result.get("sheet_size") or {}
@@ -716,7 +716,7 @@ def review_drawing_artifacts(
     preview_evidence: list[Mapping[str, Any]] | None = None,
     model_evidence: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """@brief 结合规格、COM结构、PDF文字和预览证据审视工程图。"""
+    """Review drawings using specifications, COM structure, PDF text, and preview evidence."""
     validation = validate_drawing_spec(spec_source)
     if validation["status"] == "blocked":
         return {"status": "blocked", "stage": "spec", "checks": validation["issues"], "findings": validation["issues"], "manual_review_required": True, "error_code": "DRAWING_SPEC_BLOCKED"}
@@ -752,13 +752,13 @@ def review_drawing_artifacts(
     dimension_report = _required_dimension_report(spec, reviewed_structure)
     hole_report = _hole_report(spec, model_evidence)
     professional_annotation_report = _professional_annotation_report(spec, reviewed_structure)
-    checks.append(_check("drawing-required-views", view_report["status"], f"必需视图 {view_report['required_count']} 项，缺失 {len(view_report['missing'])} 项", missing=view_report["missing"]))
-    checks.append(_check("drawing-required-dimensions", dimension_report["status"], f"必需尺寸 {dimension_report['required_count']} 项，缺失 {len(dimension_report['missing'])} 项", missing=dimension_report["missing"]))
-    checks.append(_check("drawing-hole-requirements", hole_report["status"], f"孔槽要求 {hole_report['required_count']} 项，缺失 {len(hole_report['missing'])} 项", missing=hole_report["missing"]))
+    checks.append(_check("drawing-required-views", view_report["status"], f"Gerekli görünüşler: {view_report['required_count']} adet; eksik: {len(view_report['missing'])} adet", missing=view_report["missing"]))
+    checks.append(_check("drawing-required-dimensions", dimension_report["status"], f"Gerekli ölçüler: {dimension_report['required_count']} adet; eksik: {len(dimension_report['missing'])} adet", missing=dimension_report["missing"]))
+    checks.append(_check("drawing-hole-requirements", hole_report["status"], f"Delik/kanal gereksinimleri: {hole_report['required_count']} adet; eksik: {len(hole_report['missing'])} adet", missing=hole_report["missing"]))
     checks.append(_check(
         "drawing-professional-annotations",
         professional_annotation_report["status"],
-        f"专业标注 {professional_annotation_report['required_count']} 项，缺失 {len(professional_annotation_report['missing'])} 项",
+        f"Profesyonel açıklamalar: {professional_annotation_report['required_count']} adet; eksik: {len(professional_annotation_report['missing'])} adet",
         missing=professional_annotation_report["missing"],
     ))
     model_dimensions_requested = bool(spec.get("insertModelDimensions", True))
@@ -768,17 +768,17 @@ def review_drawing_artifacts(
         findings.append({
             "code": "DRAWING_MODEL_DIMENSIONS_MISSING",
             "severity": "fail",
-            "message": "规格要求插入模型尺寸，但结构证据中没有读取到任何尺寸实体；请补充尺寸或显式设置 insertModelDimensions=false。",
+            "message": "Şartname model ölçülerinin eklenmesini istiyor ancak yapısal kanıtta ölçü nesnesi yok. Ölçüleri ekleyin veya açıkça insertModelDimensions=false ayarlayın.",
         })
     checks.append(_check(
         "drawing-model-dimensions",
         model_dimension_status,
-        "已读取模型尺寸实体" if model_dimension_status == "pass" else "规格要求模型尺寸，但工程图没有尺寸实体",
+        "Model ölçü nesneleri okundu" if model_dimension_status == "pass" else "Şartname model ölçüleri istiyor ancak çizimde ölçü nesnesi yok",
     ))
     checks.append(_check(
         "drawing-notes",
         note_report["status"],
-        f"必需注释 {note_report['required_count']} 项，COM 缺失 {len(note_report['missing_structure'])} 项，PDF 缺失 {len(note_report['missing_pdf'])} 项",
+        f"Gerekli notlar: {note_report['required_count']} adet; COM eksik: {len(note_report['missing_structure'])} adet; PDF eksik: {len(note_report['missing_pdf'])} adet",
         missing_structure=note_report["missing_structure"],
         missing_position=note_report["missing_position"],
         missing_pdf=note_report["missing_pdf"],
@@ -804,21 +804,21 @@ def review_drawing_artifacts(
     checks.append(_check(
         "drawing-bom",
         bom_report["status"],
-        f"BOM要求={bom_report['required']}，BOM表={len(bom_report.get('tables') or [])}，可验证={bom_report.get('usable_table_count', 0)}",
+        f"BOM gerekli={bom_report['required']}; BOM tablo sayısı={len(bom_report.get('tables') or [])}; doğrulanabilir={bom_report.get('usable_table_count', 0)}",
         reason=bom_report.get("reason"),
     ))
     if bom_report["status"] != "pass":
         findings.append({
             "code": "DRAWING_BOM_TABLE_MISSING" if bom_report["status"] == "fail" else "DRAWING_BOM_CONTENT_UNVERIFIED",
             "severity": "fail" if bom_report["status"] == "fail" else "warning",
-            "message": "装配工程图未读取到 BOM 表结构" if bom_report["status"] == "fail" else "BOM 类型存在，但数据行或配置尚未完成结构化回读",
+            "message": "Montaj çiziminde BOM tablo yapısı okunamadı" if bom_report["status"] == "fail" else "BOM türü mevcut ancak veri satırları veya konfigürasyon henüz yapısal olarak geri okunmadı",
         })
 
     title_block_report = _title_block_report(spec, structure)
     checks.append(_check(
         "drawing-title-block",
         title_block_report["status"],
-        "标题栏字段已结构化核验" if title_block_report["status"] == "pass" else "标题栏结构或字段证据不完整",
+        "Antet alanları yapısal olarak doğrulandı" if title_block_report["status"] == "pass" else "Antet yapısı veya alan kanıtları eksik",
         mismatches=title_block_report.get("mismatches") or [],
         content_verified=title_block_report.get("content_verified"),
     ))
@@ -826,21 +826,21 @@ def review_drawing_artifacts(
         findings.append({
             "code": "DRAWING_TITLE_BLOCK_MISSING" if title_block_report["status"] == "fail" and "candidate" in title_block_report.get("mismatches", []) else "DRAWING_TITLE_BLOCK_CONTENT_UNVERIFIED",
             "severity": "fail" if title_block_report["status"] == "fail" else "warning",
-            "message": "标题栏结构证据缺失" if "candidate" in title_block_report.get("mismatches", []) else "标题栏候选存在，但字段内容未完成结构化核验",
+            "message": "Antet yapısının kanıtı eksik" if "candidate" in title_block_report.get("mismatches", []) else "Antet adayı mevcut ancak alan içerikleri yapısal olarak doğrulanmadı",
             "mismatches": title_block_report.get("mismatches") or [],
         })
 
     pdf_report = None
     if pdf_path:
         pdf_report = inspect_pdf_text_layout(pdf_path)
-        checks.append(_check("drawing-pdf-text-layout", "warning" if pdf_report.get("overlaps") or pdf_report.get("status") == "blocked" else "pass", pdf_report.get("message", "PDF文字边界已检查")))
+        checks.append(_check("drawing-pdf-text-layout", "warning" if pdf_report.get("overlaps") or pdf_report.get("status") == "blocked" else "pass", pdf_report.get("message", "PDF metin sınırları kontrol edildi")))
         if pdf_report.get("overlaps"):
             findings.append({"code": "DRAWING_PDF_TEXT_OVERLAP_RISK", "severity": "fail", "overlaps": pdf_report["overlaps"]})
     rendering_status = "pass" if pdf_dimension_rendering.get("status") == "pass" else "warning"
     checks.append(_check(
         "drawing-pdf-rendered-dimension-boxes",
         rendering_status,
-        f"最终 PDF 尺寸文字框匹配 {len(pdf_dimension_rendering.get('matched') or [])}/{len(structure.get('dimensions') or [])}",
+        f"Son PDF ölçü metni kutusu eşleşmeleri: {len(pdf_dimension_rendering.get('matched') or [])}/{len(structure.get('dimensions') or [])}",
         unmatched_dimension_indexes=pdf_dimension_rendering.get("unmatched_dimension_indexes") or [],
     ))
     if pdf_dimension_rendering.get("collisions"):

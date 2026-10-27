@@ -1,4 +1,4 @@
-"""焊件切割清单封装的离线契约测试。"""
+'Offline weldment cut-list contracts.'
 from __future__ import annotations
 
 import csv
@@ -15,13 +15,13 @@ from scripts.sw_weldment import (
 
 
 class FakePropertyManager:
-    """@brief 模拟本地化制造属性与无关标题栏属性。"""
+    'Simulate localized manufacturing properties and unrelated title-block properties.'
 
     values = {
-        "长度": "205.4",
+        'LENGTH': "205.4",
         "QUANTITY": "2",
         "PROFILE_DESIGNATION": "HSS1x1x16ga",
-        "设计": "张三",
+        'Tasarım (Design)': 'Deniz',
     }
 
     def GetNames(self):
@@ -31,7 +31,7 @@ class FakePropertyManager:
         raw.value = self.values[name]
         resolved.value = self.values[name]
         was_resolved.value = True
-        linked.value = name in {"长度", "QUANTITY"}
+        linked.value = name in {'LENGTH', "QUANTITY"}
         return 2
 
 
@@ -42,9 +42,9 @@ class FakeBody:
 
 def test_property_reader_keeps_cut_list_fields_and_filters_title_block_noise():
     properties = read_property_manager(FakePropertyManager())
-    assert set(properties) == {"长度", "QUANTITY", "PROFILE_DESIGNATION"}
+    assert set(properties) == {'LENGTH', "QUANTITY", "PROFILE_DESIGNATION"}
     assert properties["QUANTITY"]["resolved"] == "2"
-    assert properties["长度"]["linked"] is True
+    assert properties['LENGTH']["linked"] is True
 
 
 def test_body_length_group_key_is_micrometre_stable():
@@ -57,10 +57,10 @@ def test_cut_list_csv_contains_manufacturing_and_traceability_fields(tmp_path):
     evidence = {
         "cut_list_folders": [
             {
-                "name": "切割清单项目1",
+                "name": "\u5207\u5272\u6e05\u5355\u9879\u76ee1",
                 "body_count": 2,
                 "properties": {
-                    "长度": {"resolved": "205.4", "raw": ""},
+                    'LENGTH': {"resolved": "205.4", "raw": ""},
                     "QUANTITY": {"resolved": "2", "raw": ""},
                     "SOURCE_SKU": {"resolved": "01760", "raw": ""},
                 },
@@ -72,11 +72,11 @@ def test_cut_list_csv_contains_manufacturing_and_traceability_fields(tmp_path):
         rows = list(csv.DictReader(handle))
     assert rows == [{
         "index": "1",
-        "name": "切割清单项目1",
+        "name": "\u5207\u5272\u6e05\u5355\u9879\u76ee1",
         "body_count": "2",
         "QUANTITY": "2",
         "SOURCE_SKU": "01760",
-        "长度": "205.4",
+        'LENGTH': "205.4",
     }]
 
 

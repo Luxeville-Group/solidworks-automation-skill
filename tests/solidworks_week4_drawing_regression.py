@@ -1,6 +1,6 @@
-"""SolidWorks 第 4 周工程图+BOM 真机回归。
+"""Week 4 SolidWorks drawing/BOM real-machine regression.
 
-需要 Windows + SolidWorks + pywin32/comtypes；不会被普通 pytest 收集。
+Requires Windows + SolidWorks + pywin32/comtypes; excluded from normal pytest collection.
 """
 from __future__ import annotations
 
@@ -36,12 +36,12 @@ from sw_session import SolidWorksSession  # noqa: E402
 
 def _require_file(path: Path, label: str) -> dict:
     if not path.is_file() or path.stat().st_size <= 0:
-        raise RuntimeError(f"{label}未生成或为空: {path}")
+        raise RuntimeError(f"{label} missing or empty: {path}")
     return {"path": str(path), "size_bytes": path.stat().st_size}
 
 
 def _sheet_format_candidates() -> list[str]:
-    """@brief 返回本机可用的 A3/GB 图框候选路径。"""
+    """@brief Return locally available A3/GB drawing-frame candidate paths."""
     roots = [
         Path(r"E:\SolidWroks2026\SOLIDWORKS"),
         Path(r"E:\Solidworks\SOLIDWORKS"),
@@ -59,7 +59,7 @@ def _sheet_format_candidates() -> list[str]:
 
 
 def _remove_front_center_marks(drawing, created_views) -> int:
-    """@brief 删除文档默认自动生成的前视图中心标记，构造可验证的写入前置状态。"""
+    """@brief Remove automatically generated front-view center marks to establish a verifiable pre-write state."""
     front_record = next(item for item in created_views.get("views", []) if item.get("name") == "*Front")
     front_name = str(front_record.get("actual_name") or "")
     sheet = get_com_member(drawing, "GetCurrentSheet")
@@ -76,12 +76,12 @@ def _remove_front_center_marks(drawing, created_views) -> int:
             annotation = get_com_member(center_mark, "GetAnnotation")
             selected = bool(get_com_member(annotation, "Select3", False, empty_select_data))
         if not selected:
-            raise RuntimeError("无法选择文档默认中心标记以构造写入回归前置状态")
+            raise RuntimeError("Cannot select default center marks to establish the write-regression precondition")
         get_com_member(drawing, "EditDelete")
         get_com_member(drawing, "ForceRebuild3", False)
         removed += 1
     if first_center_mark(front_view) is not None:
-        raise RuntimeError("删除默认中心标记后回读仍非空")
+        raise RuntimeError("Readback remains nonempty after deleting default center marks")
     return removed
 
 
@@ -105,32 +105,32 @@ def run_regression(output_root: Path, *, version: int | None = None, run_id: str
             model_dimensions = auto_dimension_sketch(part, sketch_segments=rectangle_segments)
         feature = extrude_boss(part, sketch_name, 0.012)
         if feature is None:
-            raise RuntimeError("安装板拉伸失败")
-        hole_evidence = create_through_hole(part, (0.0, 0.0), 0.008, name="中心通孔")
+            raise RuntimeError("Mounting-plate extrusion failed")
+        hole_evidence = create_through_hole(part, (0.0, 0.0), 0.008, name="CenterThroughHole")
         if not session.save(part, str(part_path)):
-            raise RuntimeError("安装板保存失败")
-        # InsertModelAnnotations 从当前活动模型解析 DisplayDimension；工程图创建前
-        # 保存后保持零件为活动文档，并显式显示特征尺寸，避免只存在于草图树中。
+            raise RuntimeError("Mounting-plate save failed")
+        # InsertModelAnnotations resolves DisplayDimension from the active model. Before drawing creation,
+        # keep the saved part active and explicitly show feature dimensions rather than leaving them only in the sketch tree.
         try:
             get_com_member(part, "ShowFeatureDimensions")
             get_com_member(part, "GraphicsRedraw2")
         except Exception:
             pass
-        _require_file(part_path, "零件")
+        _require_file(part_path, 'parça')
 
         drawing = session.new_drawing()
         drawing_title = str(get_com_member(drawing, "GetTitle"))
         sheet_setup = setup_current_sheet_as_a3(drawing, _sheet_format_candidates(), require_gbt=True)
         if sheet_setup.get("status") != "pass":
-            raise RuntimeError(f"A3/GB 图框设置失败: {sheet_setup}")
+            raise RuntimeError(f"A3/GB frame setup failed: {sheet_setup}")
         layout = plan_standard_view_layout((0.12, 0.012, 0.08), paper_size="A3")
         created_views = create_adaptive_standard_views(drawing, str(part_path), layout)
         if created_views.get("status") != "pass" or created_views.get("view_count") != 3:
-            raise RuntimeError(f"创建 A3 自适应三视图失败: {created_views}")
-        # 部分版本只有在工程图首次保存、视图引用落盘后才稳定暴露可导入的模型
-        # 尺寸。这里保存的是本轮新产物，不会覆盖旧交付版本。
+            raise RuntimeError(f"Adaptive A3 three-view creation failed: {created_views}")
+        # Some versions expose importable model dimensions reliably only after the initial drawing save persists
+        # view references. This saves a new current-run artifact and does not overwrite a previous delivery version.
         if not session.save(drawing, str(drawing_path)):
-            raise RuntimeError("工程图首次保存失败")
+            raise RuntimeError("Initial drawing save failed")
         default_center_marks_removed = _remove_front_center_marks(drawing, created_views)
         center_marks = auto_insert_center_marks(drawing, [{
             "id": "CM-CENTER-HOLE",
@@ -139,14 +139,14 @@ def run_regression(output_root: Path, *, version: int | None = None, run_id: str
             "targets": ["holes"],
         }])
         if center_marks.get("status") != "pass":
-            raise RuntimeError(f"中心标记插入或实体回读失败: {center_marks}")
+            raise RuntimeError(f"Center-mark insertion or entity readback failed: {center_marks}")
         center_mark_requirement = center_marks["requirements"][0]
         if not (
             center_mark_requirement.get("before_count") == 0
             and center_mark_requirement.get("api_returned") is True
             and center_mark_requirement.get("after_count", 0) >= 1
         ):
-            raise RuntimeError(f"中心标记未形成强制写入证据链: {center_mark_requirement}")
+            raise RuntimeError(f"Center marks lack a required write-evidence chain: {center_mark_requirement}")
         inserted_annotations = insert_dimensions(drawing)
         dimensions_inserted = bool(inserted_annotations)
         try:
@@ -156,17 +156,17 @@ def run_regression(output_root: Path, *, version: int | None = None, run_id: str
             pass
         official_arrangement = auto_arrange_drawing_dimensions(drawing, spacing_m=0.01)
         if official_arrangement.get("status") == "blocked":
-            raise RuntimeError(f"SolidWorks 官方尺寸排列接口不可用: {official_arrangement}")
+            raise RuntimeError(f"Official SolidWorks dimension-arrangement interface unavailable: {official_arrangement}")
         structure = inspect_drawing_structure(
             drawing,
             paper_size_hint="A3",
             title_block_box=layout.get("title_block_box"),
         )
         if structure["status"] != "pass" or structure["view_count"] < 1:
-            raise RuntimeError(f"工程图视图复核失败: {structure}")
+            raise RuntimeError(f"Drawing-view review failed: {structure}")
         if not dimensions_inserted or structure.get("dimension_count", 0) < 1:
             raise RuntimeError(
-                "工程图未读取到本轮插入的真实尺寸实体: "
+                "Drawing readback found no real dimension entities inserted in this run: "
                 f"inserted={dimensions_inserted}, dimension_count={structure.get('dimension_count', 0)}"
             )
         front_center_marks = [
@@ -174,34 +174,34 @@ def run_regression(output_root: Path, *, version: int | None = None, run_id: str
             if item.get("semantic_view") == "front"
         ]
         if not front_center_marks:
-            raise RuntimeError("中心标记未通过工程图结构二次回读")
+            raise RuntimeError("Center marks failed the second drawing-structure readback")
         if not session.save(drawing, str(drawing_path)):
-            raise RuntimeError("工程图保存失败")
-        _require_file(drawing_path, "工程图")
+            raise RuntimeError("Drawing save failed")
+        _require_file(drawing_path, 'teknik çizim')
         if not export_sheet_to_pdf(drawing, str(pdf_path), sw_app=session.sw):
-            raise RuntimeError("工程图 PDF 导出失败")
+            raise RuntimeError("Drawing PDF export failed")
         _require_file(pdf_path, "PDF")
         preview_paths = save_review_previews(drawing, output_dir / "previews", basename="drawing", views=("front", "top", "right"))
         previews = [inspect_bmp_preview(path) for path in preview_paths]
         if not all(item["exists"] and not item["likely_blank"] for item in previews):
-            raise RuntimeError(f"工程图预览为空或缺失: {previews}")
+            raise RuntimeError(f"Drawing preview blank or missing: {previews}")
         layout_review = review_drawing_layout(structure, preview_evidence=previews)
         if layout_review.get("status") == "blocked":
-            raise RuntimeError(f"工程图布局结构复核阻塞: {layout_review}")
+            raise RuntimeError(f"Drawing layout structural review blocked: {layout_review}")
         estimated_count = int(layout_review.get("evidence_summary", {}).get("estimated_dimension_box_count") or 0)
         if estimated_count and layout_review.get("error_code") not in {
             "DRAWING_LAYOUT_ESTIMATED_EVIDENCE_REQUIRES_VISUAL_REVIEW",
             "DRAWING_LAYOUT_ESTIMATED_COLLISION_RISK",
             "DRAWING_LAYOUT_COLLISION_DETECTED",
         }:
-            raise RuntimeError(f"工程图估算边界未保持人工复核门禁: {layout_review}")
+            raise RuntimeError(f"Estimated drawing bounds did not retain the human-review gate: {layout_review}")
         result = {
             "status": "ok",
             "run_id": run_id,
             "output_dir": str(output_dir),
             "solidworks": get_sw_version(session.sw),
             "connection": session.connection_info,
-            "outputs": {"part": _require_file(part_path, "零件"), "drawing": _require_file(drawing_path, "工程图"), "pdf": _require_file(pdf_path, "PDF")},
+            "outputs": {"part": _require_file(part_path, 'parça'), "drawing": _require_file(drawing_path, 'teknik çizim'), "pdf": _require_file(pdf_path, "PDF")},
             "sheetSetup": sheet_setup,
             "viewLayout": layout,
             "createdViews": created_views,
@@ -219,7 +219,7 @@ def run_regression(output_root: Path, *, version: int | None = None, run_id: str
             "manual_review_required": True,
         }
         report_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
-        result["report"] = _require_file(report_path, "报告")
+        result["report"] = _require_file(report_path, 'Rapor')
         return result
     finally:
         if drawing_title:
@@ -230,10 +230,10 @@ def run_regression(output_root: Path, *, version: int | None = None, run_id: str
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="运行 SolidWorks 第 4 周工程图真机回归")
+    parser = argparse.ArgumentParser(description="Run Week 4 SolidWorks real-machine drawing regression")
     parser.add_argument("--output-dir", default=str(Path(tempfile.gettempdir()) / "solidworks_week4_drawing_regression"))
     parser.add_argument("--run-id", default="")
-    parser.add_argument("--version", type=int, help="指定 SolidWorks 年份，例如 2026；默认连接最新注册版本。")
+    parser.add_argument("--version", type=int, help="SolidWorks year, for example 2026; defaults to the latest registered version.")
     args = parser.parse_args()
     try:
         result = run_regression(

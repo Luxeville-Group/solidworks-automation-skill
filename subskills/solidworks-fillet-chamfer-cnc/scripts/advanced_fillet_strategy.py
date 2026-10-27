@@ -1,8 +1,4 @@
-"""SolidWorks 高级圆角的离线契约与本机能力探测。
-
-@brief 为可变半径、保持线、曲率连续面圆角、全圆角、setback 和宽度-宽度倒角提供严格参数校验。
-@details 本模块不连接 SolidWorks；类型库探测也只读取本机 COM 元数据。
-"""
+'Offline contracts and local capability probes for advanced SolidWorks fillets. Strictly validates variable-radius, hold-line, curvature-continuous face, full-round, setback and distance-distance chamfers. This module does not connect to SolidWorks; type-library probing reads local COM metadata only.'
 
 from __future__ import annotations
 
@@ -72,7 +68,7 @@ REQUIRED_INTERFACES: Mapping[str, Mapping[str, tuple[str, ...]]] = {
 
 @dataclass(frozen=True)
 class VariableFilletSpec:
-    """@brief 单边可变半径圆角参数，长度单位为毫米。"""
+    'Single-edge variable-radius fillet parameters, with lengths in millimeters.'
 
     start_radius: float = 2.0
     end_radius: float = 5.0
@@ -83,7 +79,7 @@ class VariableFilletSpec:
 
 @dataclass(frozen=True)
 class FaceFilletSpec:
-    """@brief 两组相邻面的面圆角参数。"""
+    'Face-fillet parameters for two adjacent face sets.'
 
     radius: float = 4.0
     propagate_tangent: bool = False
@@ -92,7 +88,7 @@ class FaceFilletSpec:
 
 @dataclass(frozen=True)
 class HoldLineFilletSpec:
-    """@brief 两组面和一条或多条保持线定义的面圆角。"""
+    'Face fillet defined by two face sets and one or more hold lines.'
 
     radius: float = 4.0
     hold_line_count: int = 1
@@ -102,7 +98,7 @@ class HoldLineFilletSpec:
 
 @dataclass(frozen=True)
 class SurfaceCombinationSpec:
-    """@brief 平面/圆柱面组合的曲率连续面圆角参数。"""
+    'Curvature-continuous fillet parameters for plane/cylinder combinations.'
 
     radius: float = 3.0
     curvature_continuous: bool = True
@@ -111,14 +107,14 @@ class SurfaceCombinationSpec:
 
 @dataclass(frozen=True)
 class FullRoundFilletSpec:
-    """@brief 侧面组 1、中心面组、侧面组 2 的全圆角参数。"""
+    'Full-round parameters for side set 1, center set and side set 2.'
 
     propagate_tangent: bool = False
 
 
 @dataclass(frozen=True)
 class SetbackFilletSpec:
-    """@brief 三边交汇角的恒定半径与逐边 setback 距离。"""
+    'Constant radius and per-edge setback distances for a three-edge corner.'
 
     radius: float = 3.0
     distances: tuple[float, float, float] = (4.0, 4.0, 4.0)
@@ -127,7 +123,7 @@ class SetbackFilletSpec:
 
 @dataclass(frozen=True)
 class WidthWidthChamferSpec:
-    """@brief 非对称宽度-宽度（距离-距离）倒角参数。"""
+    'Asymmetric distance-distance chamfer parameters.'
 
     width1: float = 2.0
     width2: float = 4.0
@@ -135,18 +131,18 @@ class WidthWidthChamferSpec:
 
 
 def _finite_positive(name: str, value: Any) -> float:
-    """@brief 返回有限正数，否则抛出可读错误。"""
+    'Return a finite positive number or raise a readable error.'
     try:
         number = float(value)
     except (TypeError, ValueError) as exc:
-        raise ValueError(f"{name} 必须是数值") from exc
+        raise ValueError(f"{name} sayısal olmalıdır / must be numeric") from exc
     if not math.isfinite(number) or number <= 0.0:
-        raise ValueError(f"{name} 必须是有限正数")
+        raise ValueError(f"{name} sonlu ve pozitif olmalıdır / must be finite and positive")
     return number
 
 
 def validate_variable_spec(spec: VariableFilletSpec, *, edge_length_mm: float) -> dict[str, Any]:
-    """@brief 校验端点半径、控制点位置和过渡方式。"""
+    'Validate endpoint radii, control-point positions and transition mode.'
     edge_length = _finite_positive("edge_length_mm", edge_length_mm)
     radii = [
         _finite_positive("start_radius", spec.start_radius),
@@ -156,22 +152,22 @@ def validate_variable_spec(spec: VariableFilletSpec, *, edge_length_mm: float) -
     last_location = 0.0
     for index, item in enumerate(spec.control_points):
         if not isinstance(item, (tuple, list)) or len(item) != 2:
-            raise ValueError(f"control_points[{index}] 必须是 (位置比例, 半径)")
+            raise ValueError(f"control_points[{index}] (konum oranı, yarıçap) olmalıdır / must be (position fraction, radius)")
         location = float(item[0])
         radius = _finite_positive(f"control_points[{index}].radius", item[1])
         if not math.isfinite(location) or not 0.0 < location < 1.0:
-            raise ValueError("控制点位置比例必须严格位于 0 和 1 之间")
+            raise ValueError('Kontrol noktası oranı 0 ile 1 arasında olmalıdır / Control-point fraction must be strictly between 0 and 1')
         if location <= last_location:
-            raise ValueError("控制点位置必须严格递增")
+            raise ValueError('Kontrol noktası konumları kesin artan sırada olmalıdır / Control-point positions must strictly increase')
         last_location = location
         radii.append(radius)
         controls.append({"location": location, "radius_mm": radius})
     if spec.transition not in {"smooth", "straight"}:
-        raise ValueError("transition 必须是 smooth 或 straight")
+        raise ValueError('transition, smooth veya straight olmalıdır / transition must be smooth or straight')
     if spec.overflow not in {"default", "keep_edge", "keep_surface"}:
-        raise ValueError("overflow 值无效")
+        raise ValueError('Geçersiz overflow değeri / Invalid overflow value')
     if max(radii) * 2.0 >= edge_length:
-        raise ValueError("最大圆角直径必须小于目标边长度")
+        raise ValueError('En büyük radyüs çapı hedef kenardan kısa olmalıdır / Maximum fillet diameter must be smaller than the target edge length')
     return {
         "status": "pass",
         "kind": "variable",
@@ -182,13 +178,13 @@ def validate_variable_spec(spec: VariableFilletSpec, *, edge_length_mm: float) -
 
 
 def validate_face_spec(spec: FaceFilletSpec, *, clearance_mm: float) -> dict[str, Any]:
-    """@brief 校验面圆角半径不超过相邻面的可用包络。"""
+    'Validate face-fillet radius against the available adjacent-face envelope.'
     radius = _finite_positive("radius", spec.radius)
     clearance = _finite_positive("clearance_mm", clearance_mm)
     if radius >= clearance:
-        raise ValueError("面圆角半径必须小于两面可用净空")
+        raise ValueError('Yüz radyüsü iki yüzün boşluğundan küçük olmalıdır / Face-fillet radius must be below both face clearances')
     if spec.overflow not in {"default", "keep_edge", "keep_surface"}:
-        raise ValueError("overflow 值无效")
+        raise ValueError('Geçersiz overflow değeri / Invalid overflow value')
     return {"status": "pass", "kind": "face", "radius_mm": radius}
 
 
@@ -198,17 +194,17 @@ def validate_hold_line_spec(
     clearance_mm: float,
     available_hold_lines: int,
 ) -> dict[str, Any]:
-    """@brief 校验保持线数量及面组净空。"""
+    'Validate hold-line count and face-set clearance.'
     radius = _finite_positive("radius", spec.radius)
     clearance = _finite_positive("clearance_mm", clearance_mm)
     requested = int(spec.hold_line_count)
     available = int(available_hold_lines)
     if requested <= 0:
-        raise ValueError("hold_line_count 必须为正整数")
+        raise ValueError('hold_line_count pozitif tam sayı olmalıdır / hold_line_count must be a positive integer')
     if available != requested:
-        raise ValueError("保持线候选数量必须与请求数量一致")
+        raise ValueError('Aday tutma çizgisi adedi istekle eşleşmelidir / Candidate hold-line count must match the request')
     if radius >= clearance:
-        raise ValueError("保持线圆角半径必须小于两面可用净空")
+        raise ValueError('Tutma çizgisi radyüsü iki yüzün boşluğundan küçük olmalıdır / Hold-line radius must be below both face clearances')
     return {
         "status": "pass",
         "kind": "hold_line",
@@ -224,18 +220,18 @@ def validate_surface_combination_spec(
     clearance_mm: float,
     surface_types: tuple[str, str],
 ) -> dict[str, Any]:
-    """@brief 校验曲率连续圆角连接的是两种明确的曲面类型。"""
+    'Validate two explicit surface types for a curvature-continuous fillet.'
     radius = _finite_positive("radius", spec.radius)
     clearance = _finite_positive("clearance_mm", clearance_mm)
     normalized = tuple(str(item).strip().lower() for item in surface_types)
     if len(normalized) != 2 or any(not item for item in normalized):
-        raise ValueError("复杂曲面组合必须提供两个可识别曲面类型")
+        raise ValueError('İki tanınabilir yüzey türü gerekir / Two identifiable surface types are required')
     if len(set(normalized)) != 2:
-        raise ValueError("复杂曲面组合必须覆盖两种不同曲面类型")
+        raise ValueError('İki farklı yüzey türü gerekir / Two different surface types are required')
     if radius >= clearance:
-        raise ValueError("复杂曲面组合圆角半径必须小于可用净空")
+        raise ValueError('Yüzey birleşimi radyüsü kullanılabilir boşluktan küçük olmalıdır / Surface-combination radius must be below available clearance')
     if not spec.curvature_continuous:
-        raise ValueError("surface_combo 路径必须启用曲率连续")
+        raise ValueError('surface_combo için eğrilik sürekliliği etkin olmalıdır / surface_combo requires curvature continuity')
     return {
         "status": "pass",
         "kind": "surface_combo",
@@ -250,9 +246,9 @@ def validate_full_round_spec(
     *,
     face_set_counts: tuple[int, int, int],
 ) -> dict[str, Any]:
-    """@brief 校验全圆角三组面均非空且互不混组。"""
+    'Validate nonempty, distinct full-round face sets.'
     if len(face_set_counts) != 3 or any(int(count) <= 0 for count in face_set_counts):
-        raise ValueError("全圆角必须提供非空的侧面组1、中心面组、侧面组2")
+        raise ValueError('Full-round için iki yan ve bir merkez yüz grubu boş olmamalıdır / Full-round requires nonempty side set 1, center and side set 2')
     return {
         "status": "pass",
         "kind": "full_round",
@@ -265,17 +261,17 @@ def validate_setback_spec(
     *,
     incident_edge_lengths_mm: Iterable[float],
 ) -> dict[str, Any]:
-    """@brief 校验三条交汇边与逐边 setback 数组的一一对应关系。"""
+    'Validate one-to-one correspondence between three intersecting edges and setbacks.'
     radius = _finite_positive("radius", spec.radius)
     lengths = [_finite_positive("incident_edge_length", item) for item in incident_edge_lengths_mm]
     distances = [_finite_positive("setback_distance", item) for item in spec.distances]
     if len(lengths) != 3 or len(distances) != 3:
-        raise ValueError("当前稳定 setback 路径要求恰好三条交汇边和三个距离")
+        raise ValueError('Setback yolu tam üç kenar ve üç mesafe gerektirir / Stable setback path requires exactly three edges and three distances')
     for index, (distance, length) in enumerate(zip(distances, lengths)):
         if distance >= length:
-            raise ValueError(f"setback 距离[{index}] 必须小于对应边长")
+            raise ValueError(f"Setback mesafesi / distance[{index}] ilgili kenardan kısa olmalıdır / must be smaller than the corresponding edge length")
     if radius >= min(lengths) / 2.0:
-        raise ValueError("setback 圆角半径必须小于最短交汇边的一半")
+        raise ValueError('Setback radyüsü en kısa kenarın yarısından küçük olmalıdır / Setback radius must be below half the shortest intersecting edge')
     return {
         "status": "pass",
         "kind": "setback",
@@ -290,18 +286,18 @@ def validate_width_width_chamfer_spec(
     *,
     adjacent_clearances_mm: tuple[float, float],
 ) -> dict[str, Any]:
-    """@brief 校验距离-距离倒角两侧宽度与相邻面净空。"""
+    'Validate both chamfer distances against adjacent-face clearance.'
     width1 = _finite_positive("width1", spec.width1)
     width2 = _finite_positive("width2", spec.width2)
     if len(adjacent_clearances_mm) != 2:
-        raise ValueError("宽度-宽度倒角必须提供两侧净空")
+        raise ValueError('Mesafe-mesafe pah için iki tarafın boşluğu gerekir / Distance-distance chamfer requires both side clearances')
     clearances = tuple(
         _finite_positive(f"adjacent_clearances_mm[{index}]", value)
         for index, value in enumerate(adjacent_clearances_mm)
     )
     for index, (width, clearance) in enumerate(zip((width1, width2), clearances), start=1):
         if width >= clearance:
-            raise ValueError(f"width{index} 必须小于对应侧净空")
+            raise ValueError(f"width{index} ilgili taraf boşluğundan küçük olmalıdır / must be below the corresponding side clearance")
     return {
         "status": "pass",
         "kind": "width_width_chamfer",
@@ -312,14 +308,14 @@ def validate_width_width_chamfer_spec(
 
 
 def inspect_typelib_members(type_library_path: Path) -> dict[str, set[str]]:
-    """@brief 读取 SolidWorks 类型库并返回接口成员集合。"""
+    'Read the SolidWorks type library and return interface member sets.'
     try:
         import pythoncom
-    except ImportError as exc:  # pragma: no cover - 非 Windows CI 路径
-        raise RuntimeError("缺少 pywin32，无法读取 SolidWorks 类型库") from exc
+    except ImportError as exc:  # pragma: no cover - non-Windows CI path
+        raise RuntimeError('pywin32 eksik; SolidWorks tür kitaplığı okunamıyor / Missing pywin32; cannot read SolidWorks type library') from exc
     path = Path(type_library_path)
     if not path.is_file():
-        raise FileNotFoundError(f"SolidWorks 类型库不存在: {path}")
+        raise FileNotFoundError(f"SolidWorks tür kitaplığı bulunamadı / Type library missing: {path}")
     library = pythoncom.LoadTypeLib(str(path))
     interfaces: dict[str, set[str]] = {}
     wanted = {name for requirements in REQUIRED_INTERFACES.values() for name in requirements}
@@ -341,7 +337,7 @@ def build_capability_report(
     *,
     source: str,
 ) -> dict[str, Any]:
-    """@brief 对照精确接口契约生成逐能力可审计报告。"""
+    'Generate auditable per-capability reports against exact interface contracts.'
     normalized = {name: set(members) for name, members in interfaces.items()}
     capabilities: dict[str, Any] = {}
     for kind, requirements in REQUIRED_INTERFACES.items():
@@ -361,12 +357,12 @@ def build_capability_report(
         "schema_version": 1,
         "source": source,
         "capabilities": capabilities,
-        "note": "interface_ready 只代表接口存在，必须通过真机建模证据后才能标记 verified。",
+        "note": 'interface_ready yalnızca arayüzün varlığını gösterir; verified için gerçek CAD kanıtı gerekir / interface_ready only proves interface availability; verified requires native modeling evidence.',
     }
 
 
 def spec_payload(spec: Any, validation: Mapping[str, Any]) -> dict[str, Any]:
-    """@brief 把不可变参数对象转换为 JSON 友好的执行计划。"""
+    'Convert immutable parameters to a JSON-friendly execution plan.'
     return {
         "schema_version": 1,
         "spec": asdict(spec),

@@ -1,4 +1,4 @@
-"""真实 OCP 参数化 Loft 后端回归。"""
+"""Regression checks for the real OCP parametric Loft backend."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -9,7 +9,7 @@ from scripts.advanced_geometry_ocp import _suppress_native_stdout, execute_ocp_l
 
 
 def _request(outputs: list[str] | None = None) -> dict:
-    """@brief 返回圆/椭圆过渡的封闭 Loft 黄金样件。"""
+    """Return a closed Loft golden sample transitioning from circle to ellipse."""
     return {
         "schemaVersion": "1.0",
         "modelId": "adapter_loft",
@@ -28,12 +28,12 @@ def _request(outputs: list[str] | None = None) -> dict:
 
 
 def test_validate_ocp_loft_request_accepts_closed_parametric_sections() -> None:
-    """@brief 圆和椭圆的严格白名单请求应通过。"""
+    """Strictly allowlisted circle and ellipse requests pass."""
     assert validate_ocp_loft_request(_request())["modelId"] == "adapter_loft"
 
 
 def test_native_stdout_guard_allows_gui_process_without_console(monkeypatch) -> None:
-    """@brief Windows GUI 无控制台时，原生日志抑制不得阻断几何执行。"""
+    """Native log suppression must not block geometry in a Windows GUI without a console."""
     def no_console(_fd: int) -> int:
         raise OSError("stdout is not attached")
 
@@ -47,18 +47,18 @@ def test_native_stdout_guard_allows_gui_process_without_console(monkeypatch) -> 
 @pytest.mark.parametrize(
     ("change", "message"),
     [
-        (lambda request: request.update({"command": "cmd.exe"}), "未允许字段"),
+        (lambda request: request.update({"command": "cmd.exe"}), "izin verilmeyen alan"),
         (lambda request: request.update({"modelId": "bad/../name"}), "modelId"),
-        (lambda request: request["sections"][1].update({"z": 0}), "严格递增"),
+        (lambda request: request["sections"][1].update({"z": 0}), "kesin art"),
         (lambda request: request["sections"][0].update({"radius": 0}), "radius"),
         (lambda request: request.update({"outputs": ["step", "exe"]}), "outputs"),
-        (lambda request: request.update({"outputs": ["stl"]}), "至少包含 step 或 brep"),
+        (lambda request: request.update({"outputs": ["stl"]}), "outputs en az step veya brep"),
         (lambda request: request.update({"ruled": False}), "ruled=true"),
-        (lambda request: request["sections"].__setitem__(1, {"id": "middle", "type": "polygon", "z": 30, "points": [[-5, -5], [5, -5], [5, 5], [-5, 5]]}), "不能与多边形"),
+        (lambda request: request["sections"].__setitem__(1, {"id": "middle", "type": "polygon", "z": 30, "points": [[-5, -5], [5, -5], [5, 5], [-5, 5]]}), "çokgen kesitlerle karıştırılamaz"),
     ],
 )
 def test_validate_ocp_loft_request_rejects_unsafe_or_degenerate_input(change, message: str) -> None:
-    """@brief 命令注入、路径字符、退化截面和非白名单格式必须拒绝。"""
+    """Reject command injection, path characters, degenerate sections, and non-allowlisted formats."""
     request = _request()
     change(request)
     with pytest.raises(ValueError, match=message):
@@ -66,29 +66,29 @@ def test_validate_ocp_loft_request_rejects_unsafe_or_degenerate_input(change, me
 
 
 def test_polygon_section_rejects_zero_area() -> None:
-    """@brief 共线多边形不能进入 OCP 构造。"""
+    """Collinear polygons must not reach OCP construction."""
     request = _request(["brep"])
     request["sections"] = [
         {"id": "bottom", "type": "polygon", "z": 0, "points": [[0, 0], [1, 0], [2, 0]]},
         {"id": "top", "type": "polygon", "z": 20, "points": [[0, 0], [1, 0], [2, 0]]},
     ]
-    with pytest.raises(ValueError, match="退化多边形"):
+    with pytest.raises(ValueError, match="dejenere çokgen"):
         validate_ocp_loft_request(request)
 
 
 def test_polygon_section_rejects_self_intersection() -> None:
-    """@brief 非零代数面积的自交多边形也必须拒绝。"""
+    """Reject self-intersecting polygons even when their signed area is nonzero."""
     request = _request(["brep"])
     request["sections"] = [
         {"id": "bottom", "type": "polygon", "z": 0, "points": [[0, 0], [4, 4], [0, 3], [4, 0]]},
         {"id": "top", "type": "polygon", "z": 20, "points": [[0, 0], [4, 4], [0, 3], [4, 0]]},
     ]
-    with pytest.raises(ValueError, match="自交"):
+    with pytest.raises(ValueError, match="kendisiyle kesiş"):
         validate_ocp_loft_request(request)
 
 
 def test_execute_ocp_loft_writes_and_reopens_real_brep_artifacts(tmp_path: Path) -> None:
-    """@brief STEP/BREP 必须重开为有效实体，STL 必须是本轮非空产物。"""
+    """STEP/BREP must reopen as valid solids; STL must be a nonempty output of this run."""
     pytest.importorskip("OCP")
     report = execute_ocp_loft(_request(), tmp_path)
 
@@ -124,7 +124,7 @@ def test_execute_ocp_loft_writes_and_reopens_real_brep_artifacts(tmp_path: Path)
 
 
 def test_execute_ocp_loft_versions_entire_artifact_set(tmp_path: Path) -> None:
-    """@brief 任一同名产物存在时，整组产物必须使用统一新版本名。"""
+    """If any same-named artifact exists, version the entire output set consistently."""
     pytest.importorskip("OCP")
     first = execute_ocp_loft(_request(["step", "brep"]), tmp_path)
     second = execute_ocp_loft(_request(["step", "brep"]), tmp_path)
@@ -138,7 +138,7 @@ def test_execute_ocp_loft_versions_entire_artifact_set(tmp_path: Path) -> None:
 
 
 def test_execute_polygon_loft_with_matching_topology(tmp_path: Path) -> None:
-    """@brief 同顶点数、同绕向的多边形截面应生成并重开真实实体。"""
+    """Polygon sections with matching vertex counts and winding must generate and reopen actual solids."""
     pytest.importorskip("OCP")
     request = _request(["brep"])
     request["sections"] = [
@@ -152,7 +152,7 @@ def test_execute_polygon_loft_with_matching_topology(tmp_path: Path) -> None:
 
 
 def test_invalid_request_returns_blocked_without_artifact(tmp_path: Path) -> None:
-    """@brief 输入校验失败时不得创建输出目录或几何产物。"""
+    """Input-validation failures must not create output directories or geometry."""
     request = _request()
     request["sections"][0]["radius"] = -1
     output = tmp_path / "output"

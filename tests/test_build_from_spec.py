@@ -1,15 +1,4 @@
-"""规格执行器回归测试。
-
-重点锁定真机实测发现的两个缺陷：
-
-1. 单位换算：规格用毫米，而 ``sw_hole_features`` 的 center/diameter/depth 与
-   ``sw_part.fillet`` 一律期望**米**。把毫米直接传进去会得到 1000 倍大的草图，
-   SolidWorks 静默拒绝切除（"特征创建成功但不存在"），实测把 100mm 的板撑到 13300mm。
-2. 变量遮蔽：圆角循环用 ``fillet`` 作循环变量，遮蔽了同名的 fillet 函数，
-   使 ``fillet(model, radius)`` 变成调用 dict。
-
-本模块用 unittest.mock 在用例内替换依赖，避免污染其它测试文件的模块缓存。
-"""
+"""Specification-executor regression tests. Two defects found in native runs are covered: (1) specifications use millimeters while sw_hole_features center/diameter/depth and sw_part.fillet require meters; passing millimeters directly creates a 1000x sketch and silent cut rejection (a 100 mm plate reached 13300 mm in testing). (2) A loop variable named fillet shadowed the function, making fillet(model, radius) call a dict. Tests patch dependencies locally with unittest.mock to avoid contaminating other modules."""
 from pathlib import Path
 import sys
 import types
@@ -24,7 +13,7 @@ import scripts.build_from_spec as build_from_spec  # noqa: E402
 
 
 class FakeModel:
-    """文档替身。"""
+    """Document test double."""
 
     def __init__(self):
         self.rebuilds = 0
@@ -41,11 +30,7 @@ class FakeModel:
 
 @pytest.fixture
 def harness(monkeypatch):
-    """
-    替换 build_from_spec 的全部外部依赖，返回记录调用参数的容器。
-
-    只 patch 该模块自己的绑定，不影响其它测试文件。
-    """
+    """Replace build_from_spec external dependencies and return a call-recording container. Patch only that module's bindings without affecting other test files."""
     record = {"holes": [], "part": []}
 
     def make_creator(kind):
@@ -54,17 +39,17 @@ def harness(monkeypatch):
             return {"feature_kind": kind, "feature_names": (hole.get("id"),)}
         return creator
 
-    def through(model, center=None, diameter=None, name="孔", **kwargs):
+    def through(model, center=None, diameter=None, name='Delik', **kwargs):
         record["holes"].append({"kind": "through", "center": center, "diameter": diameter, "name": name})
 
         return {"feature_kind": "through", "feature_names": (name,), "center_m": center, "diameter_m": diameter}
 
-    def blind(model, center=None, diameter=None, depth=None, name="孔", **kwargs):
+    def blind(model, center=None, diameter=None, depth=None, name='Delik', **kwargs):
         record["holes"].append({"kind": "blind", "center": center, "diameter": diameter, "depth": depth, "name": name})
         return {"feature_kind": "blind", "feature_names": (name,)}
 
     def counterbore(model, center=None, hole_diameter=None, counterbore_diameter=None,
-                    counterbore_depth=None, name="孔", **kwargs):
+                    counterbore_depth=None, name='Delik', **kwargs):
         record["holes"].append({
             "kind": "counterbore", "center": center, "diameter": hole_diameter,
             "counterbore_diameter": counterbore_diameter,
@@ -73,7 +58,7 @@ def harness(monkeypatch):
         return {"feature_kind": "counterbore", "feature_names": (name,)}
 
     def countersink(model, center=None, hole_diameter=None, countersink_diameter=None,
-                    included_angle_deg=None, name="孔", **kwargs):
+                    included_angle_deg=None, name='Delik', **kwargs):
         record["holes"].append({
             "kind": "countersink", "center": center, "diameter": hole_diameter,
             "countersink_diameter": countersink_diameter,
@@ -101,7 +86,7 @@ def harness(monkeypatch):
         return types.SimpleNamespace(Name="Fillet1")
 
     class FakeSketchManager:
-        """草图上下文管理器替身。"""
+        """Sketch context-manager test double."""
 
         def __init__(self, outer):
             self._outer = outer
@@ -138,7 +123,7 @@ def harness(monkeypatch):
 
 
 def base_spec(**overrides):
-    """构造归一化后的规格。"""
+    """Build a normalized specification."""
     spec = {
         "schema_version": "1.0",
         "part_name": "bracket",
@@ -153,19 +138,16 @@ def base_spec(**overrides):
 
 
 def run(spec, harness, **kwargs):
-    """执行构建并返回 (结果, 调用记录)。"""
+    """Execute a build and return its result and recorded calls."""
     kwargs.setdefault("apply_fillets", False)
     kwargs.setdefault("verify_geometry", False)
     return build_from_spec.build_from_spec(FakeModel(), spec, **kwargs), harness
 
 
-# ------------------------------------------------------------ 单位换算
+# Unit conversion
 
 def test_hole_arguments_converted_to_metres(harness):
-    """@brief 核心缺陷：孔的中心与直径必须从毫米换算为米。
-
-    未换算时圆心 x=10(mm) 会被当成 10 米，实测把 100x60 的板撑到 13300mm。
-    """
+    """Hole center and diameter must convert from millimeters to meters. Without conversion, x=10 mm is treated as 10 m; a 100x60 mm plate reached 13300 mm in native testing."""
     spec = base_spec(holes=[
         {"id": "H1", "type": "through", "diameter_mm": 6.6, "position_mm": [10.0, 10.0, 0.0]}
     ])
@@ -175,21 +157,21 @@ def test_hole_arguments_converted_to_metres(harness):
     assert len(record["holes"]) == 1
     hole = record["holes"][0]
     assert hole["kind"] == "through"
-    # 关键断言：传进 sw_hole_features 的必须是米
+    # Arguments passed into sw_hole_features must be meters.
     assert hole["center"] == pytest.approx((0.010, 0.010))
     assert hole["diameter"] == pytest.approx(0.0066)
     assert result["hole_count_created"] == 1
 
 
 def test_hole_center_helper_converts_mm_to_m():
-    """@brief _hole_center_m 是毫米到米的唯一转换点，必须正确。"""
+    """_hole_center_m is the single millimeter-to-meter conversion point and must be correct."""
     center = build_from_spec._hole_center_m({"position_mm": [10.0, 20.0, 0.0]})
 
     assert center == pytest.approx((0.010, 0.020))
 
 
 def test_blind_hole_depth_converted_to_metres(harness):
-    """@brief 盲孔深度换算为米。"""
+    """Convert blind-hole depth to meters."""
     spec = base_spec(holes=[
         {"id": "H1", "type": "blind", "diameter_mm": 5.0, "depth_mm": 6.0, "position_mm": [10.0, 10.0, 0.0]}
     ])
@@ -201,7 +183,7 @@ def test_blind_hole_depth_converted_to_metres(harness):
 
 
 def test_counterbore_dimensions_converted_to_metres(harness):
-    """@brief 沉头孔的三组尺寸都要换算。"""
+    """Convert all three counterbore dimension groups."""
     spec = base_spec(holes=[{
         "id": "H1", "type": "counterbore", "diameter_mm": 6.6, "position_mm": [10.0, 10.0, 0.0],
         "counterbore_diameter_mm": 11.0, "counterbore_depth_mm": 6.0,
@@ -218,7 +200,7 @@ def test_counterbore_dimensions_converted_to_metres(harness):
 
 
 def test_countersink_angle_passed_through_unconverted(harness):
-    """@brief 锥沉孔角度是度，不做单位换算。"""
+    """Countersink angles remain in degrees without unit conversion."""
     spec = base_spec(holes=[{
         "id": "H1", "type": "countersink", "diameter_mm": 6.6, "position_mm": [10.0, 10.0, 0.0],
         "countersink_diameter_mm": 12.0, "angle_deg": 82.0,
@@ -234,10 +216,7 @@ def test_countersink_angle_passed_through_unconverted(harness):
 
 
 def test_base_plate_origin_at_lower_left_corner(harness):
-    """@brief 板料原点在左下角，规格孔位可直接按图纸标注。
-
-    旧实现把板居中于原点（-50..50），导致按图纸标的 90mm 孔位落到板外。
-    """
+    """The plate origin is its lower-left corner so hole locations follow drawing coordinates. Previously centering the plate (-50..50) placed a 90 mm hole outside the plate."""
     result, record = run(base_spec(), harness)
 
     rectangle = next(call for call in record["part"] if call[0] == "corner_rectangle")
@@ -246,7 +225,7 @@ def test_base_plate_origin_at_lower_left_corner(harness):
 
 
 def test_base_plate_thickness_converted(harness):
-    """@brief 厚度换算为米。"""
+    """Convert thickness to meters."""
     result, record = run(base_spec(), harness)
 
     extrude = next(call for call in record["part"] if call[0] == "extrude_boss")
@@ -254,7 +233,7 @@ def test_base_plate_thickness_converted(harness):
 
 
 def test_cylinder_base_diameter_converted(harness):
-    """@brief 圆柱基体直径换算为米（半径 = 直径/2）。"""
+    """Convert cylinder diameter to meters; radius is half the diameter."""
     spec = base_spec(base={"type": "cylinder", "diameter_mm": 50.0, "height_mm": 80.0})
 
     result, record = run(spec, harness)
@@ -263,10 +242,10 @@ def test_cylinder_base_diameter_converted(harness):
     assert circle[3] == pytest.approx(0.025)
 
 
-# ------------------------------------------------------------ 越界校验
+# Bounds validation
 
 def test_hole_outside_plate_is_rejected_before_building(harness):
-    """@brief 孔位越界必须在建孔前报错，否则得到的是一串误导性的"特征未创建"。"""
+    """Reject out-of-bounds hole positions before creation rather than report misleading feature-creation failures."""
     spec = base_spec(holes=[
         {"id": "H1", "type": "through", "diameter_mm": 6.6, "position_mm": [200.0, 10.0, 0.0]}
     ])
@@ -274,12 +253,12 @@ def test_hole_outside_plate_is_rejected_before_building(harness):
     result, record = run(spec, harness)
 
     assert result["status"] == "error"
-    assert any("超出了板料范围" in item for item in result["errors"])
+    assert any("levha sınırlarını aşıyor" in item for item in result["errors"])
     assert record["holes"] == []
 
 
 def test_hole_touching_edge_is_rejected(harness):
-    """@brief 孔壁超出边界（而非仅圆心）也算越界。"""
+    """A hole wall beyond the boundary counts as out of bounds even if its center is inside."""
     spec = base_spec(holes=[
         {"id": "H1", "type": "through", "diameter_mm": 20.0, "position_mm": [3.0, 30.0, 0.0]}
     ])
@@ -287,11 +266,11 @@ def test_hole_touching_edge_is_rejected(harness):
     result, _ = run(spec, harness)
 
     assert result["status"] == "error"
-    assert any("超出了板料范围" in item for item in result["errors"])
+    assert any("levha sınırlarını aşıyor" in item for item in result["errors"])
 
 
 def test_valid_corner_holes_pass_bounds_check(harness):
-    """@brief 板内四角孔应通过校验并全部创建。"""
+    """Four corner holes within the plate pass validation and are all created."""
     spec = base_spec(holes=[
         {"id": f"H{index}", "type": "through", "diameter_mm": 6.6, "position_mm": position + [0.0]}
         for index, position in enumerate([[10.0, 10.0], [90.0, 10.0], [10.0, 50.0], [90.0, 50.0]], start=1)
@@ -304,7 +283,7 @@ def test_valid_corner_holes_pass_bounds_check(harness):
 
 
 def test_cylinder_hole_outside_radius_rejected(harness):
-    """@brief 圆柱基体上的孔超出半径要报错。"""
+    """Reject a hole outside the cylindrical base radius."""
     spec = base_spec(
         base={"type": "cylinder", "diameter_mm": 50.0, "height_mm": 10.0},
         holes=[{"id": "H1", "type": "through", "diameter_mm": 5.0, "position_mm": [40.0, 0.0, 0.0]}],
@@ -312,16 +291,13 @@ def test_cylinder_hole_outside_radius_rejected(harness):
 
     result, _ = run(spec, harness)
 
-    assert any("超出圆柱半径" in item for item in result["errors"])
+    assert any("silindir yarıçapını aşıyor" in item for item in result["errors"])
 
 
-# ------------------------------------------------------------ 结果判定
+# Result classification
 
 def test_hole_feature_names_key_is_read_correctly(harness):
-    """@brief HoleFeatureEvidence 的键是 feature_names，不是 status/feature_name。
-
-    旧实现读不存在的 "status" 键，把成功的孔判成失败。
-    """
+    """HoleFeatureEvidence uses feature_names, not status/feature_name. The old implementation read a nonexistent status key and classified successful holes as failures."""
     spec = base_spec(holes=[
         {"id": "H1", "type": "through", "diameter_mm": 6.6, "position_mm": [10.0, 10.0, 0.0]}
     ])
@@ -329,14 +305,14 @@ def test_hole_feature_names_key_is_read_correctly(harness):
     result, _ = run(spec, harness)
 
     assert result["hole_count_created"] == 1
-    assert not any("未成功创建" in item for item in result["errors"])
+    assert not any("oluşturulamadı" in item for item in result["errors"])
     step = next(item for item in result["steps"] if item["step"] == "hole")
     assert step["ok"] is True
     assert step["feature"] == "H1"
 
 
 def test_missing_feature_names_marks_hole_failed(harness, monkeypatch):
-    """@brief 特征名为空视为失败，不能算成功。"""
+    """Empty feature names mean failure, never success."""
     monkeypatch.setattr(
         build_from_spec, "create_through_hole",
         lambda model, hole: {"feature_kind": "through", "feature_names": ()},
@@ -352,7 +328,7 @@ def test_missing_feature_names_marks_hole_failed(harness, monkeypatch):
 
 
 def test_creator_exception_is_recorded_not_raised(harness, monkeypatch):
-    """@brief 单个孔创建抛异常时记录并继续，不中断整个构建。"""
+    """Record an individual hole-creation exception and continue the remaining build."""
 
     def raising(model, center=None, diameter=None, name="H", **kwargs):
         if name == "H2":
@@ -371,10 +347,10 @@ def test_creator_exception_is_recorded_not_raised(harness, monkeypatch):
     assert result["hole_count_created"] == 1
 
 
-# ------------------------------------------------------------ 孔阵列展开
+# Hole pattern expansion
 
 def test_circular_pattern_expands_evenly():
-    """@brief 圆周阵列按等分角展开并重新编号。"""
+    """Expand circular patterns at equal angles and renumber holes."""
     holes = [{
         "id": "B", "type": "through", "diameter_mm": 5.0, "position_mm": [0.0, 0.0, 0.0],
         "pattern": {"type": "circular", "count": 6, "radius": 30.0, "start_angle": 0.0},
@@ -389,7 +365,7 @@ def test_circular_pattern_expands_evenly():
 
 
 def test_linear_pattern_expands_along_direction():
-    """@brief 线性阵列沿 dx/dy 展开。"""
+    """Expand linear patterns along dx/dy."""
     holes = [{
         "id": "L", "type": "through", "diameter_mm": 5.0, "position_mm": [10.0, 10.0, 0.0],
         "pattern": {"type": "linear", "count": 4, "dx": 20.0, "dy": 0.0},
@@ -402,7 +378,7 @@ def test_linear_pattern_expands_along_direction():
 
 
 def test_hole_without_pattern_is_copied_not_aliased():
-    """@brief 无阵列的孔原样保留，但复制而非引用。"""
+    """Preserve unpatterned holes by copying rather than sharing references."""
     holes = [{"id": "H1", "type": "through", "diameter_mm": 5.0, "position_mm": [1.0, 2.0, 0.0]}]
 
     expanded = build_from_spec.expand_hole_patterns(holes)
@@ -412,7 +388,7 @@ def test_hole_without_pattern_is_copied_not_aliased():
 
 
 def test_pattern_count_is_clamped():
-    """@brief 异常的阵列数量被夹到合理范围，避免生成海量几何。"""
+    """Clamp abnormal pattern counts to avoid generating excessive geometry."""
     holes = [{
         "id": "B", "type": "through", "diameter_mm": 5.0, "position_mm": [0.0, 0.0, 0.0],
         "pattern": {"type": "circular", "count": 10**6, "radius": 30.0},
@@ -424,7 +400,7 @@ def test_pattern_count_is_clamped():
 
 
 def test_unknown_pattern_type_preserves_original_hole():
-    """@brief 未知阵列类型时保留原孔而不是丢弃。"""
+    """Preserve the original hole when the pattern type is unknown."""
     holes = [{
         "id": "B", "type": "through", "diameter_mm": 5.0, "position_mm": [1.0, 2.0, 0.0],
         "pattern": {"type": "spiral", "count": 4},
@@ -436,10 +412,10 @@ def test_unknown_pattern_type_preserves_original_hole():
     assert expanded[0]["position_mm"] == [1.0, 2.0, 0.0]
 
 
-# ------------------------------------------------------------ 圆角
+# Fillets
 
 def test_fillet_radius_converted_to_metres(harness):
-    """@brief 圆角半径换算为米。"""
+    """Convert fillet radius to meters."""
     spec = base_spec(fillets=[{"radius_mm": 4.0, "axis": "z"}])
 
     result, record = run(spec, harness, apply_fillets=True)
@@ -449,10 +425,7 @@ def test_fillet_radius_converted_to_metres(harness):
 
 
 def test_fillet_loop_variable_does_not_shadow_function(harness):
-    """@brief 核心缺陷：循环变量曾命名为 fillet，遮蔽同名函数导致 'dict' not callable。
-
-    只要圆角能真正被调用（record 里有 fillet 记录）就说明没有被遮蔽。
-    """
+    """A loop variable named fillet previously shadowed the function, causing dict-not-callable errors. A recorded fillet call proves the function is no longer shadowed."""
     spec = base_spec(fillets=[{"radius_mm": 2.0, "axis": "z"}, {"radius_mm": 3.0, "axis": "z"}])
 
     result, record = run(spec, harness, apply_fillets=True)
@@ -463,7 +436,7 @@ def test_fillet_loop_variable_does_not_shadow_function(harness):
 
 
 def test_fillet_skipped_when_no_edges_match(harness, monkeypatch):
-    """@brief 选不到边时跳过圆角并给出提示，不静默对当前选择集操作。"""
+    """Skip fillets with a clear message when no edges match; do not act silently on the current selection."""
     monkeypatch.setattr(
         build_from_spec, "select_edges",
         lambda model, spec: {"status": "error", "selected_count": 0, "errors": ["none"]},
@@ -472,28 +445,28 @@ def test_fillet_skipped_when_no_edges_match(harness, monkeypatch):
 
     result, record = run(spec, harness, apply_fillets=True)
 
-    assert any("未选中任何边线" in item for item in result["warnings"])
+    assert any("kenar seçilmedi" in item for item in result["warnings"])
     assert not any(call[0] == "fillet" for call in record["part"])
 
 
 def test_fillet_failure_is_warning_not_error(harness, monkeypatch):
-    """@brief 圆角失败只记警告，已建成的实体不回滚。"""
+    """Record a fillet failure as a warning without rolling back the existing solid."""
     def failing_fillet(model, radius, edges=None):
-        raise RuntimeError("半径过大")
+        raise RuntimeError("Radius too large")
 
     monkeypatch.setattr(build_from_spec, "fillet", failing_fillet)
     spec = base_spec(fillets=[{"radius_mm": 50.0, "axis": "z"}])
 
     result, _ = run(spec, harness, apply_fillets=True)
 
-    assert any("圆角 0 失败" in item for item in result["warnings"])
+    assert any("Fillet 0 başarısız" in item for item in result["warnings"])
     assert result["status"] in ("ok", "warn")
 
 
-# ------------------------------------------------------------ 验证
+# Verification
 
 def test_verification_runs_and_reports(harness):
-    """@brief 开启验证时比对实测与期望。"""
+    """Compare actual measurements with expected values when verification is enabled."""
     spec = base_spec(
         holes=[{"id": "H1", "type": "through", "diameter_mm": 6.6, "position_mm": [10.0, 10.0, 0.0]}],
         verify={"envelope_mm": [100.0, 60.0, 6.0], "hole_count": 1, "tolerance_mm": 0.1},
@@ -506,7 +479,7 @@ def test_verification_runs_and_reports(harness):
 
 
 def test_verification_flags_dimension_mismatch(harness, monkeypatch):
-    """@brief 实测尺寸与规格不符时报告警告并要求复核。"""
+    """Dimension mismatches produce a warning and require review."""
     monkeypatch.setattr(
         build_from_spec.sw_measure, "collect_bounding_box",
         lambda model: {"size_mm": [999.0, 60.0, 6.0], "errors": []},
@@ -520,7 +493,7 @@ def test_verification_flags_dimension_mismatch(harness, monkeypatch):
 
 
 def test_base_none_skips_solid_creation(harness):
-    """@brief base.type="none" 时只建后续特征。"""
+    """base.type=none creates only subsequent features."""
     spec = base_spec(base={"type": "none"})
 
     result, record = run(spec, harness)
@@ -530,7 +503,7 @@ def test_base_none_skips_solid_creation(harness):
 
 
 def test_mass_properties_included_in_measurements(harness):
-    """@brief 测量结果里应同时包含包围盒与质量属性。"""
+    """Measurements include both bounding box and mass properties."""
     result, _ = run(base_spec(), harness, verify_geometry=True)
 
     assert result["measurements"]["mass_properties"]["mass_g"] == 500.0

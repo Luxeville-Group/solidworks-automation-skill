@@ -1,12 +1,12 @@
 """
-设计规格执行器：把校验后的 design spec 幂等地构建为 SolidWorks 零件。
+Design-spec executor: idempotently build validated design specifications as SolidWorks parts.
 
-与"AI 每次生成一套建模调用"相比，这里的价值在于：
-- **幂等**：同一份规格产出的特征树结构一致，可重复构建、可比对。
-- **可追溯**：每一步都记录实际创建的特征名与回读尺寸。
-- **内建验证**：构建后自动回读包围盒/孔数/质量并与规格 verify 段比对。
+The executor provides:
+- Idempotency: identical specifications produce comparable, repeatable feature-tree structures.
+- Traceability: record actual feature names and read-back dimensions for every step.
+- Built-in validation: read back bounding box, hole count and mass and compare with verify.
 
-单位为毫米；内部统一换算为米后传给 SolidWorks API。
+Specifications use millimeters; convert to meters before calling the SolidWorks API.
 """
 from __future__ import annotations
 
@@ -32,7 +32,7 @@ try:
     from .sw_edge_select import select_edges
     from . import sw_measure
     from .design_spec import compare_verification
-except ImportError:  # 直接以 scripts/ 为 sys.path 时
+except ImportError:  # When scripts/ is directly on sys.path
     from sw_connect import get_com_member, mm
     from sw_part import (
         SketchSelectionRef,
@@ -54,7 +54,7 @@ except ImportError:  # 直接以 scripts/ 为 sys.path 时
 
 
 def _safe(obj, name, *args, default=None):
-    """@brief 安全读取 COM 成员。"""
+    """@brief Safely read a COM member."""
     try:
         member = getattr(obj, name)
         value = member(*args) if args or callable(member) else member
@@ -64,13 +64,13 @@ def _safe(obj, name, *args, default=None):
 
 
 def _feature_name(feature, fallback):
-    """@brief 读取特征名，失败时回退。"""
+    """@brief Read a feature name with a fallback on failure."""
     name = _safe(feature, "Name")
     return str(name) if name else fallback
 
 
 def _rotate_point(x_mm, y_mm, angle_deg):
-    """@brief 绕原点旋转二维点（用于圆周阵列孔的坐标计算）。"""
+    """@brief Rotate a 2D point around the origin for circular hole-pattern coordinates."""
     radians = math.radians(angle_deg)
     cos_a, sin_a = math.cos(radians), math.sin(radians)
     return (x_mm * cos_a - y_mm * sin_a, x_mm * sin_a + y_mm * cos_a)
@@ -78,17 +78,17 @@ def _rotate_point(x_mm, y_mm, angle_deg):
 
 def expand_hole_patterns(holes: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """
-    展开孔阵列定义。
+    Expand hole pattern definitions.
 
-    支持在孔上附加 ``"pattern": {"type": "circular", "count": 6, "radius": 30,
-    "start_angle": 0}`` 或 ``{"type": "linear", "count": 4, "dx": 20, "dy": 0}``，
-    展开为独立孔定义，每个孔带可追溯的 id。
+    A hole may contain a circular pattern with type=circular, count=6, radius=30,
+    start_angle=0, or a linear pattern with type=linear, count=4, dx=20, dy=0.
+    Expand these into individual definitions, each with a traceable id.
 
-    参数:
-        holes: 归一化后的孔列表。
+    Args:
+        holes: Normalized hole list.
 
-    返回:
-        展开后的孔列表（原孔若带 pattern，则替换为 count 个孔）。
+    Returns:
+        Expanded holes; replace each patterned seed with count holes.
     """
     expanded: List[Dict[str, Any]] = []
     for hole in holes:
@@ -129,7 +129,7 @@ def expand_hole_patterns(holes: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
                     round(base_position[2] + dz * index, 6),
                 ]
             else:
-                # 未知阵列类型：保留原孔，交给调用方在 warnings 中说明。
+                # Unknown pattern: preserve the seed and let the caller explain it in warnings.
                 expanded.append(dict(hole))
                 break
             variant["id"] = f"{hole.get('id', 'H')}_{index + 1}"
@@ -140,11 +140,12 @@ def expand_hole_patterns(holes: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 
 def _create_base(model, base):
     """
-    创建基础实体，返回 (feature, plane_name, errors)。
+    Create the base solid and return (feature, plane_name, errors).
 
-    坐标系约定：板料的**左下角在原点**，板面位于 XY 平面第一象限，沿 +Z 拉伸。
-    这样规格里的孔位可以直接按图纸尺寸标注（"距左边 10、距下边 15"），不必做
-    居中偏移的心算——这是机械工程师标注孔位的默认方式。
+    Coordinate convention: the plate lower-left corner is at the origin, its face
+    lies in the first XY quadrant, and extrusion follows +Z. Hole coordinates can
+    therefore use drawing offsets from the left and bottom edges directly without
+    a centered-coordinate conversion.
     """
     base_type = base.get("type")
     if base_type == "rect_plate":
@@ -167,15 +168,16 @@ def _create_base(model, base):
     if base_type == "none":
         return None, "Front Plane", []
 
-    return None, "Front Plane", [f"不支持的 base.type={base_type!r}"]
+    return None, "Front Plane", [f"Desteklenmeyen base.type={base_type!r}"]
 
 
 def validate_holes_inside_base(holes, base):
     """
-    检查孔位是否落在基础实体范围内。
+    Check that hole centers lie within the base solid.
 
-    越界的孔会被 SolidWorks 静默拒绝（切除草图完全在实体外，不产生特征），表现为
-    "创建成功但特征不存在"。提前显式报错能让用户立刻知道是坐标问题而不是 API 问题。
+    SolidWorks can silently reject cuts whose sketch is entirely outside the body,
+    appearing successful without a feature. Report coordinate errors explicitly
+    before modeling so users can distinguish them from API failures.
     """
     problems = []
     base = base or {}
@@ -187,8 +189,8 @@ def validate_holes_inside_base(holes, base):
             radius = hole["diameter_mm"] / 2.0
             if x_mm - radius < -1e-6 or y_mm - radius < -1e-6 or x_mm + radius > width + 1e-6 or y_mm + radius > height + 1e-6:
                 problems.append(
-                    f"孔 {hole.get('id')} 位于 ({x_mm}, {y_mm})，直径 {hole['diameter_mm']}mm，"
-                    f"超出了板料范围 {width}x{height}mm（原点在左下角）。"
+                    f"Delik {hole.get('id')} konumu ({x_mm}, {y_mm}), çapı {hole['diameter_mm']}mm, "
+                    f" levha sınırlarını aşıyor: {width}x{height} mm (origin sol alt köşede)."
                 )
     elif base.get("type") == "cylinder":
         diameter = base["diameter_mm"]
@@ -198,13 +200,13 @@ def validate_holes_inside_base(holes, base):
             distance = math.hypot(x_mm, y_mm)
             if distance + hole["diameter_mm"] / 2.0 > radius_base + 1e-6:
                 problems.append(
-                    f"孔 {hole.get('id')} 中心距轴心 {distance:.3f}mm，超出圆柱半径 {radius_base}mm。"
+                    f"Delik {hole.get('id')} merkezinin eksene uzaklığı {distance:.3f} mm; silindir yarıçapını aşıyor: {radius_base}mm."
                 )
     return problems
 
 
 def _hole_center_m(hole):
-    """孔中心（规格中的 mm）转 SolidWorks API 需要的米。"""
+    """Convert hole-center millimeters from the specification to SolidWorks API meters."""
     return (mm(hole["position_mm"][0]), mm(hole["position_mm"][1]))
 
 
@@ -213,24 +215,25 @@ _SUPPORTED_HOLE_TYPES = frozenset({"through", "blind", "counterbore", "countersi
 
 def _create_hole(model, hole):
     """
-    按孔类型分派到 sw_hole_features 的创建函数。
+    Dispatch hole types to sw_hole_features creation functions.
 
-    注意：这些函数的长度参数都期望**米**，而规格统一用毫米，因此这里必须显式
-    换算——把毫米直接传进去会得到 1000 倍大的草图，SolidWorks 会静默拒绝切除
-    （表现为"创建成功但特征不存在"），实测把 100mm 的板撑到 13300mm。
+    These functions expect lengths in meters while specifications use millimeters.
+    Convert explicitly: raw millimeters create a sketch 1000 times too large and
+    can make SolidWorks silently reject the cut. One observed 100 mm plate expanded
+    to 13300 mm.
 
-    函数通过本模块的属性查找，而不是在导入期绑定：这样既便于单独替换某一种孔
-    的行为做测试，也避免模块导入顺序影响实际调用的实现。
+    Resolve functions through this module at call time rather than binding them
+    during import, enabling isolated tests and avoiding import-order dependencies.
     """
     hole_type = hole.get("type")
-    hole_name = hole.get("id", "孔")
+    hole_name = hole.get("id", "Delik")
 
     if hole_type == "through":
         return create_through_hole(
             model,
             center=_hole_center_m(hole),
             diameter=mm(hole["diameter_mm"]),
-            name=hole.get("id", "通孔"),
+            name=hole.get("id", "Through hole"),
         )
     if hole_type == "blind":
         return create_blind_hole(
@@ -258,34 +261,34 @@ def _create_hole(model, hole):
             included_angle_deg=hole.get("angle_deg", 90.0),
             name=hole_name,
         )
-    raise ValueError(f"不支持的孔类型: {hole_type!r}")
+    raise ValueError(f"Desteklenmeyen delik türü: {hole_type!r}")
 
 
 def build_from_spec(model, spec: Dict[str, Any], apply_fillets=True, verify_geometry=True):
     """
-    按设计规格构建零件。
+    Build a part from a design specification.
 
-    参数:
-        model: 新建的空白 IModelDoc2 零件文档。
-        spec: **已通过 validate_design_spec 校验**的归一化规格
-            （即校验结果中的 "normalized"）。
-        apply_fillets: 是否执行 fillets 段。倒角/圆角失败时只记录警告，
-            不回滚已建好的实体——几何失败通常是参数问题，用户需要看到
-            已经建成的部分来定位。
-        verify_geometry: 是否回读几何并与 verify 段比对。
+    Args:
+        model: Newly created empty IModelDoc2 part document.
+        spec: Normalized specification already accepted by validate_design_spec
+            (the validation result's normalized field).
+        apply_fillets: Execute the fillets section. Fillet/chamfer failures add
+            warnings without rolling back the body; existing geometry helps users
+            diagnose parameter-related failures.
+        verify_geometry: Read geometry back and compare with the verify section.
 
-    返回:
-        dict：status / steps / warnings / errors / verification / measurements。
+    Returns:
+        Dictionary: status / steps / warnings / errors / verification / measurements.
     """
     steps: List[Dict[str, Any]] = []
     warnings: List[str] = []
     errors: List[str] = []
 
-    # ---- 基础实体 ----
+    # ---- Base solid ----
     feature, plane_name, base_errors = _create_base(model, spec.get("base") or {})
     errors.extend(base_errors)
     if feature is None and not base_errors and (spec.get("base") or {}).get("type") != "none":
-        errors.append("基础实体创建失败：特征未生成。请检查模板是否可用。")
+        errors.append("Temel katı oluşturulamadı: feature oluşmadı. Template kullanılabilirliğini denetleyin.")
     steps.append({
         "step": "base",
         "type": (spec.get("base") or {}).get("type"),
@@ -308,7 +311,7 @@ def build_from_spec(model, spec: Dict[str, Any], apply_fillets=True, verify_geom
         except Exception:
             pass
 
-    # ---- 孔 ----
+    # ---- Holes ----
     holes = expand_hole_patterns(spec.get("holes") or [])
     created_holes: List[Dict[str, Any]] = []
 
@@ -316,8 +319,8 @@ def build_from_spec(model, spec: Dict[str, Any], apply_fillets=True, verify_geom
         errors.append(problem)
 
     if errors:
-        # 孔位越界属于规格错误，继续建孔只会得到一串误导性的"特征未创建"。
-        steps.append({"step": "holes", "ok": False, "reason": "孔位越界，已跳过建孔"})
+        # Out-of-bounds holes are specification errors; continuing would produce misleading feature-not-created messages.
+        steps.append({"step": "holes", "ok": False, "reason": "Delik konumu sınır dışında; delik oluşturma atlandı"})
         return {
             "status": "error",
             "steps": steps,
@@ -329,17 +332,17 @@ def build_from_spec(model, spec: Dict[str, Any], apply_fillets=True, verify_geom
     for hole in holes:
         hole_type = hole.get("type")
         if hole_type not in _SUPPORTED_HOLE_TYPES:
-            errors.append(f"孔 {hole.get('id')}: 不支持的孔类型 {hole_type!r}")
+            errors.append(f"Delik {hole.get('id')}: desteklenmeyen delik türü {hole_type!r}")
             continue
         try:
             result = _create_hole(model, hole)
         except Exception as exc:
-            errors.append(f"孔 {hole.get('id')} 创建失败: {exc}")
+            errors.append(f"Delik {hole.get('id')} oluşturulamadı: {exc}")
             steps.append({"step": "hole", "id": hole.get("id"), "type": hole_type, "ok": False})
             continue
 
-        # HoleFeatureEvidence.to_dict() 的键是 feature_names（元组），
-        # 没有 status 字段；特征创建成功时该元组非空。
+        # HoleFeatureEvidence.to_dict() exposes feature_names as a tuple,
+        # not status; successful feature creation produces a nonempty tuple.
         feature_names = (result or {}).get("feature_names") or ()
         ok = bool(feature_names) and not any(name is None for name in feature_names)
         created_holes.append({"id": hole.get("id"), "type": hole_type, "result": result, "ok": ok})
@@ -354,13 +357,13 @@ def build_from_spec(model, spec: Dict[str, Any], apply_fillets=True, verify_geom
         })
         if not ok:
             errors.append(
-                f"孔 {hole.get('id')} 未成功创建（SolidWorks 未返回特征名）。"
-                "常见原因：孔位在实体之外，或与前一个孔重叠。"
+                f"Delik {hole.get('id')} oluşturulamadı (SOLIDWORKS özellik adı döndürmedi)."
+                "Yaygın nedenler: delik konumu katı dışında veya önceki delikle çakışıyor."
             )
 
-    # ---- 圆角 ----
-    # 循环变量名必须是 fillet_spec：用 `fillet` 会遮蔽上面 import 的 fillet 函数，
-    # 使 fillet(model, radius) 变成调用一个 dict（'dict' object is not callable）。
+    # ---- Fillets ----
+    # Name the loop variable fillet_spec: fillet would shadow the imported function,
+    # causing fillet(model, radius) to call a dictionary, which is not callable.
     fillet_results = []
     if apply_fillets and spec.get("fillets"):
         for index, fillet_spec in enumerate(spec["fillets"]):
@@ -382,8 +385,8 @@ def build_from_spec(model, spec: Dict[str, Any], apply_fillets=True, verify_geom
             }
             if selection.get("status") != "ok":
                 warnings.append(
-                    f"圆角 {index}: 未选中任何边线（条件 {edge_spec}）；已跳过该圆角。"
-                    f"可用 solidworks_list_edges 查看模型边线。"
+                    f"Fillet {index}: kenar seçilmedi (koşul {edge_spec}); bu Fillet atlandı."
+                    f"Model kenarlarını solidworks_list_edges ile görüntüleyebilirsiniz."
                 )
                 fillet_results.append(entry)
                 steps.append(entry)
@@ -397,11 +400,11 @@ def build_from_spec(model, spec: Dict[str, Any], apply_fillets=True, verify_geom
                 entry["ok"] = created is not None
                 entry["feature"] = _feature_name(created, f"Fillet{index + 1}")
                 if created is None:
-                    warnings.append(f"圆角 {index}: 选中了 {entry['selected_count']} 条边但特征未生成，"
-                                    "通常是半径过大导致自交。")
+                    warnings.append(f"Fillet {index}: seçilen kenar sayısı {entry['selected_count']}; ancak özellik oluşturulmadı, "
+                                    "Genellikle aşırı yarıçap nedeniyle kendiyle kesişme oluşur.")
             except Exception as exc:
                 entry["error"] = str(exc)
-                warnings.append(f"圆角 {index} 失败: {exc}")
+                warnings.append(f"Fillet {index} başarısız: {exc}")
             finally:
                 try:
                     model.ClearSelection2(True)
@@ -410,7 +413,7 @@ def build_from_spec(model, spec: Dict[str, Any], apply_fillets=True, verify_geom
             fillet_results.append(entry)
             steps.append(entry)
 
-    # ---- 回读与验证 ----
+    # ---- Read-back and verification ----
     measurements: Dict[str, Any] = {}
     verification: Dict[str, Any] = {"status": "skipped", "checks": []}
     if verify_geometry:
@@ -421,11 +424,11 @@ def build_from_spec(model, spec: Dict[str, Any], apply_fillets=True, verify_geom
         try:
             bounding = sw_measure.collect_bounding_box(model)
         except Exception as exc:
-            bounding = {"errors": [f"包围盒回读失败: {exc}"]}
+            bounding = {"errors": [f"Bounding box readback başarısız: {exc}"]}
         try:
             mass = sw_measure.collect_mass_properties(model)
         except Exception as exc:
-            mass = {"errors": [f"质量属性回读失败: {exc}"]}
+            mass = {"errors": [f"Kütle özellikleri readback başarısız: {exc}"]}
 
         measurements = {
             "bounding_box": {key: value for key, value in bounding.items() if key != "errors"},
@@ -445,12 +448,12 @@ def build_from_spec(model, spec: Dict[str, Any], apply_fillets=True, verify_geom
         for error in measurements["errors"]:
             warnings.append(error)
 
-    # 特征数与实测孔数一致性自检：孔创建"成功"但特征未出现是静默失败，
-    # 必须靠回读数量比对才能发现。
+    # Cross-check feature count and measured holes: a reported success without a feature is a silent failure,
+    # detectable only by comparing read-back counts.
     actual_hole_count = len([item for item in created_holes if item["ok"]])
     if holes and actual_hole_count < len(holes):
         errors.append(
-            f"规格定义 {len(holes)} 个孔，实际成功创建 {actual_hole_count} 个；请核对失败的孔定义。"
+            f"Spesifikasyondaki delik sayısı {len(holes)}; başarıyla oluşturulan {actual_hole_count}; başarısız delik tanımlarını denetleyin."
         )
 
     status = "ok"

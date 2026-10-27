@@ -1,4 +1,4 @@
-"""@brief 实际下载入口、提交锁定与缓存写入失败分支。"""
+'Actual download entry point, commit pinning and failed cache writes.'
 import hashlib
 import importlib.util
 import json
@@ -14,7 +14,7 @@ spec.loader.exec_module(case_module)
 
 
 def fixture():
-    """@brief 小型内容声明，不当作真实 STEP。"""
+    'Small test content, not a real STEP file.'
     return {"download_url":"https://raw.githubusercontent.com/owner/repo/" + "a"*40 + "/case.step",
         "commit":"a"*40,"sha256":hashlib.sha256(b"fixture").hexdigest(),"license":"fixture","attribution":"fixture"}
 
@@ -35,7 +35,7 @@ def test_request_cannot_bypass_manifest_validation(monkeypatch, tmp_path, url):
 def test_invalid_content_is_not_cached(monkeypatch, tmp_path):
     monkeypatch.setattr(case_module, "read_https_response", lambda *_args, **_kwargs: b"tampered")
     target = tmp_path / "source.step"
-    with pytest.raises(RuntimeError, match="哈希不匹配"):
+    with pytest.raises(RuntimeError, match='hash mismatch'):
         case_module.fetch_pinned_source(fixture(), target)
     assert not target.exists()
 

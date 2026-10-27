@@ -1,4 +1,4 @@
-"""@brief 复杂孔槽创建封装的离线回归测试。"""
+'Offline regressions for complex hole/slot wrappers.'
 
 from contextlib import contextmanager
 
@@ -8,13 +8,13 @@ from scripts import sw_hole_features as holes
 
 
 class FakeFeature:
-    """@brief 模拟 SolidWorks Feature。"""
+    'Simulate a SolidWorks Feature.'
 
     Name = ""
 
 
 class FakeFeatureManager:
-    """@brief 记录沉头锥形切除参数。"""
+    'Record countersink conical-cut parameters.'
 
     def __init__(self):
         self.cut_calls = []
@@ -30,7 +30,7 @@ class FakeFeatureManager:
 
 
 class FakeModel:
-    """@brief 仅提供复杂孔模块直接访问的 FeatureManager。"""
+    'Expose only the FeatureManager members directly used by complex holes.'
 
     def __init__(self):
         self.FeatureManager = FakeFeatureManager()
@@ -41,7 +41,7 @@ class FakeModel:
 
 @pytest.fixture
 def fake_ops(monkeypatch):
-    """@brief 用可观测假对象替换草图与普通切除。"""
+    'Replace sketches and ordinary cuts with observable fake objects.'
     calls = {"circles": [], "slots": [], "cuts": [], "selected": []}
 
     @contextmanager
@@ -106,11 +106,11 @@ def test_hole_pattern_preserves_explicit_positions(fake_ops) -> None:
         holes.create_blind_hole,
         diameter=0.008,
         depth=0.010,
-        name="定位盲孔",
+        name='Konumlandırma kör deliği',
     )
 
     assert [item["center_mm"] for item in evidence] == [[10.0, 20.0], [30.0, 40.0]]
-    assert [item["feature_names"][0] for item in evidence] == ["定位盲孔_1", "定位盲孔_2"]
+    assert [item["feature_names"][0] for item in evidence] == ['Konumlandırma kör deliği_1', 'Konumlandırma kör deliği_2']
 
 
 @pytest.mark.parametrize(

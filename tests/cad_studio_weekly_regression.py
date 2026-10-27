@@ -1,4 +1,4 @@
-"""四周拓展综合回归；默认不启动 CAD，真实桌面验证使用 --real-cad。"""
+"""Four-week expansion regression; CAD stays off by default, with --real-cad for real desktop verification."""
 from __future__ import annotations
 
 import argparse
@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def _decode_output(raw: bytes | None) -> str:
-    """@brief 兼容 Python UTF-8/GB18030 与 AutoCAD Core Console UTF-16 输出。"""
+    """@brief Decode Python UTF-8/GB18030 and AutoCAD Core Console UTF-16 output."""
     if not raw:
         return ""
     if raw.startswith((b"\xff\xfe", b"\xfe\xff")) or raw.count(b"\x00") > len(raw) // 4:
@@ -50,7 +50,7 @@ def run_regression(real_cad: bool = False) -> dict:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="CAD Studio 四周拓展综合回归")
+    parser = argparse.ArgumentParser(description="CAD Studio four-week expansion regression")
     parser.add_argument("--real-cad", action="store_true")
     args = parser.parse_args()
     result = run_regression(args.real_cad)

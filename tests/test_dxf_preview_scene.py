@@ -1,4 +1,4 @@
-"""DXF 到安全 PreviewScene 的独立回归。"""
+"""Independent DXF-to-safe-PreviewScene regression tests."""
 import os
 from pathlib import Path
 
@@ -9,7 +9,7 @@ from scripts.dxf_preview_scene import MAX_DXF_BYTES, dxf_to_preview_scene
 
 
 def test_dxf_preview_scene_records_unsupported_entities_without_executing_them(tmp_path: Path):
-    """@brief 不支持实体必须形成限制，已支持实体仍可安全显示。"""
+    """Unsupported entities become limitations while supported entities remain displayable."""
     source = tmp_path / "mixed.dxf"
     document = ezdxf.new("R2018")
     modelspace = document.modelspace()
@@ -25,7 +25,7 @@ def test_dxf_preview_scene_records_unsupported_entities_without_executing_them(t
 
 
 def test_dxf_preview_scene_rejects_oversized_input_before_parse(tmp_path: Path, monkeypatch):
-    """@brief 文件安全上限在解析前生效。"""
+    """Enforce file safety limits before parsing."""
     source = tmp_path / "oversized.dxf"
     source.write_text("0\nEOF\n", encoding="ascii")
     resolved_source = source.resolve()
@@ -40,5 +40,5 @@ def test_dxf_preview_scene_rejects_oversized_input_before_parse(tmp_path: Path, 
         return value
 
     monkeypatch.setattr(Path, "stat", fake_stat)
-    with pytest.raises(ValueError, match="安全上限"):
+    with pytest.raises(ValueError, match="sınırı aşıyor"):
         dxf_to_preview_scene(source)

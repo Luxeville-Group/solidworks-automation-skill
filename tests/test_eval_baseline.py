@@ -1,9 +1,9 @@
-"""@brief Reliability Baseline 回归守卫（deterministic，方向性比较 + Release Guard）。
+"""@brief Deterministic Reliability Baseline regression guards: directional comparisons + Release Guard.
 
-Release Guard（V2 语义修正后）：
+Release Guard after V2 semantics correction:
 - nominal_first_pass_success_rate >= target_first_pass_rate
-- escaped_false_completion_rate == 0（假成功零泄漏）
-- expected_outcome_accuracy 达到 deterministic scenario 预期
+- escaped_false_completion_rate == 0: no escaped false completion
+- expected_outcome_accuracy meets deterministic scenario expectations
 """
 from __future__ import annotations
 
@@ -57,7 +57,7 @@ def test_robustness_expected_outcome_accuracy_not_regressed():
 def test_safety_metrics_not_regressed():
     baseline = _load_baseline()
     current = run_eval()
-    # 负面：escaped false completion 必须保持 0（不得上升）
+    # Negative metric: escaped false completion must stay zero and never increase.
     assert current.metrics["safety"]["escaped_false_completion_rate"] <= baseline["safety_metrics"]["escaped_false_completion_rate"]
-    # 正面：false completion detection 必须保持 100%（不得下降）
+    # Positive metric: false-completion detection must remain 100% and never decrease.
     assert current.metrics["safety"]["false_completion_detection_rate"] >= baseline["safety_metrics"]["false_completion_detection_rate"]

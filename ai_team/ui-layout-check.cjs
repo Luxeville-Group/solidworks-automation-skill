@@ -62,11 +62,11 @@ async function main() {
   ]) {
     await page.setViewportSize({ width, height });
     await page.goto(baseUrl, { waitUntil: "networkidle" });
-    await page.getByRole("button", { name: "设置", exact: true }).click();
+    await page.getByRole("button", { name: "Ayarlar", exact: true }).click();
     await page.waitForTimeout(250);
     await page.screenshot({ path: path.join(output, `final-settings-${name}.png`), fullPage: false });
     await page.locator(".knowledge-setting").scrollIntoViewIfNeeded();
-    await page.locator(".knowledge-setting").getByRole("button", { name: "云端增强", exact: true }).click();
+    await page.locator(".knowledge-setting").getByRole("button", { name: "Bulut desteği", exact: true }).click();
     await page.waitForTimeout(180);
     await page.screenshot({ path: path.join(output, `final-settings-knowledge-${name}.png`), fullPage: false });
     settings[name] = await page.evaluate(() => {
@@ -91,7 +91,7 @@ async function main() {
   ]) {
     await page.setViewportSize({ width, height });
     await page.goto(baseUrl, { waitUntil: "networkidle" });
-    await page.getByRole("button", { name: "帮助", exact: true }).click();
+    await page.getByRole("button", { name: "Yardım", exact: true }).click();
     await page.waitForTimeout(200);
     await page.screenshot({ path: path.join(output, `final-help-${name}.png`), fullPage: false });
     result.help[name] = await page.evaluate(() => {
@@ -113,7 +113,7 @@ async function main() {
   await page.setViewportSize({ width: 1180, height: 760 });
   await page.goto(baseUrl, { waitUntil: "networkidle" });
   await page.emulateMedia({ reducedMotion: "no-preference" });
-  await page.getByRole("button", { name: "外观", exact: true }).click();
+  await page.getByRole("button", { name: "Görünüm", exact: true }).click();
   const appearance = page.locator(".appearance-popover");
   await appearance.waitFor({ state: "visible" });
   const appearanceMetrics = await appearance.evaluate((element) => ({
@@ -124,9 +124,9 @@ async function main() {
 
   result.wallpapers = {};
   for (const [name, theme] of [
-    ["富士暮色", "theme-fuji"],
-    ["青空原野", "theme-anime-sky"],
-    ["东京霓虹", "theme-tokyo-neon"],
+    ["Fuji Alacakaranlığı", "theme-fuji"],
+    ["Mavi Gökyüzü", "theme-anime-sky"],
+    ["Tokyo Neon", "theme-tokyo-neon"],
   ]) {
     await appearance.getByRole("button", { name: new RegExp(name) }).click();
     await page.waitForTimeout(820);
@@ -141,7 +141,7 @@ async function main() {
     }, theme);
   }
 
-  await appearance.getByRole("radio", { name: "电影镜头", exact: true }).click();
+  await appearance.getByRole("radio", { name: "Sinematik kamera", exact: true }).click();
   const camera = page.locator(".wallpaper-camera");
   await page.waitForTimeout(120);
   const shotBefore = await camera.evaluate((element) => ({
@@ -149,7 +149,7 @@ async function main() {
     y: element.style.getPropertyValue("--wallpaper-camera-y"),
     scale: element.style.getPropertyValue("--wallpaper-camera-scale"),
   }));
-  await appearance.getByRole("button", { name: "换个特写", exact: true }).click();
+  await appearance.getByRole("button", { name: "Yakın görünüşü değiştir", exact: true }).click();
   await page.waitForTimeout(120);
   const shotAfter = await camera.evaluate((element) => ({
     x: element.style.getPropertyValue("--wallpaper-camera-x"),
@@ -157,7 +157,7 @@ async function main() {
     scale: element.style.getPropertyValue("--wallpaper-camera-scale"),
   }));
 
-  await appearance.getByRole("radio", { name: "跟随指针", exact: true }).click();
+  await appearance.getByRole("radio", { name: "İşaretçiyi izle", exact: true }).click();
   await page.mouse.move(40, 40);
   await page.waitForTimeout(260);
   const pointerA = await camera.evaluate((element) => getComputedStyle(element).transform);
@@ -179,22 +179,22 @@ async function main() {
   }));
   await browser.close();
 
-  if (result.desktop.overflowX || result.compact.overflowX) throw new Error("检测到横向溢出");
-  if (result.compact.toolbar?.top >= result.compact.viewport[1]) throw new Error("紧凑布局工具栏未进入首屏");
-  if (!result.motion.advanced) throw new Error("默认动态壁纸未播放");
-  if (result.settings.desktop.overflowX || result.settings.compact.overflowX) throw new Error("设置页检测到横向溢出");
-  if (!result.help.desktop.visible || !result.help.compact.visible) throw new Error("帮助页未正常显示");
-  if (result.help.desktop.overflowX || result.help.compact.overflowX) throw new Error("帮助页检测到横向溢出");
-  if (result.help.desktop.clippedSteps || result.help.compact.clippedSteps) throw new Error("帮助步骤被裁切");
-  if (!result.settings.desktop.knowledgeVisible || !result.settings.compact.knowledgeVisible) throw new Error("知识库设置未正常显示");
-  if (result.settings.desktop.clippedInputs || result.settings.compact.clippedInputs) throw new Error("知识库输入框内容区域被裁切");
-  if (result.wallpaperInteraction.appearanceMetrics.overflowY !== "auto") throw new Error("外观弹窗不可独立滚动");
+  if (result.desktop.overflowX || result.compact.overflowX) throw new Error("Horizontal overflow detected");
+  if (result.compact.toolbar?.top >= result.compact.viewport[1]) throw new Error("Compact toolbar is outside the initial viewport");
+  if (!result.motion.advanced) throw new Error("Default animated wallpaper did not advance");
+  if (result.settings.desktop.overflowX || result.settings.compact.overflowX) throw new Error("Settings page has horizontal overflow");
+  if (!result.help.desktop.visible || !result.help.compact.visible) throw new Error("Help page was not displayed correctly");
+  if (result.help.desktop.overflowX || result.help.compact.overflowX) throw new Error("Help page has horizontal overflow");
+  if (result.help.desktop.clippedSteps || result.help.compact.clippedSteps) throw new Error("Help steps are clipped");
+  if (!result.settings.desktop.knowledgeVisible || !result.settings.compact.knowledgeVisible) throw new Error("Knowledge-base settings were not displayed correctly");
+  if (result.settings.desktop.clippedInputs || result.settings.compact.clippedInputs) throw new Error("Knowledge-base input content is clipped");
+  if (result.wallpaperInteraction.appearanceMetrics.overflowY !== "auto") throw new Error("Appearance dialog does not scroll independently");
   for (const [name, wallpaper] of Object.entries(result.wallpapers)) {
-    if (!wallpaper.themeApplied || !wallpaper.backgroundImage.includes("url(")) throw new Error(`${name} 壁纸未加载`);
+    if (!wallpaper.themeApplied || !wallpaper.backgroundImage.includes("url(")) throw new Error(`${name} wallpaper was not loaded`);
   }
-  if (!result.wallpaperInteraction.shotChanged) throw new Error("换个特写没有改变相机变换");
-  if (!result.wallpaperInteraction.pointerChanged) throw new Error("跟随指针没有改变相机变换");
-  if (!result.reducedMotion.modeStill) throw new Error("减少动态效果时壁纸未切换为静止模式");
+  if (!result.wallpaperInteraction.shotChanged) throw new Error("Changing the close view did not change the camera transform");
+  if (!result.wallpaperInteraction.pointerChanged) throw new Error("Pointer tracking did not change the camera transform");
+  if (!result.reducedMotion.modeStill) throw new Error("Reduced-motion preference did not switch wallpaper to still mode");
   console.log(JSON.stringify(result, null, 2));
 }
 

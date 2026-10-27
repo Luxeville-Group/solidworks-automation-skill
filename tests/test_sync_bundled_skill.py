@@ -4,7 +4,7 @@ from scripts.sync_bundled_skill import collect_runtime_files, sync_bundled_skill
 
 
 def _create_minimal_source(root: Path) -> None:
-    """@brief 创建满足同步器清单的最小测试仓库。"""
+    'Create a minimal repository satisfying the synchronizer manifest.'
     from scripts.sync_bundled_skill import RUNTIME_FILES, RUNTIME_ROOTS, TOP_LEVEL_FILES
 
     for relative_name in (*TOP_LEVEL_FILES, *RUNTIME_FILES):
@@ -18,7 +18,7 @@ def _create_minimal_source(root: Path) -> None:
 
 
 def test_collect_runtime_files_excludes_generated_files(tmp_path):
-    """@brief 缓存和构建目录不得进入桌面安装包。"""
+    'Exclude caches and build directories from desktop packages.'
     root = tmp_path / "repo"
     _create_minimal_source(root)
     generated = root / "scripts" / "__pycache__" / "module.pyc"
@@ -32,7 +32,7 @@ def test_collect_runtime_files_excludes_generated_files(tmp_path):
 
 
 def test_sync_bundled_skill_copies_sources_and_prunes_stale_file(tmp_path):
-    """@brief 同步结果必须可复现，陈旧副本不能继续进入发布包。"""
+    'Synchronization is reproducible and stale copies cannot enter a release.'
     root = tmp_path / "repo"
     _create_minimal_source(root)
     target = root / "apps/workbench-ui/src-tauri/resources/skill"

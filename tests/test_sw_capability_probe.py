@@ -1,15 +1,15 @@
-"""SolidWorks 高级能力探测门禁回归。"""
+'Advanced SolidWorks capability-probe gates.'
 from pathlib import Path
 
 from scripts import sw_capability_probe
 
 
 class _PythonCom:
-    """@brief 测试用占位 COM 模块。"""
+    'Placeholder COM module for tests.'
 
 
 def test_advanced_interfaces_do_not_inherit_unrelated_verified_levels(monkeypatch):
-    """@brief 类型库存在不能让曲面、模具或 Routing 越权变成 verified。"""
+    'Type-library presence cannot promote surfaces, molds or Routing to verified.'
     type_names = [
         "ISurface",
         "IKnitSurfaceFeatureData",

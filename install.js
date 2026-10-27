@@ -6,9 +6,9 @@ const { execFileSync } = require('child_process');
 const os = require('os');
 
 const SKILL_NAME = 'solidworks-automation';
-const REPO_URL = 'https://github.com/wzyn20051216/solidworks-automation-skill.git';
+const REPO_URL = 'https://github.com/Luxeville-Group/solidworks-automation-skill.git';
 
-// 检测所有存在的 skills 目录
+// Detect existing skill directories.
 function getAllSkillsDirs() {
   const homeDir = os.homedir();
   const possibleDirs = [
@@ -21,7 +21,7 @@ function getAllSkillsDirs() {
 
   const existingDirs = possibleDirs.filter(dir => fs.existsSync(dir));
 
-  // 如果没有找到任何目录,创建对 OpenClaw / Codex 更友好的默认目录
+  // Create default OpenClaw/Codex directories when none exist.
   if (existingDirs.length === 0) {
     const bootstrapDirs = [
       path.join(homeDir, '.codex', 'skills'),
@@ -35,33 +35,38 @@ function getAllSkillsDirs() {
   return existingDirs;
 }
 
-// 在单个目录中安装或更新
+// Install or update in one directory.
 function installToDir(skillsDir) {
   const targetDir = path.join(skillsDir, SKILL_NAME);
 
-  console.log(`\n📁 目标目录: ${targetDir}`);
+  console.log(`\n📁 Hedef dizin / Target directory: ${targetDir}`);
 
-  // 检查是否已安装
+  // Check for an existing installation.
   if (fs.existsSync(targetDir)) {
-    console.log('⚠️  Skill 已存在，正在更新...');
+    console.log('⚠️  Skill mevcut, güncelleniyor / Updating existing skill...');
     try {
-      execFileSync('git', ['pull'], { cwd: targetDir, stdio: 'inherit' });
-      console.log('✅ 更新成功！');
+      const remote = execFileSync('git', ['remote', 'get-url', 'origin'], { cwd: targetDir, encoding: 'utf8' }).trim();
+      if (!/^(?:https:\/\/github\.com\/|git@github\.com:)Luxeville-Group\/solidworks-automation-skill(?:\.git)?\/?$/i.test(remote)) {
+        console.error('Mevcut kurulum bu fork deposuna ait değil / Existing installation belongs to another repository. Choose a new skill directory.');
+        return false;
+      }
+      execFileSync('git', ['pull', '--ff-only', 'origin'], { cwd: targetDir, stdio: 'inherit' });
+      console.log('✅ Güncellendi / Updated!');
       return true;
     } catch (error) {
-      console.log('⚠️  更新失败，尝试重新安装...');
-      fs.rmSync(targetDir, { recursive: true, force: true });
+      console.log('⚠️  Güncelleme başarısız / Update failed; existing files retained.');
+      return false;
     }
   }
 
-  // 克隆仓库(数组参数形式, 不经 shell, 避免路径拼接注入)
+  // Clone with argument arrays rather than shell interpolation.
   try {
-    console.log('📦 正在下载...');
+    console.log('📦 İndiriliyor / Downloading...');
     execFileSync('git', ['clone', REPO_URL, targetDir], { stdio: 'inherit' });
-    console.log('✅ 安装成功！');
+    console.log('✅ Kuruldu / Installed!');
   return true;
   } catch (error) {
-    console.error(`❌ 安装失败: ${error.message}`);
+    console.error(`❌ Kurulum başarısız / Installation failed: ${error.message}`);
     return false;
   }
 }
@@ -94,24 +99,24 @@ function registerMcpForAiClients(installedDirs) {
   const registerScript = path.join(primaryDir, 'mcp-server', 'register_all_ai_mcp.js');
 
   if (!fs.existsSync(registerScript)) {
-    console.log(`⚠️  未找到 MCP 注册脚本: ${registerScript}`);
+    console.log(`⚠️  MCP kayıt betiği bulunamadı / MCP registration script not found: ${registerScript}`);
     return;
   }
 
-  console.log('\n🔌 正在自动注册 MCP 到常见 AI 客户端...');
+  console.log('\n🔌 MCP, AI istemcilerine kaydediliyor / Registering MCP with AI clients...');
   try {
     execFileSync('node', [registerScript, '--install-dependencies'], { stdio: 'inherit' });
   } catch (error) {
-    console.log('⚠️  MCP 自动注册未完全成功，可稍后手动执行:');
+    console.log('⚠️  MCP kaydı tamamlanamadı; elle çalıştırın / Registration incomplete; run manually:');
     console.log(`  node "${registerScript}" --install-dependencies`);
   }
 }
 
 function install() {
-  console.log('🚀 安装 SolidWorks Automation Skill...\n');
+  console.log('🚀 SolidWorks Automation Skill kuruluyor / Installing...\n');
 
   const skillsDirs = getAllSkillsDirs();
-  console.log(`检测到 ${skillsDirs.length} 个 AI 工具目录:\n${skillsDirs.map(d => `  - ${d}`).join('\n')}\n`);
+  console.log(`Bulunan / Found ${skillsDirs.length} AI aracı dizini / AI tool directories:\n${skillsDirs.map(d => `  - ${d}`).join('\n')}\n`);
 
   let successCount = 0;
   const installedDirs = [];
@@ -122,28 +127,28 @@ function install() {
     }
   }
 
-  // 安装 Python 依赖(只需要安装一次)
+  // Install Python dependencies once.
   if (successCount > 0) {
-    console.log('\n📦 安装 Python 基础依赖...');
+    console.log('\n📦 Temel Python bağımlılıkları kuruluyor / Installing base Python dependencies...');
     try {
       execFileSync('pip', ['install', 'pywin32>=305', 'comtypes>=1.2.0'], { stdio: 'inherit' });
     } catch (error) {
-      console.log('⚠️  请手动安装依赖: pip install "pywin32>=305" "comtypes>=1.2.0"');
+      console.log('⚠️  Bağımlılıkları elle kurun / Install dependencies manually: pip install "pywin32>=305" "comtypes>=1.2.0"');
     }
 
     registerMcpForAiClients(installedDirs);
 
-    console.log(`\n✅ 成功安装到 ${successCount}/${skillsDirs.length} 个目录！`);
-    console.log('\n使用方法:');
-    console.log('  在 Claude/Codex/Cursor/OpenClaw 中提到 SolidWorks、OpenClaw、龙虾、CAD、3D建模等关键词');
-    console.log('  AI 会自动调用此 skill\n');
+    console.log(`\n✅ Kurulan dizinler / Installed in ${successCount}/${skillsDirs.length} dizin / directories!`);
+    console.log('\nKullanım / Usage:');
+    console.log('  Claude/Codex/Cursor/OpenClaw içinde SolidWorks, CAD veya 3D modelleme isteğinizi yazın.');
+    console.log('  Agent, istemci ayarlarına göre skill yönergelerini kullanır / The agent uses the skill according to client settings.\n');
 
     const primaryDir = selectPrimaryInstallDir(installedDirs);
     const registerAllScript = path.join(primaryDir, 'mcp-server', 'register_all_ai_mcp.ps1');
-    console.log('如需重新修复/覆盖 MCP 配置，可执行:');
+    console.log('MCP yapılandırmasını onarmak/üzerine yazmak için / To repair or overwrite MCP configuration:');
     console.log(`  powershell -ExecutionPolicy Bypass -File "${registerAllScript}" -InstallDependencies\n`);
   } else {
-    console.error('\n❌ 所有目录安装均失败');
+    console.error('\n❌ Hiçbir dizine kurulamadı / Installation failed in every directory');
     process.exit(1);
   }
 }

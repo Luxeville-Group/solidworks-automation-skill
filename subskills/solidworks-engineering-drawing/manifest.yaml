@@ -1,7 +1,7 @@
 name: solidworks-engineering-drawing
 title: SolidWorks Engineering Drawing
 status: pilot
-summary: GB/T 第一角零件图、装配图、尺寸链、孔表、BOM、PDF/BMP 证据与制造交付审视。
+summary: GB/T first-angle part/assembly drawings, dimension chains, hole tables, BOM, PDF/BMP evidence, and manufacturing-delivery review.
 entrypoint: SKILL.md
 scripts:
   - scripts/drawing_spec.py

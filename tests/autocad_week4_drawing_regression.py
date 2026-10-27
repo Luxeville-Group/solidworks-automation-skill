@@ -1,6 +1,6 @@
-"""第 4 周 AutoCAD 工程图、尺寸、DXF 与原生预览真机回归。
+"""Week 4 real-machine regression for AutoCAD drawings, dimensions, DXF, and native previews.
 
-需要 Windows + AutoCAD 2024 + pywin32；不会被普通 pytest 自动收集。
+Requires Windows + AutoCAD 2024 + pywin32; excluded from normal pytest collection.
 """
 from __future__ import annotations
 
@@ -24,22 +24,22 @@ from acad_preview import convert_bmp_to_png  # noqa: E402
 
 
 def _default_output_dir() -> Path:
-    """@brief 返回第 4 周 AutoCAD 回归默认目录。"""
+    """@brief Return the default Week 4 AutoCAD regression directory."""
     return Path(tempfile.gettempdir()) / "autocad_week4_drawing_regression"
 
 
 def _require_file(path: Path, label: str) -> dict:
-    """@brief 检查文件存在、非空并返回证据。"""
+    """@brief Require a nonempty file and return its evidence."""
     if not path.is_file():
-        raise RuntimeError(f"{label}未生成: {path}")
+        raise RuntimeError(f"{label} not generated: {path}")
     size = path.stat().st_size
     if size <= 0:
-        raise RuntimeError(f"{label}为空文件: {path}")
+        raise RuntimeError(f"{label} is empty: {path}")
     return {"path": str(path), "size_bytes": size}
 
 
 def _draw_frame(session: AutoCADSession) -> None:
-    """@brief 绘制 A3 横向中性 GB/T 风格图框和标题栏。"""
+    """@brief Draw an A3 landscape neutral GB/T-style frame and title block."""
     session.create_layer("FRAME", color=7)
     session.create_layer("OUTLINE", color=7)
     session.create_layer("CENTER", color=1, linetype="CENTER")
@@ -47,10 +47,10 @@ def _draw_frame(session: AutoCADSession) -> None:
     session.create_layer("DIM", color=2)
     session.create_layer("TEXT", color=3)
 
-    # A3 横向 420 x 297 mm，左装订边 25 mm，其余边 5 mm。
+    # A3 landscape: 420 x 297 mm; 25 mm left binding margin, 5 mm other margins.
     session.add_rectangle((0, 0), 420, 297, layer="FRAME")
     session.add_rectangle((25, 5), 390, 287, layer="FRAME")
-    # 右下标题栏：宽 180，高 35，使用真实线段分格。
+    # Lower-right title block: 180 wide, 35 high, divided with real line segments.
     x0, y0, width, height = 235, 5, 180, 35
     session.add_rectangle((x0, y0), width, height, layer="FRAME")
     for x in (x0 + 60, x0 + 120):
@@ -58,17 +58,17 @@ def _draw_frame(session: AutoCADSession) -> None:
     session.add_line((x0, y0 + 17.5), (x0 + width, y0 + 17.5), layer="FRAME")
     for text, point in (
         ("CAD STUDIO", (x0 + 5, y0 + 23)),
-        ("图号 W4-001", (x0 + 65, y0 + 23)),
-        ("名称 安装板", (x0 + 125, y0 + 23)),
-        ("材料 Q235B", (x0 + 5, y0 + 7)),
-        ("比例 1:1", (x0 + 65, y0 + 7)),
-        ("单位 mm", (x0 + 125, y0 + 7)),
+        ("Drawing No W4-001", (x0 + 65, y0 + 23)),
+        ("Name Mounting plate", (x0 + 125, y0 + 23)),
+        ("Material Q235B", (x0 + 5, y0 + 7)),
+        ("Scale 1:1", (x0 + 65, y0 + 7)),
+        ("Units mm", (x0 + 125, y0 + 7)),
     ):
         session.add_text(text, (*point, 0), 3, layer="TEXT")
 
 
 def _draw_plate(session: AutoCADSession) -> None:
-    """@brief 绘制安装板实体、中心线、孔和真实尺寸。"""
+    """@brief Draw mounting-plate geometry, centerlines, holes, and real dimensions."""
     left, bottom, width, height = 70.0, 105.0, 120.0, 80.0
     session.add_rectangle((left, bottom), width, height, layer="OUTLINE")
     hole_radius = 4.5
@@ -112,12 +112,12 @@ def _draw_plate(session: AutoCADSession) -> None:
         90,
     )
     session.add_dim_diametric(hole_points[0], hole_radius, angle_degrees=35, leader_length=12)
-    session.add_text("4x Ø9 通孔，中心距 90 x 50，基准边定位 15", (left, bottom - 28, 0), 3, layer="TEXT")
-    session.add_text("安装板 120 x 80 x 12，孔位和尺寸需按实体复核", (left, bottom + height + 12, 0), 3, layer="TEXT")
+    session.add_text("4x Ø9 through holes, 90 x 50 center spacing, 15 from datum edges", (left, bottom - 28, 0), 3, layer="TEXT")
+    session.add_text("Mounting plate 120 x 80 x 12; verify hole positions and dimensions against geometry", (left, bottom + height + 12, 0), 3, layer="TEXT")
 
 
 def run_regression(output_root: Path, *, run_id: str | None = None) -> dict:
-    """@brief 执行 AutoCAD 第 4 周黄金图纸回归。"""
+    """@brief Run the AutoCAD Week 4 golden drawing regression."""
     run_id = run_id or datetime.now().strftime("%Y%m%d_%H%M%S")
     output_dir = output_root / run_id
     output_dir.mkdir(parents=True, exist_ok=False)
@@ -132,7 +132,7 @@ def run_regression(output_root: Path, *, run_id: str | None = None) -> dict:
     owned_instance = session.started_by_session
     result = None
     created_document = False
-    # 任务启动实例的默认图纸归当前任务；连接用户实例时必须新建隔离图纸。
+    # An instance started by this task owns its default drawing; attach to user instances only with a new isolated drawing.
     if session.started_by_session:
         if session.doc is None:
             session.new_document()
@@ -150,18 +150,18 @@ def run_regression(output_root: Path, *, run_id: str | None = None) -> dict:
         dxf = session.export_dxf(dxf_path)
         _require_file(dxf, "DXF")
         bmp = session.export_bmp_preview(bmp_path)
-        _require_file(bmp, "AutoCAD 原生 BMP")
+        _require_file(bmp, "AutoCAD native BMP")
         png_result = convert_bmp_to_png(bmp, png_path)
         if png_result.get("status") != "ok":
-            raise RuntimeError(f"BMP 转 PNG 失败: {png_result}")
-        _require_file(png_path, "AutoCAD 原生 PNG")
+            raise RuntimeError(f"BMP to PNG conversion failed: {png_result}")
+        _require_file(png_path, "AutoCAD native PNG")
 
         native_review = review_active(session)
         if native_review["modelspace_entity_count"] < 20:
-            raise RuntimeError(f"AutoCAD 实体数量过少: {native_review}")
+            raise RuntimeError(f"Too few AutoCAD entities: {native_review}")
         dxf_review = inspect_dxf(dxf)
         if dxf_review["evaluation"]["status"] != "pass":
-            raise RuntimeError(f"DXF 工程图审查未通过: {dxf_review['evaluation']}")
+            raise RuntimeError(f"DXF engineering drawing review failed: {dxf_review['evaluation']}")
         measurements = [
             float(item["measurement"])
             for item in dxf_review.get("dimensionEvidence", [])
@@ -174,12 +174,12 @@ def run_regression(output_root: Path, *, run_id: str | None = None) -> dict:
         ]
         if missing_measurements:
             raise RuntimeError(
-                f"DXF 关键尺寸实体缺失或测量值错误: missing={missing_measurements}, actual={measurements}"
+                f"DXF critical dimension entities missing or measurements incorrect: missing={missing_measurements}, actual={measurements}"
             )
         headless_render = render_dxf(dxf, dxf_png_path)
-        _require_file(dxf_png_path, "DXF 无头 PNG")
+        _require_file(dxf_png_path, "DXF headless PNG")
         if headless_render.get("pixelCheck", {}).get("likelyBlank"):
-            raise RuntimeError(f"DXF 无头预览疑似空白: {headless_render}")
+            raise RuntimeError(f"DXF headless preview appears blank: {headless_render}")
 
         result = {
             "status": "ok",
@@ -187,27 +187,27 @@ def run_regression(output_root: Path, *, run_id: str | None = None) -> dict:
             "output_dir": str(output_dir),
             "assumptions": {
                 "units": "mm",
-                "drawing_standard": "GB/T 风格中性 A3 横向；未替代企业模板",
+                "drawing_standard": "Neutral GB/T-style A3 landscape; does not replace company templates",
                 "source": "task-owned AutoCAD document",
             },
             "started_by_cad_studio": session.started_by_session,
             "outputs": {
                 "dwg": _require_file(dwg, "DWG"),
                 "dxf": _require_file(dxf, "DXF"),
-                "bmp": _require_file(bmp, "AutoCAD 原生 BMP"),
-                "png": _require_file(png_path, "AutoCAD 原生 PNG"),
-                "headless_png": _require_file(dxf_png_path, "DXF 无头 PNG"),
+                "bmp": _require_file(bmp, "AutoCAD native BMP"),
+                "png": _require_file(png_path, "AutoCAD native PNG"),
+                "headless_png": _require_file(dxf_png_path, "DXF headless PNG"),
             },
             "native_review": native_review,
             "dxf_review": dxf_review,
             "headless_render": headless_render,
             "manual_review_required": [
-                "企业图框、字体、线宽、打印机和比例仍需工程师确认",
-                "BOM、技术要求和制造可行性不由本回归自动判定",
+                "Company frames, fonts, lineweights, printers, and scale still require engineer confirmation",
+                "This regression does not automatically assess BOM, technical requirements, or manufacturability",
             ],
         }
         report_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
-        result["report"] = _require_file(report_path, "JSON 报告")
+        result["report"] = _require_file(report_path, "JSON report")
         return result
     finally:
         if created_document:
@@ -219,21 +219,21 @@ def run_regression(output_root: Path, *, run_id: str | None = None) -> dict:
                 **session.last_cleanup,
             }
             report_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
-            result["report"] = _require_file(report_path, "JSON 报告")
+            result["report"] = _require_file(report_path, "JSON report")
         if owned_instance and not owned_instance_closed and sys.exc_info()[0] is None:
-            raise RuntimeError("任务启动的 AutoCAD 实例未在超时内退出")
+            raise RuntimeError("The task-started AutoCAD instance did not exit before timeout")
 
 
 def parse_args() -> argparse.Namespace:
-    """@brief 解析命令行参数。"""
-    parser = argparse.ArgumentParser(description="运行 AutoCAD 第 4 周工程图真机回归")
+    """@brief Parse CLI arguments."""
+    parser = argparse.ArgumentParser(description="Run AutoCAD Week 4 real-machine drawing regression")
     parser.add_argument("--output-dir", default=str(_default_output_dir()))
     parser.add_argument("--run-id", default="")
     return parser.parse_args()
 
 
 def main() -> int:
-    """@brief 命令行入口。"""
+    '@brief Command-line entry point.'
     args = parse_args()
     output_root = Path(args.output_dir).expanduser().resolve()
     run_id = args.run_id or datetime.now().strftime("%Y%m%d_%H%M%S")

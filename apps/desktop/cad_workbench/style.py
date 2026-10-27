@@ -1,4 +1,4 @@
-"""@brief 桌面端视觉样式。"""
+"""@brief Desktop visual styling."""
 
 APP_STYLE = """
 QMainWindow {
@@ -6,7 +6,7 @@ QMainWindow {
 }
 QWidget {
   color: #182024;
-  font-family: "Microsoft YaHei UI", "Microsoft YaHei", "Segoe UI";
+  font-family: "Segoe UI", sans-serif;
   font-size: 13px;
 }
 QFrame#Sidebar {

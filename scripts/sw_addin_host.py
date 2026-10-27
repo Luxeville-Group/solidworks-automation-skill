@@ -1,4 +1,4 @@
-"""@brief SolidWorks C# Add-in 宿主的只读部署与运行状态探测。"""
+"""@brief Read-only deployment and runtime probe for the SOLIDWORKS C# Add-in host."""
 from __future__ import annotations
 
 import json
@@ -25,7 +25,7 @@ DEFAULT_ASSEMBLY = (
 
 
 def _registry_key_exists(root: Any, path: str) -> bool:
-    """@brief 使用 64 位注册表视图判断精确键是否存在。"""
+    """@brief Check an exact key in the 64-bit registry view."""
     try:
         import winreg
 
@@ -36,7 +36,7 @@ def _registry_key_exists(root: Any, path: str) -> bool:
 
 
 def _read_diagnostics() -> tuple[Path, dict[str, Any] | None, str | None]:
-    """@brief 回读 Add-in 生成的诊断 JSON，不把陈旧文件误判为当前连接。"""
+    """@brief Read Add-in diagnostic JSON without mistaking stale files for a current connection."""
     local_app_data = os.environ.get("LOCALAPPDATA", "")
     path = Path(local_app_data) / "CAD Studio" / "SolidWorksAddin" / "host-status.json"
     if not path.is_file():
@@ -48,7 +48,7 @@ def _read_diagnostics() -> tuple[Path, dict[str, Any] | None, str | None]:
 
 
 def _process_is_running(process_id: int) -> bool:
-    """@brief 用 Windows 查询权限句柄判断诊断所述宿主进程是否仍存在。"""
+    """@brief Use a Windows query handle to verify that the reported host process still exists."""
     if process_id <= 0:
         return False
     try:
@@ -64,7 +64,7 @@ def _process_is_running(process_id: int) -> bool:
 
 
 def probe_addin_host(assembly_path: str | Path | None = None) -> dict[str, Any]:
-    """@brief 返回构建产物、注册层级、进程内连接和阻塞原因。"""
+    """@brief Return build artifacts, registration scope, in-process connection, and blocking reasons."""
     assembly = Path(assembly_path).expanduser().resolve() if assembly_path else DEFAULT_ASSEMBLY.resolve()
     if platform.system() != "Windows":
         return {
@@ -105,25 +105,25 @@ def probe_addin_host(assembly_path: str | Path | None = None) -> dict[str, Any]:
 
     blockers: list[dict[str, str]] = []
     if not assembly.is_file():
-        blockers.append({"code": "ASSEMBLY_MISSING", "message": "先构建 net48 x64 Add-in 程序集。"})
+        blockers.append({"code": "ASSEMBLY_MISSING", "message": "Önce net48 x64 Add-in assembly dosyasını derleyin."})
     if not type_library.is_file():
-        blockers.append({"code": "TYPE_LIBRARY_MISSING", "message": "缺少与 Add-in 同目录的 COM 类型库。"})
+        blockers.append({"code": "TYPE_LIBRARY_MISSING", "message": "Add-in ile aynı dizinde COM type library eksik."})
     if not current_user_type_library and not machine_type_library:
         blockers.append({
             "code": "TYPE_LIBRARY_REGISTRATION_MISSING",
-            "message": "使用 64 位 RegAsm /tlb 注册类型库，否则 SolidWorks 可能只装入 DLL 而不实例化 ISwAddin。",
+            "message": "Type library kaydını 64-bit RegAsm /tlb ile yapın; aksi halde SOLIDWORKS DLL yükleyip ISwAddin örneğini oluşturmayabilir.",
         })
     if not machine_discovery:
         blockers.append({
             "code": "HKLM_ADDIN_REGISTRATION_MISSING",
-            "message": "SolidWorks 进程内发现需要提升权限执行 Machine 注册；当前用户 COM 注册只用于激活冒烟测试。",
+            "message": "SOLIDWORKS süreç içi keşfi için yükseltilmiş yetkiyle Machine kaydı gerekir; kullanıcı COM kaydı yalnızca activation smoke test içindir.",
         })
     if machine_discovery and not connected:
-        blockers.append({"code": "ADDIN_NOT_CONNECTED", "message": "注册存在，但诊断未显示 ConnectToSW 已连接。"})
+        blockers.append({"code": "ADDIN_NOT_CONNECTED", "message": "Kayıt mevcut ancak tanılama ConnectToSW bağlantısını göstermiyor."})
     if connected and not in_process_host:
-        blockers.append({"code": "DIAGNOSTIC_NOT_IN_PROCESS", "message": "诊断并非由仍在运行的 SLDWORKS.exe 进程写出，不能作为 Add-in 真机证据。"})
+        blockers.append({"code": "DIAGNOSTIC_NOT_IN_PROCESS", "message": "Tanılama, çalışan bir SLDWORKS.exe süreci tarafından yazılmamış; gerçek Add-in çalışma kanıtı olarak kullanılamaz."})
     if connected and not ui_ready:
-        blockers.append({"code": "ADDIN_UI_NOT_READY", "message": "Add-in 已进入连接流程，但回调或 UI 子系统未全部就绪。"})
+        blockers.append({"code": "ADDIN_UI_NOT_READY", "message": "Add-in bağlantı sürecine girdi ancak callback veya UI alt sistemlerinin tümü hazır değil."})
     if diagnostic_error:
         blockers.append({"code": "DIAGNOSTIC_JSON_INVALID", "message": diagnostic_error})
 
@@ -152,7 +152,7 @@ def probe_addin_host(assembly_path: str | Path | None = None) -> dict[str, Any]:
 
 
 def main() -> int:
-    """@brief 命令行输出只读状态，可选保存为回归证据。"""
+    """@brief Print read-only CLI status and optionally save regression evidence."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--assembly", type=Path)
     parser.add_argument("--output", type=Path)

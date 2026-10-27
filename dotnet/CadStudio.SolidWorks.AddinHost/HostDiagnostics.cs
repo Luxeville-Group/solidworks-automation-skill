@@ -7,7 +7,7 @@ using System.Web.Script.Serialization;
 
 namespace CadStudio.SolidWorks.AddinHost
 {
-    /// <summary>维护 Add-in 生命周期、UI 和事件的机器可读诊断证据。</summary>
+    /// <summary>Maintain machine-readable Add-in lifecycle, UI, and event diagnostics.</summary>
     internal sealed class HostDiagnostics
     {
         private readonly object syncRoot = new object();
@@ -22,7 +22,7 @@ namespace CadStudio.SolidWorks.AddinHost
         private bool taskPaneReady;
         private bool propertyManagerPageReady;
 
-        /// <summary>初始化诊断文件位置。</summary>
+        /// <summary>Initialize the diagnostic file location.</summary>
         internal HostDiagnostics()
         {
             string root = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
@@ -30,13 +30,13 @@ namespace CadStudio.SolidWorks.AddinHost
             DiagnosticPath = Path.Combine(DiagnosticDirectory, "host-status.json");
         }
 
-        /// <summary>诊断目录。</summary>
+        /// <summary>Diagnostic directory.</summary>
         internal string DiagnosticDirectory { get; }
 
-        /// <summary>诊断 JSON 路径。</summary>
+        /// <summary>Diagnostic JSON path.</summary>
         internal string DiagnosticPath { get; }
 
-        /// <summary>记录成功连接和宿主版本。</summary>
+        /// <summary>Record successful connection and host version.</summary>
         internal void MarkConnection(string revision, bool callbackReady)
         {
             lock (syncRoot)
@@ -49,7 +49,7 @@ namespace CadStudio.SolidWorks.AddinHost
             }
         }
 
-        /// <summary>记录 UI 子系统状态。</summary>
+        /// <summary>Record UI subsystem state.</summary>
         internal void MarkUi(bool commandReady, bool taskPane, bool propertyPage)
         {
             lock (syncRoot)
@@ -61,7 +61,7 @@ namespace CadStudio.SolidWorks.AddinHost
             }
         }
 
-        /// <summary>递增指定应用事件计数。</summary>
+        /// <summary>Increment the specified application event count.</summary>
         internal void RecordEvent(string name)
         {
             lock (syncRoot)
@@ -73,7 +73,7 @@ namespace CadStudio.SolidWorks.AddinHost
             }
         }
 
-        /// <summary>记录非致命错误并限制历史长度。</summary>
+        /// <summary>Record nonfatal errors with bounded history.</summary>
         internal void RecordError(string area, Exception exception)
         {
             lock (syncRoot)
@@ -87,7 +87,7 @@ namespace CadStudio.SolidWorks.AddinHost
             }
         }
 
-        /// <summary>刷新当前证据文件。</summary>
+        /// <summary>Refresh the current evidence file.</summary>
         internal void Flush()
         {
             lock (syncRoot)
@@ -96,7 +96,7 @@ namespace CadStudio.SolidWorks.AddinHost
             }
         }
 
-        /// <summary>记录卸载状态。</summary>
+        /// <summary>Record unload state.</summary>
         internal void MarkDisconnected()
         {
             lock (syncRoot)
@@ -110,7 +110,7 @@ namespace CadStudio.SolidWorks.AddinHost
             }
         }
 
-        /// <summary>在持锁状态下原子替换诊断 JSON。</summary>
+        /// <summary>Atomically replace diagnostic JSON while holding the lock.</summary>
         private void WriteUnsafe()
         {
             Directory.CreateDirectory(DiagnosticDirectory);

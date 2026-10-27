@@ -1,7 +1,6 @@
-"""SolidWorks 工程图兼容入口。
+"""SOLIDWORKS drawing compatibility entry point.
 
-工程图实现已归档到 ``subskills/solidworks-engineering-drawing``。该桥接文件保留
-历史 ``scripts.sw_drawing`` 导入路径，避免已有 Skill、测试和第三方调用失效。
+Drawing implementation lives in subskills/solidworks-engineering-drawing. This bridge preserves the historical scripts.sw_drawing import path for existing skills, tests, and third-party callers.
 """
 from __future__ import annotations
 
@@ -18,7 +17,7 @@ _IMPLEMENTATION = (
 )
 _SPEC = importlib.util.spec_from_file_location("solidworks_drawing_workflow", _IMPLEMENTATION)
 if _SPEC is None or _SPEC.loader is None:
-    raise ImportError(f"无法加载工程图子技能实现: {_IMPLEMENTATION}")
+    raise ImportError(f"Teknik çizim subskill uygulaması yüklenemedi: {_IMPLEMENTATION}")
 _MODULE = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(_MODULE)
 

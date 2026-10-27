@@ -1,4 +1,4 @@
-"""OCCT/OCP 无头几何服务回归。"""
+"""OCCT/OCP headless geometry service regressions."""
 from __future__ import annotations
 
 import math
@@ -16,7 +16,7 @@ from scripts.headless_occt_service import export_occt
 def _plate_document() -> NeutralCadDocument:
     return NeutralCadDocument(
         documentId="occt_plate",
-        title="OCCT 带孔安装板",
+        title="OCCT mounting plate with holes",
         features=[
             NeutralFeature(id="base", type="box", parameters={"length": 120, "width": 70, "height": 8}),
             NeutralFeature(
@@ -36,7 +36,7 @@ def _plate_document() -> NeutralCadDocument:
 
 
 def test_occt_service_writes_real_brep_and_mesh_formats(tmp_path: Path):
-    """@brief 验证带孔实体真实写出并回读几何证据。"""
+    """@brief Verify actual holed-solid export and geometry readback."""
     input_path = write_json_contract(tmp_path / "occt_plate.cadstudio.json", _plate_document())
 
     result = export_occt(input_path, tmp_path / "out", ["step", "iges", "brep", "stl", "obj", "glb"])
@@ -55,7 +55,7 @@ def test_occt_service_writes_real_brep_and_mesh_formats(tmp_path: Path):
 
 
 def test_occt_service_versions_outputs_instead_of_overwriting(tmp_path: Path):
-    """@brief 验证重复生成默认保留旧产物。"""
+    """@brief Repeated generation preserves previous artifacts by default."""
     input_path = write_json_contract(tmp_path / "occt_plate.cadstudio.json", _plate_document())
     first = export_occt(input_path, tmp_path / "out", ["step", "glb"])
     first_paths = {item["kind"]: Path(item["path"]) for item in first["artifacts"]}

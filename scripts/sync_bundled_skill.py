@@ -1,4 +1,4 @@
-"""生成 CAD Studio 桌面包内嵌的运行时 Skill 快照。"""
+"""Build the runtime skill snapshot embedded in the CAD Studio desktop package."""
 from __future__ import annotations
 
 import argparse
@@ -11,6 +11,10 @@ BUNDLED_SKILL = ROOT / "apps/workbench-ui/src-tauri/resources/skill"
 
 TOP_LEVEL_FILES = (
     "README.md",
+    "README.tr.md",
+    "LICENSE",
+    "CONTRIBUTING.md",
+    "SECURITY.md",
     "SKILL.md",
     "SUBSKILLS.md",
     "capabilities.yaml",
@@ -23,14 +27,21 @@ TOP_LEVEL_FILES = (
 RUNTIME_ROOTS = (
     "agents",
     "dotnet",
+    "docs",
     "examples",
     "mcp-server",
+    "localization",
     "references",
     "scripts",
     "subskills",
     "apps/desktop/cad_workbench",
 )
-RUNTIME_FILES = ("apps/desktop/__init__.py",)
+RUNTIME_FILES = (
+    "apps/desktop/__init__.py",
+    "apps/desktop/README.md",
+    "apps/workbench-ui/README.md",
+    "apps/workbench-ui/README.tr.md",
+)
 SKIPPED_DIRECTORIES = {
     ".git",
     ".pytest_cache",
@@ -47,31 +58,31 @@ SKIPPED_SUFFIXES = {".pyc", ".pyo"}
 
 
 def _validate_target(root: Path, target: Path) -> None:
-    """@brief 限制同步目标只能是仓库内的 Tauri resources/skill。"""
+    """@brief Restrict synchronization targets to repository Tauri resources/skill."""
     expected_parent = (root / "apps/workbench-ui/src-tauri/resources").resolve()
     resolved_target = target.resolve()
     if resolved_target.parent != expected_parent or resolved_target.name != "skill":
-        raise ValueError(f"拒绝写入非预期内嵌 Skill 目录: {resolved_target}")
+        raise ValueError(f"Beklenmeyen gömülü skill dizinine yazma reddedildi: {resolved_target}")
 
 
 def _is_runtime_file(path: Path, source_root: Path) -> bool:
-    """@brief 排除缓存、构建产物和字节码，只保留可发布源文件。"""
+    """@brief Exclude caches, build artifacts, and bytecode; retain distributable sources."""
     relative = path.relative_to(source_root)
     return not any(part in SKIPPED_DIRECTORIES for part in relative.parts) and path.suffix.casefold() not in SKIPPED_SUFFIXES
 
 
 def collect_runtime_files(root: Path) -> dict[Path, Path]:
-    """@brief 收集内嵌 Skill 所需的源文件，键为相对仓库路径。"""
+    """@brief Collect bundled skill sources keyed by repository-relative path."""
     files: dict[Path, Path] = {}
     for relative_name in (*TOP_LEVEL_FILES, *RUNTIME_FILES):
         source = root / relative_name
         if not source.is_file():
-            raise FileNotFoundError(f"内嵌 Skill 源文件缺失: {source}")
+            raise FileNotFoundError(f"Gömülü skill kaynak dosyası eksik: {source}")
         files[Path(relative_name)] = source
     for relative_root in RUNTIME_ROOTS:
         source_root = root / relative_root
         if not source_root.is_dir():
-            raise FileNotFoundError(f"内嵌 Skill 源目录缺失: {source_root}")
+            raise FileNotFoundError(f"Gömülü skill kaynak dizini eksik: {source_root}")
         for source in source_root.rglob("*"):
             if source.is_file() and _is_runtime_file(source, source_root):
                 files[source.relative_to(root)] = source
@@ -79,7 +90,7 @@ def collect_runtime_files(root: Path) -> dict[Path, Path]:
 
 
 def sync_bundled_skill(root: Path = ROOT, target: Path = BUNDLED_SKILL) -> dict[str, object]:
-    """@brief 同步运行时文件并清理目标中已无源文件的陈旧副本。"""
+    """@brief Synchronize runtime files and remove stale target copies with no source."""
     root = root.resolve()
     target = target.resolve()
     _validate_target(root, target)
@@ -111,8 +122,8 @@ def sync_bundled_skill(root: Path = ROOT, target: Path = BUNDLED_SKILL) -> dict[
 
 
 def main() -> int:
-    """@brief 命令行入口。"""
-    parser = argparse.ArgumentParser(description="同步 CAD Studio 内嵌 Skill")
+    """@brief Command-line entry point."""
+    parser = argparse.ArgumentParser(description="CAD Studio gömülü skill dosyalarını eşitle")
     parser.parse_args()
     print(json.dumps(sync_bundled_skill(), ensure_ascii=False, indent=2))
     return 0

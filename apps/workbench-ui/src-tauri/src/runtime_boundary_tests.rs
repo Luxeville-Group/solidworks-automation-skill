@@ -1,4 +1,4 @@
-//! @brief 四种 Agent、配置读取与链接边界的回归用例。
+//! @brief Regression cases for four Agents, configuration reads, and symlink boundaries.
 use super::{
     cc_switch_file_path, command_summary_with_prefix, read_cc_switch_file, supported_program_name,
 };
@@ -23,7 +23,7 @@ impl Fixture {
 }
 impl Drop for Fixture {
     fn drop(&mut self) {
-        // 递归清理前确认目标仍在本轮命名的临时根内。
+        // Before recursive cleanup, confirm the target remains inside this run's named temporary root.
         if let (Ok(target), Ok(parent)) =
             (self.0.canonicalize(), std::env::temp_dir().canonicalize())
         {
@@ -81,7 +81,7 @@ fn fixed_json_and_database_paths_share_the_same_boundary() {
 #[test]
 fn explicit_cli_with_spaces_and_chinese_path_still_runs() {
     let fixture = Fixture::new();
-    let folder = fixture.0.join("CLI 工具");
+    let folder = fixture.0.join("CLI Araçlar");
     fs::create_dir_all(&folder).unwrap();
     let script = folder.join("probe.cmd");
     fs::write(
@@ -113,10 +113,10 @@ fn config_symlink_outside_root_is_rejected() {
         Err(error) if error.raw_os_error() == Some(1314) => {
             assert!(
                 std::env::var("GITHUB_ACTIONS").ok().as_deref() != Some("true"),
-                "CI 必须实际验证配置符号链接边界"
+                "CI Configuration symlink boundaries must be tested against real paths"
             );
-            // 普通 Windows 用户可能没有建链接权限；CI 管理员环境必须另验证该分支。
-            eprintln!("链接用例未执行：当前用户没有创建文件符号链接的权限");
+            // Standard Windows users may lack symlink permission; CI should also test this branch with administrator privileges.
+            eprintln!("Symlink case skipped: the current user cannot create symbolic links");
         }
         Err(error) => panic!("cannot create controlled symlink: {error}"),
     }

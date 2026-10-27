@@ -1,5 +1,5 @@
 /** @file preview-viewport-e2e.cjs
- *  @brief 用真实 Chromium 验证 CAD JS 预览清单、DXF Worker、图层面板和 canvas 非空。
+ *  @brief Validate CAD JS preview manifests, DXF Worker, layer panels, and nonblank canvas with real Chromium.
  */
 const { chromium } = require("../apps/workbench-ui/node_modules/playwright");
 const fs = require("fs");
@@ -130,8 +130,8 @@ function testJob() {
     id: "preview-viewport-e2e",
     runId: "run-preview-current",
     kind: "delivery_package",
-    title: "DXF 预览清单验收",
-    detail: "验证 preview.json 到 DXF 场景的浏览器预览链路",
+    title: "DXF önizleme manifest kabulü",
+    detail: "preview.json ile DXF sahnesi tarayıcı önizleme akışını doğrula",
     status: "review_required",
     progress: 100,
     createdAt: now,
@@ -139,7 +139,7 @@ function testJob() {
     requestedBy: "e2e",
     createdByAppVersion: "0.3.1",
     projectId: "project-default",
-    expectedOutput: "DXF / PNG / 复核报告",
+    expectedOutput: "DXF / PNG / İnceleme raporu",
     requiredArtifacts: ["drawing", "preview", "report"],
     previewManifest: "preview-viewport-manifest.json",
     artifacts: [
@@ -148,9 +148,9 @@ function testJob() {
       { kind: "report", path: "preview-viewport-review.json", exists: true, producedThisRun: true, sha256: "report-fixture" },
     ],
     reviewGatePath: "preview-viewport-review.json",
-    reviewGate: { status: "warning", checks: [{ id: "preview", status: "pass", message: "预览清单已生成" }] },
+    reviewGate: { status: "warning", checks: [{ id: "preview", status: "pass", message: "Önizleme manifest oluşturuldu" }] },
     drawingEvidence: { status: "pass", stage: "review", manual_review_required: true },
-    artifactRelations: [{ from: "preview-viewport.dxf", to: "preview-viewport-manifest.json", type: "生成预览清单" }],
+    artifactRelations: [{ from: "preview-viewport.dxf", to: "preview-viewport-manifest.json", type: "Önizleme manifest oluştur" }],
   };
 }
 
@@ -161,8 +161,8 @@ function fallbackJob() {
     id: "preview-webgl-fallback-e2e",
     runId: "run-preview-fallback-current",
     kind: "delivery_package",
-    title: "WebGL 回退验收",
-    detail: "验证模型预览无法创建 WebGL 上下文时显示本轮 PNG",
+    title: "WebGL fallback kabulü",
+    detail: "WebGL context oluşturulamadığında bu çalıştırmanın PNG çıktısını göster",
     status: "review_required",
     progress: 100,
     createdAt: now,
@@ -170,7 +170,7 @@ function fallbackJob() {
     requestedBy: "e2e",
     createdByAppVersion: "0.3.1",
     projectId: "project-default",
-    expectedOutput: "PNG / 复核报告",
+    expectedOutput: "PNG / İnceleme raporu",
     requiredArtifacts: ["preview", "report"],
     previewManifest: "preview-fallback-manifest.json",
     artifacts: [
@@ -179,7 +179,7 @@ function fallbackJob() {
       { kind: "report", path: "preview-fallback-review.json", exists: true, producedThisRun: true, sha256: "fallback-report-fixture" },
     ],
     reviewGatePath: "preview-fallback-review.json",
-    reviewGate: { status: "warning", checks: [{ id: "fallback", status: "pass", message: "PNG 回退来自当前任务" }] },
+    reviewGate: { status: "warning", checks: [{ id: "fallback", status: "pass", message: "PNG fallback mevcut görevden geliyor" }] },
   };
 }
 
@@ -202,9 +202,9 @@ async function inspect(page, baseUrl, width, height, screenshotName) {
   await page.addInitScript(([key, value]) => localStorage.setItem(key, JSON.stringify([value])), [queueKey, testJob()]);
   await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
   await page.emulateMedia({ reducedMotion: "reduce" });
-  await page.getByRole("button", { name: "交付", exact: true }).click();
+  await page.getByRole("button", { name: "Teslim", exact: true }).click();
   await page.locator(".cad-preview-dxf").waitFor({ state: "visible", timeout: 20_000 });
-  await page.waitForFunction(() => document.querySelector(".cad-preview-status-line")?.textContent?.includes("可交互"), null, { timeout: 20_000 });
+  await page.waitForFunction(() => document.querySelector(".cad-preview-status-line")?.textContent?.includes("Etkileşimli"), null, { timeout: 20_000 });
   await page.screenshot({ path: path.join(output, screenshotName), fullPage: true });
   const metrics = await page.evaluate(() => {
     const canvas = document.querySelector(".cad-preview-dxf");
@@ -228,7 +228,7 @@ async function inspect(page, baseUrl, width, height, screenshotName) {
   });
   const rawDxfRow = page.locator(".artifact-row").filter({ hasText: "preview-viewport.dxf" });
   await rawDxfRow.click();
-  await page.waitForFunction(() => document.querySelector(".cad-preview-status-line")?.textContent?.includes("3 个图层"), null, { timeout: 20_000 });
+  await page.waitForFunction(() => document.querySelector(".cad-preview-status-line")?.textContent?.includes("3  katman"), null, { timeout: 20_000 });
   metrics.workerStatusText = await page.locator(".cad-preview-status-line").textContent();
   return metrics;
 }
@@ -251,7 +251,7 @@ async function inspectShowcase(page, baseUrl, width, height, screenshotName) {
   await page.setViewportSize({ width, height });
   await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
   await page.emulateMedia({ reducedMotion: "reduce" });
-  await page.getByRole("button", { name: "帮助", exact: true }).click();
+  await page.getByRole("button", { name: "Yardım", exact: true }).click();
   const showcase = page.locator(".preview-showcase");
   await showcase.waitFor({ state: "visible", timeout: 20_000 });
   const select = showcase.locator("select");
@@ -259,7 +259,7 @@ async function inspectShowcase(page, baseUrl, width, height, screenshotName) {
   const paintedByScene = {};
   for (const option of options) {
     await select.selectOption(option.value);
-    await showcase.locator(".cad-preview-status-line").filter({ hasText: "可交互" }).waitFor({ state: "visible", timeout: 20_000 });
+    await showcase.locator(".cad-preview-status-line").filter({ hasText: "Etkileşimli" }).waitFor({ state: "visible", timeout: 20_000 });
     paintedByScene[option.value] = await paintedPixels(page, ".preview-showcase .cad-preview-dxf");
   }
   await page.screenshot({ path: path.join(output, screenshotName), fullPage: true });
@@ -282,10 +282,10 @@ async function inspectWebGlFallback(page, baseUrl) {
     };
   }, [queueKey, fallbackJob()]);
   await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
-  await page.getByRole("button", { name: "交付", exact: true }).click();
+  await page.getByRole("button", { name: "Teslim", exact: true }).click();
   const preview = page.locator(".delivery-preview-stage .cad-preview");
   await preview.locator("img").waitFor({ state: "visible", timeout: 20_000 });
-  await preview.locator(".cad-preview-status-line").filter({ hasText: "PNG 回退" }).waitFor({ state: "visible", timeout: 20_000 });
+  await preview.locator(".cad-preview-status-line").filter({ hasText: "PNG yedek önizlemesi" }).waitFor({ state: "visible", timeout: 20_000 });
   await page.screenshot({ path: path.join(output, "preview-webgl-fallback-1280x820.png"), fullPage: true });
   return preview.evaluate((element) => ({
     statusText: element.querySelector(".cad-preview-status-line")?.textContent || "",
@@ -297,7 +297,7 @@ async function inspectWebGlFallback(page, baseUrl) {
 }
 
 async function main() {
-  if (!fs.existsSync(path.join(dist, "index.html"))) throw new Error("请先执行 npm run build");
+  if (!fs.existsSync(path.join(dist, "index.html"))) throw new Error("Önce çalıştırın:  npm run build");
   fs.mkdirSync(output, { recursive: true });
   fs.writeFileSync(path.join(dist, "preview-viewport.dxf"), dxfFixture());
   fs.writeFileSync(path.join(dist, "preview-viewport-manifest.json"), JSON.stringify({
@@ -329,7 +329,7 @@ async function main() {
   const server = createServer();
   await new Promise((resolve, reject) => server.listen(0, "127.0.0.1", resolve).once("error", reject));
   const address = server.address();
-  if (!address || typeof address === "string") throw new Error("无法取得临时 UI 端口");
+  if (!address || typeof address === "string") throw new Error("Cannot obtain the temporary UI port");
   const baseUrl = `http://127.0.0.1:${address.port}`;
   const browser = await chromium.launch({ headless: true });
   try {
@@ -344,21 +344,21 @@ async function main() {
     await fallbackContext.close();
     const result = { desktop, compact, showcaseDesktop, showcaseCompact, showcaseMobile, webGlFallback };
     fs.writeFileSync(path.join(output, "metrics.json"), JSON.stringify(result, null, 2));
-    if (desktop.overflowX || compact.overflowX) throw new Error("预览页存在横向溢出");
-    if (desktop.previewCount !== 1 || compact.previewCount !== 1) throw new Error("交付页预览器数量不正确");
-    if (!desktop.statusText.includes("真实产物") || !desktop.statusText.includes("可交互")) throw new Error("预览来源或状态未正确显示");
-    if (!desktop.workerStatusText?.includes("3 个图层") || !compact.workerStatusText?.includes("3 个图层")) throw new Error("原始 DXF Worker 回退链路未通过");
-    if (!desktop.layerText.includes("FRAME") || !desktop.layerText.includes("HOLES") || !desktop.layerText.includes("DIMENSIONS")) throw new Error("DXF 图层未显示完整");
-    if (!desktop.evidenceText.includes("drawing:gb-frame")) throw new Error("Evidence Graph 引用未显示");
-    if (desktop.painted < 1000 || compact.painted < 1000) throw new Error("DXF canvas 像素检查为空或过少");
+    if (desktop.overflowX || compact.overflowX) throw new Error("Preview page has horizontal overflow");
+    if (desktop.previewCount !== 1 || compact.previewCount !== 1) throw new Error("Delivery page has an incorrect preview count");
+    if (!desktop.statusText.includes("Gerçek çıktı") || !desktop.statusText.includes("Etkileşimli")) throw new Error("Preview source or status was not displayed correctly");
+    if (!desktop.workerStatusText?.includes("3  katman") || !compact.workerStatusText?.includes("3  katman")) throw new Error("Raw DXF Worker fallback did not pass");
+    if (!desktop.layerText.includes("FRAME") || !desktop.layerText.includes("HOLES") || !desktop.layerText.includes("DIMENSIONS")) throw new Error("DXF layers are incomplete");
+    if (!desktop.evidenceText.includes("drawing:gb-frame")) throw new Error("Evidence Graph references are not displayed");
+    if (desktop.painted < 1000 || compact.painted < 1000) throw new Error("DXF canvas is blank or contains too few painted pixels");
     for (const showcase of [showcaseDesktop, showcaseCompact, showcaseMobile]) {
-      if (showcase.overflowX) throw new Error("演示检视台存在横向溢出");
-      if (showcase.previewCount !== 1 || showcase.labels.length !== 7) throw new Error("演示检视台样例数量不正确");
-      if (!showcase.demoText.includes("演示数据") || !showcase.demoText.includes("可交互")) throw new Error("演示数据标记或状态缺失");
-      if (Object.values(showcase.paintedByScene).some((painted) => painted < 400)) throw new Error("演示样例 Canvas 为空或绘制像素过少");
+      if (showcase.overflowX) throw new Error("Demo viewer has horizontal overflow");
+      if (showcase.previewCount !== 1 || showcase.labels.length !== 7) throw new Error("Demo viewer has an incorrect example count");
+      if (!showcase.demoText.includes("Demo verisi") || !showcase.demoText.includes("Etkileşimli")) throw new Error("Demo-data label or status is missing");
+      if (Object.values(showcase.paintedByScene).some((painted) => painted < 400)) throw new Error("Demo canvas is blank or contains too few painted pixels");
     }
-    if (!webGlFallback.statusText.includes("PNG 回退") || webGlFallback.source !== "真实产物") throw new Error("WebGL 失败后未保留真实产物来源并回退 PNG");
-    if (!webGlFallback.imagePath.includes("preview-fallback.png") || webGlFallback.naturalWidth < 1 || webGlFallback.hasCanvas) throw new Error("WebGL PNG 回退图未正确显示");
+    if (!webGlFallback.statusText.includes("PNG yedek önizlemesi") || webGlFallback.source !== "Gerçek çıktı") throw new Error("WebGL failure did not preserve the real-artifact source and fall back to PNG");
+    if (!webGlFallback.imagePath.includes("preview-fallback.png") || webGlFallback.naturalWidth < 1 || webGlFallback.hasCanvas) throw new Error("WebGL fallback PNG was not displayed correctly");
     console.log(JSON.stringify(result, null, 2));
   } finally {
     await browser.close();

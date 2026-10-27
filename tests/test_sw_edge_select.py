@@ -1,11 +1,4 @@
-"""语义选边回归测试。
-
-锁定真机实测发现的缺陷：``edge.Select4(True, None, False)`` 会抛
-"类型不匹配"（0x80020005），因为第二个参数必须是 Dispatch VARIANT 而非 None。
-
-本模块直接导入真实的 scripts.sw_edge_select，不在 sys.modules 里注入替身——
-替身会残留在模块缓存中影响后续测试文件的收集。
-"""
+'Semantic edge-selection regressions. Native testing found edge.Select4(True, None, False) raises type mismatch (0x80020005): the second argument requires a Dispatch VARIANT. Import the real scripts.sw_edge_select rather than polluting sys.modules with stubs that affect later collection.'
 from pathlib import Path
 import sys
 import types
@@ -19,7 +12,7 @@ import scripts.sw_edge_select as sw_edge_select  # noqa: E402
 
 
 class FakeCurve:
-    """曲线替身。"""
+    'Curve stub.'
 
     def __init__(self, is_circle=False):
         self._circle = is_circle
@@ -32,7 +25,7 @@ class FakeCurve:
 
 
 class FakeVertex:
-    """顶点替身。"""
+    'Vertex stub.'
 
     def __init__(self, point_m):
         self._point = point_m
@@ -42,7 +35,7 @@ class FakeVertex:
 
 
 class FakeEdge:
-    """边线替身。记录每次选择调用。"""
+    'Edge stub recording every selection call.'
 
     def __init__(self, start_m, end_m, length_m=None, is_circle=False,
                  diameter_m=None, selectable=True, select4_raises=None):
@@ -73,7 +66,7 @@ class FakeEdge:
 
     def GetCurveParams2(self):
         if self._is_circle:
-            # 圆： [圆心(3), 轴(3), 半径]——注意是**半径**，不是直径。
+            # Circle: [center(3), axis(3), radius]; radius, not diameter.
             return [0.0, 0.0, 0.0, 0.0, 0.0, 1.0, (self._diameter or 0.01) / 2.0]
         span = [self._end[axis] - self._start[axis] for axis in range(3)]
         return [*self._start, *self._end, *span]
@@ -92,7 +85,7 @@ class FakeEdge:
 
 
 class FakeBody:
-    """实体替身。"""
+    'Body stub.'
 
     def __init__(self, edges):
         self._edges = edges
@@ -102,7 +95,7 @@ class FakeBody:
 
 
 class FakeModel:
-    """文档替身。"""
+    'Document stub.'
 
     def __init__(self, edges):
         self._bodies = [FakeBody(edges)] if edges else []
@@ -116,29 +109,29 @@ class FakeModel:
         return True
 
 
-# 一个 100x60x6 板料（米制）的 12 条边
+# Twelve edges of a 100x60x6 plate, in meters.
 def plate_edges():
-    """构成长方体板料的边线集合。"""
+    'Construct the edge set of a rectangular plate.'
     x, y, z = 0.1, 0.06, 0.006
     edges = []
-    # 4 条竖直边（沿 Z）
+    # Four vertical edges along Z.
     for corner in [(0, 0), (x, 0), (x, y), (0, y)]:
         edges.append(FakeEdge((corner[0], corner[1], 0.0), (corner[0], corner[1], z)))
-    # 4 条沿 X 的边
+    # Four edges along X.
     for base_z in (0.0, z):
         for y_pos in (0.0, y):
             edges.append(FakeEdge((0.0, y_pos, base_z), (x, y_pos, base_z)))
-    # 4 条沿 Y 的边
+    # Four edges along Y.
     for base_z in (0.0, z):
         for x_pos in (0.0, x):
             edges.append(FakeEdge((x_pos, 0.0, base_z), (x_pos, y, base_z)))
     return edges
 
 
-# ------------------------------------------------------------ 描述
+# Description
 
 def test_edge_length_and_midpoint_in_mm():
-    """@brief 边长与中点必须换算为毫米。"""
+    'Convert edge length and midpoint to millimeters.'
     edge = FakeEdge((0.0, 0.0, 0.0), (0.0, 0.0, 0.01))
 
     descriptor = sw_edge_select.describe_edge(edge)
@@ -149,7 +142,7 @@ def test_edge_length_and_midpoint_in_mm():
 
 
 def test_edge_direction_is_normalised():
-    """@brief 直线方向应归一化，便于按轴筛选。"""
+    'Normalize straight-edge direction for axis filtering.'
     edge = FakeEdge((0.0, 0.0, 0.0), (0.0, 0.0, 0.02))
 
     descriptor = sw_edge_select.describe_edge(edge)
@@ -158,7 +151,7 @@ def test_edge_direction_is_normalised():
 
 
 def test_circular_edge_diameter_in_mm():
-    """@brief 圆边直径换算为毫米。"""
+    'Convert circular-edge diameter to millimeters.'
     edge = FakeEdge((0.0, 0.0, 0.0), (0.0, 0.0, 0.0), length_m=0.0207, is_circle=True, diameter_m=0.0066)
 
     descriptor = sw_edge_select.describe_edge(edge)
@@ -168,7 +161,7 @@ def test_circular_edge_diameter_in_mm():
 
 
 def test_absurd_diameter_is_rejected():
-    """@brief 换算出的直径与边长量级不符时拒绝写入，避免脏数据。"""
+    'Reject inconsistent diameter/length magnitudes to avoid corrupt measurements.'
     edge = FakeEdge((0.0, 0.0, 0.0), (0.0, 0.0, 0.0), length_m=0.001, is_circle=True, diameter_m=0.5)
 
     descriptor = sw_edge_select.describe_edge(edge)
@@ -177,7 +170,7 @@ def test_absurd_diameter_is_rejected():
 
 
 def test_edge_descriptor_reports_errors_without_raising():
-    """@brief 成员读取失败时记录错误而不是抛异常。"""
+    'Record member-read errors rather than raising exceptions.'
 
     class BrokenEdge:
         def GetCurve(self):
@@ -188,10 +181,10 @@ def test_edge_descriptor_reports_errors_without_raising():
     assert descriptor["errors"]
 
 
-# ------------------------------------------------------------ 筛选
+# Filtering
 
 def test_filter_by_z_axis_finds_vertical_edges():
-    """@brief 沿 Z 轴筛选应恰好命中 4 条竖直边。"""
+    'Z-axis filtering must select exactly four vertical edges.'
     descriptors, _ = sw_edge_select.iter_model_edges(FakeModel(plate_edges()))
 
     selected, rejected = sw_edge_select.filter_edges(descriptors, axis="z")
@@ -201,7 +194,7 @@ def test_filter_by_z_axis_finds_vertical_edges():
 
 
 def test_filter_axis_all_keeps_everything():
-    """@brief axis="all" 不做方向过滤。"""
+    'axis=all applies no direction filter.'
     descriptors, _ = sw_edge_select.iter_model_edges(FakeModel(plate_edges()))
 
     selected, _ = sw_edge_select.filter_edges(descriptors, axis="all")
@@ -210,7 +203,7 @@ def test_filter_axis_all_keeps_everything():
 
 
 def test_filter_vertical_alias_matches_z():
-    """@brief "vertical" 等价于 z 轴。"""
+    'vertical is equivalent to the Z axis.'
     descriptors, _ = sw_edge_select.iter_model_edges(FakeModel(plate_edges()))
 
     by_z, _ = sw_edge_select.filter_edges(descriptors, axis="z")
@@ -220,17 +213,17 @@ def test_filter_vertical_alias_matches_z():
 
 
 def test_filter_by_length_range():
-    """@brief 长度范围筛选。"""
+    'Filter by length range.'
     descriptors, _ = sw_edge_select.iter_model_edges(FakeModel(plate_edges()))
 
     long_edges, _ = sw_edge_select.filter_edges(descriptors, axis="all", min_length_mm=50.0)
 
     assert all(item["length_mm"] >= 50.0 for item in long_edges)
-    assert len(long_edges) == 8  # 4 条沿 X(100mm) + 4 条沿 Y(60mm)
+    assert len(long_edges) == 8  # Four X edges (100 mm) plus four Y edges (60 mm).
 
 
 def test_filter_circular_only():
-    """@brief 只保留圆边。"""
+    'Keep circular edges only.'
     edges = plate_edges() + [
         FakeEdge((0.01, 0.01, 0.0), (0.01, 0.01, 0.0), length_m=0.0207, is_circle=True, diameter_m=0.0066)
     ]
@@ -243,7 +236,7 @@ def test_filter_circular_only():
 
 
 def test_filter_by_diameter_tolerance():
-    """@brief 直径带公差筛选。"""
+    'Filter by diameter with tolerance.'
     edges = [
         FakeEdge((0.0, 0.0, 0.0), (0.0, 0.0, 0.0), length_m=0.02, is_circle=True, diameter_m=0.0066),
         FakeEdge((0.05, 0.0, 0.0), (0.05, 0.0, 0.0), length_m=0.03, is_circle=True, diameter_m=0.008),
@@ -258,10 +251,10 @@ def test_filter_by_diameter_tolerance():
 
 
 def test_filter_by_position():
-    """@brief 按中点坐标筛选（position_mm 以毫米为单位）。"""
+    'Filter by midpoint coordinates in millimeters.'
     descriptors, _ = sw_edge_select.iter_model_edges(FakeModel(plate_edges()))
-    # 板料有两条起点在 (0,0) 的竖直边：z=0->6 与 z=0->6 各一条，
-    # 中点分别为 (0,0,3) 和 (0,0,3)（同一位置在板的前后两个角）。
+    # The fixture considers vertical edges from z=0 to z=6;
+    # check midpoint coordinates against the actual plate corners.
     selected, _ = sw_edge_select.filter_edges(
         descriptors, axis="z", position_mm=[0.0, 0.0, 3.0], position_tolerance_mm=0.5
     )
@@ -271,7 +264,7 @@ def test_filter_by_position():
 
 
 def test_rejected_entries_carry_reasons():
-    """@brief 被排除的边要说明原因，便于用户调整条件。"""
+    'Explain exclusions so users can adjust filters.'
     descriptors, _ = sw_edge_select.iter_model_edges(FakeModel(plate_edges()))
 
     _, rejected = sw_edge_select.filter_edges(descriptors, axis="z")
@@ -280,10 +273,10 @@ def test_rejected_entries_carry_reasons():
     assert all(item["reasons"] for item in rejected)
 
 
-# ------------------------------------------------------------ 选择
+# Selection
 
 def test_select_edges_uses_select2():
-    """@brief 正常路径走 Select2，避免 Callout 参数问题。"""
+    'Prefer Select2 to avoid Callout argument issues.'
     model = FakeModel(plate_edges())
 
     result = sw_edge_select.select_edges(model, {"axis": "z"})
@@ -293,16 +286,12 @@ def test_select_edges_uses_select2():
 
 
 def test_select_edge_passes_dispatch_variant_not_none(monkeypatch):
-    """@brief 核心缺陷：Select4 的 Callout 必须是 Dispatch VARIANT，不能是 None。
-
-    真机上报 "类型不匹配"（0x80020005）。这里让 Select2 不可用，强制走 Select4，
-    验证传入的是 create_empty_dispatch_variant() 的返回值而不是 None。
-    """
+    'Select4 Callout must be a Dispatch VARIANT, not None. Native type mismatch (0x80020005) motivates this test: disable Select2 and verify create_empty_dispatch_variant() is passed to Select4.'
     sentinel = object()
     monkeypatch.setattr(sw_edge_select, "create_empty_dispatch_variant", lambda: sentinel)
 
     edge = FakeEdge((0.0, 0.0, 0.0), (0.0, 0.0, 0.01))
-    edge.Select2 = None  # 模拟只有 Select4 的环境
+    edge.Select2 = None  # Simulate an environment with Select4 only.
     model = FakeModel([edge])
 
     sw_edge_select.select_edges(model, {"axis": "z"})
@@ -312,14 +301,14 @@ def test_select_edge_passes_dispatch_variant_not_none(monkeypatch):
 
 
 def test_select_falls_back_to_select4_when_select2_fails(monkeypatch):
-    """@brief Select2 抛错时回退 Select4，且 Callout 仍不是 None。"""
+    'Fall back to Select4 on Select2 errors, with a non-None Callout.'
     sentinel = object()
     monkeypatch.setattr(sw_edge_select, "create_empty_dispatch_variant", lambda: sentinel)
 
     class Select2Broken(FakeEdge):
         def Select2(self, append, mark):
             self.select_calls.append(("Select2", append, mark))
-            raise RuntimeError("类型不匹配")
+            raise RuntimeError("\u7c7b\u578b\u4e0d\u5339\u914d")
 
     edge = Select2Broken((0.0, 0.0, 0.0), (0.0, 0.0, 0.01))
     model = FakeModel([edge])
@@ -332,7 +321,7 @@ def test_select_falls_back_to_select4_when_select2_fails(monkeypatch):
 
 
 def test_select_edges_clears_selection_first():
-    """@brief 选择前清空选择集，避免残留影响。"""
+    'Clear selection before choosing edges to avoid stale state.'
     model = FakeModel(plate_edges())
 
     sw_edge_select.select_edges(model, {"axis": "z"})
@@ -341,10 +330,7 @@ def test_select_edges_clears_selection_first():
 
 
 def test_select_edges_errors_when_nothing_matches():
-    """@brief 没有边匹配时返回 error，绝不静默继续。
-
-    静默继续会让 SolidWorks 对"当前轮廓"执行圆角，产生难以排查的错误特征。
-    """
+    'No matching edges must return error; silently continuing could fillet the current contour and create the wrong feature.'
     model = FakeModel(plate_edges())
 
     result = sw_edge_select.select_edges(model, {"axis": "z", "min_length_mm": 1000.0})
@@ -356,15 +342,15 @@ def test_select_edges_errors_when_nothing_matches():
 
 
 def test_select_edges_errors_on_empty_model():
-    """@brief 模型没有边线时明确报错。"""
+    'Report an explicit error when the model has no edges.'
     result = sw_edge_select.select_edges(FakeModel([]), {"axis": "z"})
 
     assert result["status"] == "error"
-    assert any("未找到任何边线" in item for item in result["errors"])
+    assert any('Modelde kenar bulunamadı' in item for item in result["errors"])
 
 
 def test_select_edges_reports_partial_failures():
-    """@brief 部分边选择失败时报告失败详情但仍返回成功项。"""
+    'Report partial selection failures while returning successful selections.'
     edges = plate_edges()
     edges[0]._selectable = False
     model = FakeModel(edges)
@@ -377,7 +363,7 @@ def test_select_edges_reports_partial_failures():
 
 
 def test_describe_convexity_tolerates_missing_faces():
-    """@brief 凸凹判定失败时返回 None，调用方据此放行而不误排除。"""
+    'Return None on failed convexity classification so callers do not incorrectly exclude edges.'
 
     class NoFaces(FakeEdge):
         def GetTwoAdjacentFaces2(self):

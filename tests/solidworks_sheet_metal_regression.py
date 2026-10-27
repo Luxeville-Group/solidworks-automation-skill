@@ -1,4 +1,4 @@
-"""SolidWorks 2026 原生钣金样件、展开 DXF 与重开回归。"""
+"""SolidWorks 2026 native sheet-metal specimen, flat-pattern DXF, and reopen regression."""
 from __future__ import annotations
 
 import argparse
@@ -20,19 +20,19 @@ from sw_sheet_metal import BaseFlangeSpec, create_base_flange, sheet_metal_evide
 
 
 def _validate_evidence(evidence: dict, *, stage: str) -> None:
-    """@brief 拒绝缺少原生钣金语义或实体标记的样件。"""
+    """@brief Reject specimens lacking native sheet-metal semantics or body markers."""
     if not evidence.get("has_base_flange"):
-        raise RuntimeError(f"{stage}: 未检测到 BaseFlange 原生特征")
+        raise RuntimeError(f"{stage}: native BaseFlange feature not detected")
     if not evidence.get("has_sheet_metal_feature"):
-        raise RuntimeError(f"{stage}: 未检测到 SheetMetal 父特征")
+        raise RuntimeError(f"{stage}: parent SheetMetal feature not detected")
     if not evidence.get("all_solid_bodies_are_sheet_metal"):
-        raise RuntimeError(f"{stage}: 固体未被 SolidWorks 标记为钣金实体")
+        raise RuntimeError(f"{stage}: SolidWorks does not mark the solid as a sheet-metal body")
 
 
 def _validate_dxf(path: Path) -> dict:
-    """@brief 读取 DXF 结构；安装 ezdxf 时进一步统计实体和图层。"""
+    """@brief Read DXF structure; count entities/layers when ezdxf is installed."""
     if not path.is_file() or path.stat().st_size < 256:
-        raise RuntimeError("展开 DXF 不存在或文件过小")
+        raise RuntimeError("Flat-pattern DXF missing or too small")
     result = {"path": str(path), "size_bytes": path.stat().st_size}
     try:
         import ezdxf
@@ -45,17 +45,17 @@ def _validate_dxf(path: Path) -> dict:
             "layers": sorted({str(entity.dxf.layer) for entity in entities}),
         })
         if not entities:
-            raise RuntimeError("展开 DXF 不含模型空间实体")
+            raise RuntimeError("Flat-pattern DXF contains no model-space entities")
     except ImportError:
         text = path.read_text(encoding="latin-1", errors="ignore")
         if "SECTION" not in text or "ENTITIES" not in text:
-            raise RuntimeError("展开文件不是有效的 ASCII DXF")
+            raise RuntimeError("Flat-pattern file is not valid ASCII DXF")
         result["parser"] = "header-check"
     return result
 
 
 def run_regression(output_dir: Path, *, visible: bool = True, wait_seconds: int = 12) -> dict:
-    """@brief 创建带两道折弯的 U 型钣金件并验证保存、展开、重开。"""
+    """@brief Create U-shaped sheet metal with two bends and verify save, flattening, and reopening."""
     output_dir.mkdir(parents=True, exist_ok=True)
     part_path = output_dir / "u_channel_sheet_metal.SLDPRT"
     dxf_path = output_dir / "u_channel_flat_pattern.dxf"
@@ -72,7 +72,7 @@ def run_regression(output_dir: Path, *, visible: bool = True, wait_seconds: int 
 
     model = new_document(sw, "part")
     with sketch(model, "Front Plane") as profile:
-        # 60 mm 底板 + 两侧 25 mm 翻边，开放轮廓由 BaseFlange 生成两道真实折弯。
+        # 60 mm base + 25 mm flanges on both sides; BaseFlange creates two real bends from an open profile.
         sketch_line(model, -mm(30), mm(25), -mm(30), 0.0)
         sketch_line(model, -mm(30), 0.0, mm(30), 0.0)
         sketch_line(model, mm(30), 0.0, mm(30), mm(25))
@@ -90,13 +90,13 @@ def run_regression(output_dir: Path, *, visible: bool = True, wait_seconds: int 
     )
     model.ForceRebuild3(False)
     native = sheet_metal_evidence(model)
-    _validate_evidence(native, stage="创建后")
+    _validate_evidence(native, stage="after creation")
     feature_name = str(get_com_member(feature, "Name") or "")
 
     if not save_document(model, str(part_path)):
-        raise RuntimeError("钣金 SLDPRT 保存失败")
+        raise RuntimeError("Sheet-metal SLDPRT save failed")
     if not export_flat_pattern_dxf(model, str(dxf_path), include_bend_lines=True):
-        raise RuntimeError("钣金展开 DXF 导出失败")
+        raise RuntimeError("Sheet-metal flat-pattern DXF export failed")
     dxf = _validate_dxf(dxf_path)
 
     report, report_path = run_review(
@@ -110,13 +110,13 @@ def run_regression(output_dir: Path, *, visible: bool = True, wait_seconds: int 
     sw.CloseDoc(title)
     reopened = open_document(sw, str(part_path), silent=True, raise_on_error=True)
     reopened_evidence = sheet_metal_evidence(reopened)
-    _validate_evidence(reopened_evidence, stage="重开后")
+    _validate_evidence(reopened_evidence, stage="after reopen")
 
     created_parameters = native["base_flange_parameters"][0]
     reopened_parameters = reopened_evidence["base_flange_parameters"][0]
     for key, expected in (("thickness_m", mm(2.0)), ("bend_radius_m", mm(2.5)), ("depth_m", mm(100.0))):
         if abs(float(reopened_parameters[key]) - expected) > 1e-7:
-            raise RuntimeError(f"重开参数不一致: {key}={reopened_parameters[key]}")
+            raise RuntimeError(f"Reopened parameter mismatch: {key}={reopened_parameters[key]}")
 
     return {
         "status": "ok",
@@ -135,8 +135,8 @@ def run_regression(output_dir: Path, *, visible: bool = True, wait_seconds: int 
 
 
 def main() -> int:
-    """@brief 命令行入口。"""
-    parser = argparse.ArgumentParser(description="运行真实 SolidWorks 钣金回归。")
+    '@brief Command-line entry point.'
+    parser = argparse.ArgumentParser(description="Run real SolidWorks sheet-metal regression.")
     parser.add_argument("--output-dir", default=str(Path(tempfile.gettempdir()) / "solidworks_sheet_metal_regression"))
     parser.add_argument("--hidden", action="store_true")
     parser.add_argument("--wait-seconds", type=int, default=12)

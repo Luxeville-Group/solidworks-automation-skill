@@ -1,4 +1,4 @@
-"""复杂曲面与模具中性计划门禁回归。"""
+"""Regression checks for advanced-surface and mold neutral-plan gates."""
 from __future__ import annotations
 
 import json
@@ -10,7 +10,7 @@ from scripts.advanced_geometry import geometry_preflight, validate_geometry_plan
 
 
 def _plan() -> dict:
-    """@brief 返回覆盖曲面连续性和模具核心字段的黄金计划。"""
+    """Return a golden plan covering surface continuity and core mold fields."""
     return {
         "schemaVersion": "1.0",
         "planId": "housing_tool",
@@ -41,7 +41,7 @@ def _plan() -> dict:
 
 
 def test_validate_geometry_plan_covers_surface_continuity_and_mold_requirements() -> None:
-    """@brief 完整引用、连续性、拔模和型芯型腔参数应通过结构校验。"""
+    """Complete references, continuity, draft, and core/cavity parameters pass structural validation."""
     assert validate_geometry_plan(_plan())["planId"] == "housing_tool"
 
 
@@ -56,7 +56,7 @@ def test_validate_geometry_plan_covers_surface_continuity_and_mold_requirements(
     ],
 )
 def test_golden_failure_evidence_blocks_incomplete_or_unsafe_plans(change, message: str) -> None:
-    """@brief 缺连续性、坏引用、过大公差/拔模角和不完整模坯必须失败。"""
+    """Reject missing continuity, bad references, excessive tolerances/draft, and incomplete mold bases."""
     plan = _plan()
     change(plan)
     with pytest.raises(ValueError, match=message):
@@ -64,7 +64,7 @@ def test_golden_failure_evidence_blocks_incomplete_or_unsafe_plans(change, messa
 
 
 def test_preflight_never_claims_geometry_was_produced() -> None:
-    """@brief 即使发现 OCP，未验证执行器也只能是 pilot 且无几何产物。"""
+    """Even when OCP is found, an unverified executor remains pilot and produces no geometry."""
     report = geometry_preflight(_plan())
     assert report["status"] in {"pilot", "blocked"}
     assert report["geometryProduced"] is False
@@ -73,7 +73,7 @@ def test_preflight_never_claims_geometry_was_produced() -> None:
 
 
 def test_invalid_plan_returns_stable_blocked_evidence() -> None:
-    """@brief 非法计划返回稳定阶段和错误码而非异常完成状态。"""
+    """Invalid plans return stable stages/error codes rather than exceptional completion states."""
     plan = _plan()
     plan["operations"][0]["continuity"] = "G3"
     report = geometry_preflight(plan)
@@ -84,7 +84,7 @@ def test_invalid_plan_returns_stable_blocked_evidence() -> None:
 
 
 def test_preflight_report_is_versioned_and_hashed(tmp_path: Path) -> None:
-    """@brief 前置报告不得覆盖旧产物并必须记录哈希。"""
+    """Preflight reports must preserve old artifacts and record hashes."""
     first = write_preflight_report(_plan(), tmp_path / "geometry.json")
     second = write_preflight_report(_plan(), tmp_path / "geometry.json")
     assert Path(first["artifacts"][0]["path"]).name == "geometry.json"
@@ -93,7 +93,7 @@ def test_preflight_report_is_versioned_and_hashed(tmp_path: Path) -> None:
 
 
 def test_advanced_geometry_json_schema_is_valid() -> None:
-    """@brief 公共 Schema 必须符合 Draft 2020-12。"""
+    """The public Schema must conform to Draft 2020-12."""
     jsonschema = pytest.importorskip("jsonschema")
     schema_path = Path(__file__).parents[1] / "apps" / "desktop" / "cad_workbench" / "schemas" / "advanced_geometry.schema.json"
     schema = json.loads(schema_path.read_text(encoding="utf-8"))

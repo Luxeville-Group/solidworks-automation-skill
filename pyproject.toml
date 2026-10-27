@@ -20,9 +20,9 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/wzyn20051216/solidworks-automation-skill"
-Repository = "https://github.com/wzyn20051216/solidworks-automation-skill"
-Issues = "https://github.com/wzyn20051216/solidworks-automation-skill/issues"
+Homepage = "https://github.com/Luxeville-Group/solidworks-automation-skill"
+Repository = "https://github.com/Luxeville-Group/solidworks-automation-skill"
+Issues = "https://github.com/Luxeville-Group/solidworks-automation-skill/issues"
 
 [tool.uv]
 package = false

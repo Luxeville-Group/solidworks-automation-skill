@@ -1,22 +1,22 @@
 ---
 name: solidworks-fillet-chamfer-cnc
-description: SolidWorks CNC 零件的多圆角/倒角自动化子技能。用于安装座、连接块、支架、沉孔板等模型的参数预检、语义选边、多控制点可变半径、face/full-round/setback、G2 曲面组合、宽度-宽度倒角、角度倒角、孔口倒角、CNC 友好口袋、有界降级和重建证据。
+description: SolidWorks CNC fillet and chamfer automation subskill. Use for parameter preflight, semantic edge selection, multipoint variable-radius, face/full-round/setback and G2 fillets, distance-distance and angle chamfers, hole-mouth chamfers, CNC-friendly pockets, bounded fallback and rebuild evidence for mounting bases, connector blocks, brackets and counterbored plates.
 ---
 
 # SolidWorks Fillet Chamfer CNC
 
-## 先判定任务模式
+## Determine the task mode first
 
-圆角/倒角多的模型，主要风险是拓扑变化、错误选边和不可制造参数，不是 API 参数本身。
+For models with many fillets/chamfers, the main risks are topology changes, incorrect edge selection and unmanufacturable parameters, not merely API arguments.
 
-- 新建 CNC 安装座或验证参数时，先使用模板脚本的 `--dry-run`；计划通过后再连接 SolidWorks。
-- 修改既有零件时，先读取 [详细经验](references/cnc-fillet-chamfer-lessons.md) 的“既有模型选边”部分，不套用模板的固定期望边数。
-- 用户要求可变半径、面圆角、full-round 或 setback 时，先运行本子技能的高级能力探测；SolidWorks 版本或输入拓扑不同于已验证样例时保持 `pilot`，不要跨版本直接宣称稳定。
-- 多控制点、曲面组合和宽度-宽度倒角已经有 SW2026 SP1.1 独立真机证据，但换版本或换拓扑仍须复跑；保持线圆角已经跨 Python、C# PIA、SWBasic 和进程内非托管 C++ 复测，故障边界收敛在本机 SW2026 SP1.1 的 `ISetHoldLines` 调用，而非 Python 单一语言限制。该构建必须保持 `pilot/blocked`，不能退化成普通面圆角后声称成功。
+- For new CNC mounting bases or parameter validation, run the template with `--dry-run` first; connect to SolidWorks only after the plan passes.
+- For existing parts, first read the existing-model edge-selection section in [detailed lessons](references/cnc-fillet-chamfer-lessons.md); do not apply the template's fixed expected edge counts.
+- For variable-radius, face, full-round or setback fillets, first run this subskill's advanced capability probe. Keep status `pilot` when the SolidWorks version or topology differs from a verified sample; do not claim stability across versions.
+- Multipoint variable-radius, surface combinations and distance-distance chamfers have independent native SW2026 SP1.1 evidence, but require reruns on different versions/topologies. Hold-line fillets have been retested through Python, C# PIA, SWBasic and in-process unmanaged C++; the failure boundary is the local SW2026 SP1.1 `ISetHoldLines` call, not a Python-only limitation. This build must remain `pilot/blocked`; falling back to an ordinary face fillet is not success.
 
-## 模板入口
+## Template entry point
 
-先做无 COM 预检：
+Start with preflight without COM:
 
 ```powershell
 python subskills\solidworks-fillet-chamfer-cnc\scripts\create_cnc_mount_template.py `
@@ -26,7 +26,7 @@ python subskills\solidworks-fillet-chamfer-cnc\scripts\create_cnc_mount_template
   --output-dir C:\CADAutomationWorkbench\cnc_mount
 ```
 
-确认 `*_plan.json` 中 `validation.errors` 为空、语义目标和 `expected_edge_count` 符合设计，再删除 `--dry-run` 执行原生建模。大量参数优先放进 JSON：
+Confirm that `validation.errors` is empty in `*_plan.json` and that semantic targets and `expected_edge_count` match the design. Then remove `--dry-run` to execute native modeling. Prefer JSON for large parameter sets:
 
 ```powershell
 python subskills\solidworks-fillet-chamfer-cnc\scripts\create_cnc_mount_template.py `
@@ -35,27 +35,27 @@ python subskills\solidworks-fillet-chamfer-cnc\scripts\create_cnc_mount_template
   --output-dir C:\CADAutomationWorkbench\cnc_mount
 ```
 
-`strict` 只接受请求尺寸；`progressive` 按 100%/75%/50% 尝试。发生降级时必须在交付摘要中写明实际尺寸，不能仍声称精确满足原值。
+`strict` accepts only requested dimensions; `progressive` tries 100%/75%/50%. If fallback changes a dimension, report the actual value in the delivery summary; do not claim an exact match to the original request.
 
-## 不可跳过的门禁
+## Mandatory gates
 
-1. 原生建模前运行父技能 `scripts/sw_preflight.py`；`--dry-run` 不需要 SolidWorks。
-2. 参数预检必须覆盖有限数值、圆角/倒角上限、孔槽碰撞、最小边壁、特征间净距、沉孔/口袋底壁和输出基名安全。
-3. 新建模板按“基础体 → 立角圆角 → 外轮廓倒角 → 孔槽/口袋 → 孔口倒角”执行；既有模型根据依赖关系决定顺序。
-4. 选边以几何签名和期望数量为证据。数量不符时停止，不用扩大坐标容差、`Edge1` 或屏幕点击猜边。
-5. 每个圆角/倒角必须在重建后从特征树回读；COM 返回非空不等于持久化成功。
-6. 生成后保存 SLDPRT、导出 STEP、运行 `sw_review.run_review()`，并人工查看等轴测和俯视预览。
+1. Run the parent skill's `scripts/sw_preflight.py` before native modeling; `--dry-run` does not require SolidWorks.
+2. Parameter checks must cover finite numbers, fillet/chamfer limits, hole/slot collisions, minimum edge walls, feature clearances, counterbore/pocket bottom walls and safe output basenames.
+3. New templates follow base body → vertical-corner fillets → outline chamfers → holes/slots/pockets → hole-mouth chamfers. For existing models, choose the order from dependencies.
+4. Use geometric signatures and expected counts as edge-selection evidence. Stop on count mismatch; do not widen coordinate tolerances or guess using `Edge1` or screen clicks.
+5. Read each fillet/chamfer back from the feature tree after rebuild. A non-null COM return does not establish persistence.
+6. Save SLDPRT, export STEP, run `sw_review.run_review()`, and manually inspect isometric and top previews.
 
-## 高级圆角入口
+## Advanced fillet entry point
 
-先只读探测本机类型库，不启动 SolidWorks：
+First inspect the local type library read-only, without starting SolidWorks:
 
 ```powershell
 python subskills\solidworks-fillet-chamfer-cnc\scripts\verify_advanced_fillets.py `
   --output-dir C:\CADAutomationWorkbench\advanced_fillet_probe
 ```
 
-执行当前六项已通过的独立真机回归：
+Run the current six independently verified native regressions:
 
 ```powershell
 python subskills\solidworks-fillet-chamfer-cnc\scripts\verify_advanced_fillets.py `
@@ -64,25 +64,25 @@ python subskills\solidworks-fillet-chamfer-cnc\scripts\verify_advanced_fillets.p
   --output-dir C:\CADAutomationWorkbench\advanced_fillet_verified
 ```
 
-只有报告中的能力状态为 `verified`，且对应 SLDPRT、STEP、重开证据和审查报告都存在，才能声明该环境支持。当前在 SolidWorks 2026 SP1.1 验证的最小样例为：
+Claim support for the environment only when the report marks the capability `verified` and the corresponding SLDPRT, STEP, reopen evidence and review report all exist. Minimal cases verified on SolidWorks 2026 SP1.1 are:
 
-- 单边端点可变半径 R2→R5，特征类型回读为 `VarFillet`。
-- 同一条边 25%/50%/75% 三个中间控制点分别回读 R3/R6/R4；`GetControlPointRadiusAtIndex` 的位置值按百分数 `25/50/75` 解释。
-- 两组相邻面的 R4 face fillet，`ISimpleFilletFeatureData2.Type=2`。
-- 平面—圆柱面组合的 R3 G2 面圆角，重开后 `CurvatureContinuous=true`。
-- 三组面各 1 个面的 full-round，`ISimpleFilletFeatureData2.Type=3`。
-- 三边角 R3、逐边 setback 1 mm，回读 setback 顶点数为 1。
-- C2/C4 距离-距离倒角，`IChamferFeatureData2.Type=2`，两侧距离按 side `0/1` 回读为 `2/4 mm`。
+- Single-edge endpoint variable radius R2→R5, with feature type read back as `VarFillet`.
+- Three intermediate control points at 25%/50%/75% on one edge, read back as R3/R6/R4; interpret `GetControlPointRadiusAtIndex` positions as percentages `25/50/75`.
+- R4 face fillet between two adjacent face sets, `ISimpleFilletFeatureData2.Type=2`.
+- R3 G2 face fillet between a plane and cylinder, with `CurvatureContinuous=true` after reopening.
+- Full-round with one face in each of three sets, `ISimpleFilletFeatureData2.Type=3`.
+- R3 three-edge corner with 1 mm setback per edge; read back one setback vertex.
+- C2/C4 distance-distance chamfer, `IChamferFeatureData2.Type=2`, distances read back as `2/4 mm` at sides `0/1`.
 
-setback 的距离数组必须显式封装为 `VT_ARRAY | VT_R8`。普通 Python `tuple` 可能不抛 COM 异常，却让 `FeatureFillet` 返回 `None`，不得把这种结果降级为普通圆角。
+Wrap setback distances explicitly as `VT_ARRAY | VT_R8`. An ordinary Python `tuple` may produce no COM exception while `FeatureFillet` returns `None`; do not reinterpret that result as an ordinary fillet.
 
-保持线模式使用投影分割线、两组面 mark `2/4` 和保持线 mark `8`，并要求 `GetHoldLineCount=1`。官方 `ISetHoldLines` 只支持 SolidWorks 进程内非托管 C++，所以脚本已提供 MSVC x64 DLL + SWBasic 主线程调度器；C# PIA 和 Python 路径保留作对照。在本机 SW2026 SP1.1 / Revision 34.1.1 中，Python 普通数组回读为 0、显式 SAFEARRAY 服务器故障，C#、SWBasic 和原生 C++ 也未得到可持久化的保持线，原生调用更在 `ISetHoldLines` 边界触发服务器故障。默认因此只返回结构化 `blocked/known_server_fault`，不会执行危险调用。
+Hold-line mode uses a projected split line, face-set marks `2/4`, hold-line mark `8` and requires `GetHoldLineCount=1`. Official `ISetHoldLines` supports only in-process unmanaged C++, so scripts include an MSVC x64 DLL and SWBasic main-thread dispatcher; C# PIA and Python paths remain for comparison. On local SW2026 SP1.1 / Revision 34.1.1, ordinary Python arrays read back zero and explicit SAFEARRAY causes a server fault. C#, SWBasic and native C++ also failed to produce persistent hold lines, with native calls faulting at `ISetHoldLines`. The default therefore returns structured `blocked/known_server_fault` without executing the dangerous call.
 
-只有需要在隔离的自有 SolidWorks 实例中复测其它服务包时，才显式加入 `--unsafe-native-hold-line`；该开关可能令实例退出，不得用于已有未保存文档的会话。成功标准仍是创建特征后与重开后两次 `GetHoldLineCount=1`。
+Use `--unsafe-native-hold-line` only to retest another service pack in an isolated SolidWorks instance you own. This option may terminate the instance and must not be used in a session containing unsaved documents. Success still requires `GetHoldLineCount=1` both after creation and after reopening.
 
-## 开源复杂案例回归
+## Open-source complex-case regression
 
-新增 MIT 许可的 CadQuery `parametric-bracket-library/l_gusset` 回归。该件包含互相垂直的两块安装板、三角加强筋和六个安装孔；SW2026 导入基线为 `1 solid / 18 faces / 49 edges`。在同一复杂实体上创建 20/40/60/80% 四个中间控制点可变半径圆角，以及 C0.8/C1.4 宽度-宽度倒角：
+The MIT-licensed CadQuery `parametric-bracket-library/l_gusset` regression contains two perpendicular mounting plates, a triangular gusset and six mounting holes; its SW2026 import baseline is `1 solid / 18 faces / 49 edges`. Create a variable-radius fillet with four control points at 20/40/60/80% and a C0.8/C1.4 distance-distance chamfer on the same complex body:
 
 ```powershell
 python subskills\solidworks-fillet-chamfer-cnc\scripts\verify_open_source_bracket.py `
@@ -92,11 +92,11 @@ python subskills\solidworks-fillet-chamfer-cnc\scripts\verify_open_source_bracke
   --output-dir C:\CADAutomationWorkbench\opensource_l_gusset
 ```
 
-只有固定提交、CadQuery 2.8.0 生成物的 SHA-256、复杂度门禁、四个控制点的百分比/半径、不等宽倒角两侧距离、处理后拓扑、重建、SLDPRT、STEP、重开和四视角审查全部通过，才标记 `verified`。输入 STEP 可按该仓库 README 用 CadQuery 2.8.0 生成；脚本不会在运行时执行未经锁定的网络下载。
+Mark `verified` only after the pinned commit, SHA-256 of the CadQuery 2.8.0 output, complexity gates, all four point positions/radii, both unequal chamfer distances, final topology, rebuild, SLDPRT, STEP, reopen and four-view review pass. Generate the input STEP using CadQuery 2.8.0 as described in that repository's README; the script does not execute unpinned network downloads at runtime.
 
-原有 FreeCAD-library 复杂角支架继续作为第二个独立倒角回归：
+The existing FreeCAD-library complex corner bracket remains a second independent chamfer regression:
 
-复杂模型回归固定使用 FreeCAD-library 的 `2020_corner_bracket-Corner.step`，锁定提交、SHA-256 和 CC BY 3.0 署名；不使用会随主分支变化的裸链接：
+The complex-model regression uses FreeCAD-library `2020_corner_bracket-Corner.step` pinned by commit, SHA-256 and CC BY 3.0 attribution; it does not use a mutable main-branch URL:
 
 ```powershell
 python subskills\solidworks-fillet-chamfer-cnc\scripts\verify_open_source_complex_case.py `
@@ -104,32 +104,32 @@ python subskills\solidworks-fillet-chamfer-cnc\scripts\verify_open_source_comple
   --output-dir C:\CADAutomationWorkbench\opensource_corner_bracket
 ```
 
-脚本按清单中的唯一端点/长度签名选中 24.041631 mm 斜边，真实施加 C0.2/C0.4 宽度-宽度倒角。只有下载哈希、源拓扑精确为 `1 solid / 40 faces / 98 edges`、倒角 FeatureData 读回、处理后 `41 faces / 101 edges / 66 vertices` 重开保持、SLDPRT/STEP 和四视角审查全部通过，案例才标记 `verified`。网络不可用时可复用已缓存文件，但仍必须重新计算 SHA-256。
+The script selects the unique 24.041631 mm diagonal edge from the manifest's endpoint/length signature and applies a real C0.2/C0.4 distance-distance chamfer. Mark the case `verified` only if the download hash, exact source `1 solid / 40 faces / 98 edges`, chamfer FeatureData, final `41 faces / 101 edges / 66 vertices` preserved after reopen, SLDPRT/STEP and four-view review all pass. A cached file may be reused offline, but its SHA-256 must still be recalculated.
 
-## CNC 几何默认值
+## CNC geometry defaults
 
-- 减重口袋默认使用 `rounded_slot`，避免把不可加工的零半径内角当作成品；明确需要后工序清角时才使用 `rectangle` 并保留 DFM 警告。
-- 定位孔、中心槽和减重口袋必须用同一参数源做二维包络检查。模板 v2 默认把定位孔布置在 Y 方向，避免旧布局与中心槽相交。
-- 恒定半径圆角和角度倒角是通用稳定路径；多控制点可变半径、face/full-round/setback、平面—圆柱面 G2 组合和宽度-宽度倒角已有 SolidWorks 2026 SP1.1 最小真机回归，但应用到其它拓扑或版本时仍须重新运行能力脚本。复杂过渡必须记录 API、SolidWorks 版本、输入拓扑、重建结果和预览证据后才能升级能力等级。
+- Use `rounded_slot` for weight-reduction pockets by default rather than delivering unmachinable zero-radius internal corners. Use `rectangle` only when a later corner-finishing process is explicitly required, and keep the DFM warning.
+- Check locating holes, the center slot and weight-reduction pockets with 2D envelopes derived from the same parameter source. Template v2 places locating holes along Y by default to avoid intersection with the center slot.
+- Constant-radius fillets and angle chamfers are the general stable paths. Multipoint variable-radius, face/full-round/setback, plane-cylinder G2 and distance-distance chamfers have minimal native SolidWorks 2026 SP1.1 regressions, but require capability-script reruns on other topology/versions. Record API, SolidWorks version, input topology, rebuild results and preview evidence before raising the capability level for complex transitions.
 
-详细的选边签名、失败语义、既有模型策略和扩展路线见 [CNC 多圆角/倒角经验](references/cnc-fillet-chamfer-lessons.md)。
+See [CNC fillet/chamfer lessons](references/cnc-fillet-chamfer-lessons.md) for selection signatures, failure semantics, existing-model strategy and extension plans.
 
-## 验证要求
+## Verification requirements
 
-每次完成后输出：
+Produce the following after every completed task:
 
 - `*.SLDPRT`
 - `*.step`
 - `*_parameters.json`
 - `*_review_report.json`
-- `*_isometric.bmp` 或转换后的 PNG
+- `*_isometric.bmp` or a converted PNG.
 
-审查时至少检查：
+At minimum, review:
 
-- `evaluation.status` 是否为 `pass` 或可解释的 `warn`
-- `expected_outputs_exist` 是否为 `True`
-- `previews_not_blank` 是否为 `True`
-- `validation.errors` 是否为空
-- `treatment_evidence` 是否记录请求值、实际值、每次尝试和所选边签名
-- `feature_evidence.missing_names` 是否为空
-- 特征树是否包含预期的 `Fillet` / `Chamfer` / `Cut` 特征
+- Whether `evaluation.status` is `pass` or an explainable `warn`.
+- Whether `expected_outputs_exist` is `True`.
+- Whether `previews_not_blank` is `True`.
+- Whether `validation.errors` is empty.
+- Whether `treatment_evidence` records requested/actual values, every attempt and selected-edge signatures.
+- Whether `feature_evidence.missing_names` is empty.
+- Whether the feature tree contains the expected `Fillet` / `Chamfer` / `Cut` features.

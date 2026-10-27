@@ -1,7 +1,7 @@
 name: solidworks-threaded-holes
 title: SolidWorks Threaded Holes
 status: stable
-summary: 生成并验证 ISO 公制内螺纹孔、真实 Thread 特征、贯穿/盲孔语义和可审查 STEP 交付。
+summary: Generate and verify ISO metric internal threads, real Thread features, blind/through semantics and reviewable STEP delivery.
 entrypoint: SKILL.md
 scripts:
   - scripts/create_threaded_hole_template.py

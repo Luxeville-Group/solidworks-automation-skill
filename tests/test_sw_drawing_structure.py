@@ -1,4 +1,4 @@
-"""工程图结构复核无 COM 测试。"""
+'COM-free drawing-structure review tests.'
 from pathlib import Path
 
 import pytest
@@ -19,7 +19,7 @@ from scripts.sw_review import review_drawing_layout
 
 
 class TypedPositionView:
-    """@brief 模拟 COM setter 解封 SAFEARRAY，而 getter 返回坐标序列。"""
+    'Simulate COM setters unwrapping SAFEARRAY while getters return coordinate sequences.'
     @property
     def Position(self):
         return getattr(self, "_position", None)
@@ -82,7 +82,7 @@ class FakeDrawing:
 
 
 def test_auto_arrange_dimensions_calls_official_api_per_view():
-    """@brief 每个视图至少两个尺寸时应调用官方 AutoArrange 枚举。"""
+    'Call official AutoArrange enums when every view has at least two dimensions.'
     class Annotation:
         def __init__(self):
             self.selected = False
@@ -155,7 +155,7 @@ def test_inspect_drawing_structure_reports_views_dimensions_and_template():
 
 
 def test_inspect_drawing_structure_reads_real_bom_type_cells_and_configuration():
-    """@brief BOM 证据必须包含官方表类型、数据行和引用配置。"""
+    'BOM evidence includes official table type, data rows and referenced configuration.'
     class BomFeature:
         Configuration = "Default"
 
@@ -163,14 +163,14 @@ def test_inspect_drawing_structure_reads_real_bom_type_cells_and_configuration()
         Type = 2
         RowCount = 2
         ColumnCount = 3
-        Title = "材料明细表"
+        Title = 'Malzeme listesi'
 
         def __init__(self):
             self.BomFeature = BomFeature()
 
         def DisplayedText2(self, row, column, include_hidden):
             assert include_hidden is False
-            return (("序号", "零件号", "数量"), ("1", "PLATE-01", "2"))[row][column]
+            return (('Sıra', 'Part number', 'QUANTITY'), ("1", "PLATE-01", "2"))[row][column]
 
         def GetAnnotation(self):
             return None
@@ -196,7 +196,7 @@ def test_inspect_drawing_structure_reads_real_bom_type_cells_and_configuration()
 
 
 def test_inspect_drawing_structure_maps_blank_projected_orientations_semantically():
-    """@brief SW2026 投影视图方向名为空时，按基准关系与位置回读 front/top/right。"""
+    'Read front/top/right from parent relationships and positions when SW2026 projected-view orientation names are empty.'
     class View:
         ScaleRatio = (1.0, 1.0)
 
@@ -226,9 +226,9 @@ def test_inspect_drawing_structure_maps_blank_projected_orientations_semanticall
         def GetTableAnnotations(self):
             return []
 
-    front = View("工程图视图1", "*前视", (0.15, 0.13))
-    top = View("工程图视图2", "", (0.15, 0.22), front)
-    right = View("工程图视图3", "", (0.26, 0.13), front)
+    front = View("\u5de5\u7a0b\u56fe\u89c6\u56fe1", "*\u524d\u89c6", (0.15, 0.13))
+    top = View("\u5de5\u7a0b\u56fe\u89c6\u56fe2", "", (0.15, 0.22), front)
+    right = View("\u5de5\u7a0b\u56fe\u89c6\u56fe3", "", (0.26, 0.13), front)
 
     class Sheet(FakeSheet):
         def GetViews(self):
@@ -241,14 +241,14 @@ def test_inspect_drawing_structure_maps_blank_projected_orientations_semanticall
     result = inspect_drawing_structure(Drawing())
 
     assert {item["name"]: item["semantic_view"] for item in result["views"]} == {
-        "工程图视图1": "front",
-        "工程图视图2": "top",
-        "工程图视图3": "right",
+        "\u5de5\u7a0b\u56fe\u89c6\u56fe1": "front",
+        "\u5de5\u7a0b\u56fe\u89c6\u56fe2": "top",
+        "\u5de5\u7a0b\u56fe\u89c6\u56fe3": "right",
     }
 
 
 def test_inspect_drawing_structure_reads_professional_annotation_entities():
-    """@brief 专业标注必须由 IView/IDisplayDimension 实体回读，不能由普通注释推断。"""
+    'Professional annotations require IView/IDisplayDimension readback, not inference from ordinary notes.'
     class AnnotationEntity:
         def __init__(self, texts=()):
             self.texts = list(texts)
@@ -354,7 +354,7 @@ def test_inspect_drawing_structure_reads_professional_annotation_entities():
 
 
 def test_inspect_drawing_structure_traverses_annotation_center_marks():
-    """@brief 注解型中心标记必须通过 GetFirstCenterMark2/GetNext 回读。"""
+    'Read annotation center marks through GetFirstCenterMark2/GetNext.'
     class CenterMark:
         Size = 0.004
         ShowLines = True
@@ -390,7 +390,7 @@ def test_inspect_drawing_structure_traverses_annotation_center_marks():
 
 
 def test_auto_insert_center_marks_uses_verified_enum_and_entity_readback():
-    """@brief API 参数必须与已确认枚举一致，成功状态必须来自实体数量回读。"""
+    'API arguments match confirmed enums; success comes from entity-count readback.'
     class CenterMark:
         def __init__(self, next_mark=None):
             self.next_mark = next_mark
@@ -462,7 +462,7 @@ def test_auto_insert_center_marks_uses_verified_enum_and_entity_readback():
 
 
 def test_auto_insert_center_marks_rejects_api_success_without_entity_readback():
-    """@brief COM 返回 True 但无中心标记实体时必须失败，避免假成功。"""
+    'COM True with no center-mark entities must fail.'
     class View:
         Name = "Front"
         Type = 7
@@ -505,7 +505,7 @@ def test_auto_insert_center_marks_rejects_api_success_without_entity_readback():
 
 
 def test_auto_insert_center_marks_explains_unsaved_drawing_false_positive():
-    """@brief 未保存工程图出现 True/零实体时应给出可重试的首次保存提示码。"""
+    'True/zero entities in an unsaved drawing returns a retryable initial-save hint code.'
     class View:
         Name = "Front"
         Type = 7
@@ -559,7 +559,7 @@ def test_inspect_drawing_structure_blocks_empty_drawing():
 
 
 def test_insert_dimensions_prefers_document_api():
-    """@brief SW2024 动态代理把尺寸接口放在文档对象时仍可调用。"""
+    'Support SW2024 dynamic proxies exposing dimension methods on the document.'
     class Document:
         Extension = object()
 
@@ -571,7 +571,7 @@ def test_insert_dimensions_prefers_document_api():
 
 
 def test_insert_dimensions_prefers_sw2024_array_api():
-    """@brief SW2024 InsertModelAnnotations4 返回实际注释数组时优先使用它。"""
+    'Prefer actual annotation arrays returned by SW2024 InsertModelAnnotations4.'
     class Document:
         Extension = object()
 
@@ -580,11 +580,11 @@ def test_insert_dimensions_prefers_sw2024_array_api():
             return [object()]
 
     result = insert_dimensions(Document())
-    assert isinstance(result, list) and len(result) == 1  # 返回实际注释数组
+    assert isinstance(result, list) and len(result) == 1  # Return an actual annotation array.
 
 
 def test_insert_dimensions_returns_false_when_both_com_surfaces_are_missing():
-    """@brief 缺少尺寸接口时返回可审计失败，不抛出未处理异常。"""
+    'Missing dimension APIs produce auditable failure, not an unhandled exception.'
     class Document:
         Extension = object()
 
@@ -592,7 +592,7 @@ def test_insert_dimensions_returns_false_when_both_com_surfaces_are_missing():
 
 
 def test_select_drawing_template_requires_existing_a3_gbt_candidate(tmp_path):
-    """@brief A3 选择不得把不存在或非国标命名模板当作通过。"""
+    'A3 selection must not accept missing or non-GB-named templates.'
     generic = tmp_path / "A3-generic.slddrt"
     gbt = tmp_path / "A3-GB-T-title-block.slddrt"
     generic.write_text("generic", encoding="utf-8")
@@ -607,7 +607,7 @@ def test_select_drawing_template_requires_existing_a3_gbt_candidate(tmp_path):
 
 
 def test_select_drawing_template_prefers_simplified_chinese_gbt_candidate(tmp_path):
-    """@brief 同版式模板并存时应优先中文简体 GB/T 候选。"""
+    'When equivalent layouts coexist, prefer the original GB/T locale candidate.'
     english_dir = tmp_path / "english" / "sheetformat"
     chinese_dir = tmp_path / "Chinese-Simplified" / "sheetformat"
     english_dir.mkdir(parents=True)
@@ -625,7 +625,7 @@ def test_select_drawing_template_prefers_simplified_chinese_gbt_candidate(tmp_pa
 
 
 def test_a3_layout_keeps_three_views_above_title_block():
-    """@brief A3 自适应布局必须保持三视图分离且不侵入底部标题栏。"""
+    'Adaptive A3 layout keeps three views separate and outside the bottom title block.'
     layout = plan_standard_view_layout((0.160, 0.080, 0.050), paper_size="A3")
     report = review_drawing_layout({
         "views": [{"name": item["name"], "box": item["box"]} for item in layout["views"]],
@@ -640,7 +640,7 @@ def test_a3_layout_keeps_three_views_above_title_block():
 
 
 def test_layout_uses_dynamic_scale_for_oversized_model():
-    """@brief 超大模型必须继续缩小比例，不能以最小预设比例越界。"""
+    'Oversized models require further scale reduction rather than overflow at the smallest preset.'
     layout = plan_standard_view_layout((100.0, 50.0, 20.0), paper_size="A3")
 
     assert layout["scale"] < 0.01
@@ -649,7 +649,7 @@ def test_layout_uses_dynamic_scale_for_oversized_model():
 
 
 def test_create_adaptive_views_uses_planned_positions_and_scale():
-    """@brief COM 封装必须逐个创建视图并应用相同比例。"""
+    'Create views individually through COM with the same scale.'
     class View(TypedPositionView):
         ScaleRatio = None
 
@@ -675,7 +675,7 @@ def test_create_adaptive_views_uses_planned_positions_and_scale():
 
 
 def test_create_adaptive_views_falls_back_to_native_third_angle_and_maps_orientation():
-    """@brief 单视图 API 静默失败时必须按真实方向映射原生三视图。"""
+    'On silent single-view failure, map native three views using actual orientation.'
     class View(TypedPositionView):
         def __init__(self, orientation):
             self.orientation = orientation
@@ -728,7 +728,7 @@ def test_create_adaptive_views_falls_back_to_native_third_angle_and_maps_orienta
 
 
 def test_create_adaptive_first_angle_views_repositions_native_third_angle_fallback():
-    """@brief SW 缺少第一角 API 时仍按第一角 DrawingSpec 回读并重排三视图。"""
+    'If the first-angle API is absent, read and rearrange views according to the first-angle DrawingSpec.'
 
     class View(TypedPositionView):
         def __init__(self, orientation):
@@ -782,7 +782,7 @@ def test_create_adaptive_first_angle_views_repositions_native_third_angle_fallba
 
 
 def test_create_adaptive_views_refines_spacing_from_native_outlines():
-    """@brief 实际投影包围盒大于模型估算时，必须二次排布并消除视图重叠。"""
+    'If projected bounds exceed estimated model bounds, relayout and remove overlap.'
 
     class View(TypedPositionView):
         def __init__(self, orientation, width, height):
@@ -842,10 +842,10 @@ def test_create_adaptive_views_refines_spacing_from_native_outlines():
 
 
 def test_add_a3_sheet_blocks_without_gbt_template(tmp_path):
-    """@brief 严格国标模式缺模板时不得调用 NewSheet4。"""
+    'Strict GB mode must not call NewSheet4 without a template.'
     class Drawing:
         def NewSheet4(self, *_args):
-            raise AssertionError("缺少模板时不得创建工程图页")
+            raise AssertionError('Do not create a drawing sheet when the template is missing')
 
     result = add_a3_sheet(Drawing(), [Path(tmp_path / "A3-generic.slddrt")])
 
@@ -854,7 +854,7 @@ def test_add_a3_sheet_blocks_without_gbt_template(tmp_path):
 
 
 def test_setup_current_sheet_as_a3_uses_verified_signature(tmp_path):
-    """@brief 当前页配置必须使用本机 Interop 核对过的 SetupSheet6 参数顺序。"""
+    'Current-sheet setup uses the locally verified Interop SetupSheet6 argument order.'
     template = tmp_path / "a3 - gb.slddrt"
     template.write_text("gb", encoding="utf-8")
 
@@ -882,7 +882,7 @@ def test_setup_current_sheet_as_a3_uses_verified_signature(tmp_path):
 
 
 def test_review_drawing_layout_reports_dimension_and_title_collisions():
-    """@brief 尺寸互压及视图侵入标题栏必须返回稳定错误码。"""
+    'Dimension overlap and title-block intrusion return stable error codes.'
     result = review_drawing_layout({
         "views": [
             {"name": "Front", "box": {"left": 0.01, "bottom": 0.01, "right": 0.10, "top": 0.10}},
@@ -905,7 +905,7 @@ def test_review_drawing_layout_reports_dimension_and_title_collisions():
 
 
 def test_review_drawing_layout_never_passes_incomplete_boxes():
-    """@brief 缺少 COM 包围盒时必须要求人工复核，不能误报无碰撞。"""
+    'Without COM bounding boxes, require manual review rather than report no collision.'
     result = review_drawing_layout({
         "views": [{"name": name, "box": None} for name in ("Front", "Top", "Right")],
         "dimensions": [{"name": "D1", "box": None}],
@@ -917,7 +917,7 @@ def test_review_drawing_layout_never_passes_incomplete_boxes():
 
 
 def test_estimate_dimension_text_box_records_provenance_and_padding():
-    """@brief 估算边界必须记录来源、置信度、格式参数和保守 padding。"""
+    'Estimated bounds record provenance, confidence, format parameters and conservative padding.'
     class TextFormat:
         CharHeight = 0.004
         WidthFactor = 0.8
@@ -951,7 +951,7 @@ def test_estimate_dimension_text_box_records_provenance_and_padding():
 
 
 def test_estimate_dimension_text_box_uses_placeholder_when_rendered_value_is_hidden():
-    """@brief GetText 不返回主尺寸值时必须使用保守占位，不能估成零宽。"""
+    'If GetText omits the main dimension value, use a conservative placeholder, not zero width.'
     class Annotation:
         def GetPosition(self):
             return (0.100, 0.100, 0.0)
@@ -973,7 +973,7 @@ def test_estimate_dimension_text_box_uses_placeholder_when_rendered_value_is_hid
 
 
 def test_inspect_drawing_structure_uses_estimated_dimension_box_without_claiming_native():
-    """@brief 缺原生 GetBox 时结构报告应保留 estimated 来源而不是冒充 native。"""
+    'Without native GetBox, retain estimated provenance rather than claiming native bounds.'
     class TextFormat:
         CharHeight = 0.0035
         WidthFactor = 1.0
@@ -1020,7 +1020,7 @@ def test_inspect_drawing_structure_uses_estimated_dimension_box_without_claiming
 
 
 def test_review_estimated_dimension_boxes_requires_visual_review_even_without_collision():
-    """@brief 估算边界无碰撞也不得升级为 pass。"""
+    'Collision-free estimated bounds cannot promote the result to pass.'
     result = review_drawing_layout({
         "views": [
             {"name": "Front", "box": {"left": 0.01, "bottom": 0.08, "right": 0.09, "top": 0.15}},
@@ -1045,7 +1045,7 @@ def test_review_estimated_dimension_boxes_requires_visual_review_even_without_co
 
 
 def test_review_estimated_overlap_is_risk_not_confirmed_collision():
-    """@brief 估算边界相交必须标记为保守风险，而不是确定碰撞。"""
+    'Intersecting estimated bounds indicate conservative risk, not a definite collision.'
     result = review_drawing_layout({
         "views": [
             {"name": "Front", "box": {"left": 0.01, "bottom": 0.08, "right": 0.09, "top": 0.15}},
@@ -1069,7 +1069,7 @@ def test_review_estimated_overlap_is_risk_not_confirmed_collision():
 
 
 def test_review_drawing_layout_checks_note_collisions_and_missing_boxes():
-    """@brief 注释侵入视图或缺少边界时不能被当作无碰撞。"""
+    'Notes intruding into views or lacking bounds cannot be treated as collision-free.'
     result = review_drawing_layout({
         "views": [
             {"name": "Front", "sheet": "Sheet1", "box": {"left": 0.10, "bottom": 0.10, "right": 0.20, "top": 0.20}},
@@ -1103,13 +1103,13 @@ def test_review_drawing_layout_checks_note_collisions_and_missing_boxes():
 
 
 def test_blank_section_view_label_is_not_reported_as_user_note_intrusion():
-    """@brief 剖视图自带空标签框与所属视图相交不是技术注释侵入。"""
+    'An empty section-label box intersecting its owning view is not a technical-note intrusion.'
     result = review_drawing_layout({
         "views": [
             {"name": "Front", "type": 7, "sheet": "Sheet1", "box": {"left": 0.02, "bottom": 0.10, "right": 0.10, "top": 0.18}},
             {"name": "Top", "type": 4, "sheet": "Sheet1", "box": {"left": 0.02, "bottom": 0.20, "right": 0.10, "top": 0.27}},
             {"name": "Right", "type": 4, "sheet": "Sheet1", "box": {"left": 0.12, "bottom": 0.10, "right": 0.19, "top": 0.18}},
-            {"name": "剖面视图 A-A", "type": 2, "sheet": "Sheet1", "box": {"left": 0.24, "bottom": 0.10, "right": 0.32, "top": 0.18}},
+            {"name": 'Kesit görünüş A-A', "type": 2, "sheet": "Sheet1", "box": {"left": 0.24, "bottom": 0.10, "right": 0.32, "top": 0.18}},
         ],
         "dimensions": [],
         "notes": [{
@@ -1124,7 +1124,7 @@ def test_blank_section_view_label_is_not_reported_as_user_note_intrusion():
 
 
 def test_inspection_marks_blank_section_owned_note_as_view_label():
-    """@brief 新生成的结构证据应显式记录标签所属视图及标签类型。"""
+    'New structural evidence explicitly records label owner view and label type.'
     class Note:
         def GetText(self):
             return ""
@@ -1139,7 +1139,7 @@ def test_inspection_marks_blank_section_owned_note_as_view_label():
             return (0.25, 0.10, 0.0)
 
     class SectionView(FakeView):
-        Name = "剖面视图 A-A"
+        Name = 'Kesit görünüş A-A'
         Type = 2
 
         def GetNotes(self):
@@ -1156,4 +1156,4 @@ def test_inspection_marks_blank_section_owned_note_as_view_label():
     result = inspect_drawing_structure(Drawing())
 
     assert result["notes"][0]["note_kind"] == "view_label"
-    assert result["notes"][0]["owner_view"] == "剖面视图 A-A"
+    assert result["notes"][0]["owner_view"] == 'Kesit görünüş A-A'

@@ -1,4 +1,4 @@
-"""DFM worker 任务回归。"""
+"""DFM worker job regression tests."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -7,7 +7,7 @@ from apps.desktop.cad_workbench.queue_worker import process_job, read_job, run_d
 
 
 def test_worker_runs_dfm_review_from_ui_configuration(tmp_path: Path) -> None:
-    """@brief 没有模型文件时，UI 配置草案也必须形成可追溯待复核报告。"""
+    """Without a model file, a UI draft still creates a traceable report awaiting review."""
     queue_dir = tmp_path / "queue"
     queue_dir.mkdir()
     output_dir = tmp_path / "output"
@@ -17,8 +17,8 @@ def test_worker_runs_dfm_review_from_ui_configuration(tmp_path: Path) -> None:
         "id": "dfm-job",
         "runId": "run-dfm",
         "kind": "dfm_review",
-        "title": "DFM 复核",
-        "detail": "配置草案",
+        "title": "DFM incelemesi",
+        "detail": "Konfigürasyon taslağı",
         "status": "queued",
         "progress": 0,
         "createdAt": "2026-01-01T00:00:00Z",

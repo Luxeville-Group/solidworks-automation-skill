@@ -1,9 +1,9 @@
 <#
 .SYNOPSIS
-将 CAD 自动化交付工作台桌面原型打包为 Windows exe。
+ then  CAD Otomasyon teslim çalışma alanı masaüstü prototipini paketle:  Windows exe.
 
 .DESCRIPTION
-使用 PyInstaller 生成本地可执行文件。输出目录为 apps\desktop\dist\CADAutomationWorkbench。
+Kullan PyInstaller  yerel yürütülebilir dosya oluşturur. Çıktı klasörü:  apps\desktop\dist\CADAutomationWorkbench.
 #>
 
 $ErrorActionPreference = "Stop"
@@ -16,7 +16,7 @@ Set-Location $RepoRoot
 
 $HasPyInstaller = python -c "import importlib.util; print('1' if importlib.util.find_spec('PyInstaller') else '0')"
 if ($HasPyInstaller.Trim() -ne "1") {
-    Write-Host "正在安装 PyInstaller..." -ForegroundColor Cyan
+    Write-Host "Yükleniyor PyInstaller..." -ForegroundColor Cyan
     python -m pip install pyinstaller
 }
 
@@ -29,4 +29,4 @@ python -m PyInstaller `
     --specpath apps\desktop\build `
     apps\desktop\run.py
 
-Write-Host "打包完成: apps\desktop\dist\CADAutomationWorkbench\CADAutomationWorkbench.exe" -ForegroundColor Green
+Write-Host "Paketleme tamamlandı: apps\desktop\dist\CADAutomationWorkbench\CADAutomationWorkbench.exe" -ForegroundColor Green

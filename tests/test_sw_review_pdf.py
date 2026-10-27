@@ -1,4 +1,4 @@
-"""@brief SolidWorks PDF 矢量文字边界复核测试。"""
+'SolidWorks PDF vector-text bounds review.'
 from pathlib import Path
 
 import pytest
@@ -8,11 +8,11 @@ from scripts.sw_drawing_review import review_drawing_artifacts
 
 
 def test_pdf_vector_text_boxes_are_extracted_without_claiming_com_native(tmp_path: Path) -> None:
-    """@brief PDF span 应保留真实边界来源，并识别尺寸候选。"""
+    'PDF spans retain real-bound provenance and identify dimension candidates.'
     try:
         fitz = _import_pdf_parser()
     except ImportError:
-        pytest.skip("PyMuPDF 未安装")
+        pytest.skip('PyMuPDF not installed')
     target = tmp_path / "drawing.pdf"
     document = fitz.open()
     page = document.new_page(width=595, height=842)
@@ -30,11 +30,11 @@ def test_pdf_vector_text_boxes_are_extracted_without_claiming_com_native(tmp_pat
 
 
 def test_pdf_overlapping_vector_text_is_reported(tmp_path: Path) -> None:
-    """@brief 同页实际文字框重叠应返回稳定错误码。"""
+    'Overlapping real text boxes on the same page return a stable error code.'
     try:
         fitz = _import_pdf_parser()
     except ImportError:
-        pytest.skip("PyMuPDF 未安装")
+        pytest.skip('PyMuPDF not installed')
     target = tmp_path / "overlap.pdf"
     document = fitz.open()
     page = document.new_page(width=300, height=200)
@@ -51,14 +51,14 @@ def test_pdf_overlapping_vector_text_is_reported(tmp_path: Path) -> None:
 
 
 def test_pdf_frame_labels_and_single_character_markers_are_not_overlap_defects(tmp_path: Path) -> None:
-    """@brief 图框分区字母/单字符页码的字体盒相交不应阻断真实图纸。"""
+    'Font-box overlaps for border-zone letters/single-character page numbers must not block real drawings.'
     fitz = _import_pdf_parser()
     target = tmp_path / "frame-labels.pdf"
     document = fitz.open()
     page = document.new_page(width=300, height=200)
-    page.insert_text((50, 80), "签    字", fontsize=12)
+    page.insert_text((50, 80), 'İmza', fontsize=12)
     page.insert_text((50, 80), "F", fontsize=15)
-    page.insert_text((150, 120), "共  张", fontsize=12)
+    page.insert_text((150, 120), 'Toplam sayfa', fontsize=12)
     page.insert_text((150, 120), "1", fontsize=15)
     document.save(target)
     document.close()
@@ -69,7 +69,7 @@ def test_pdf_frame_labels_and_single_character_markers_are_not_overlap_defects(t
 
 
 def test_pdf_overlapping_vector_text_blocks_drawing_delivery(tmp_path: Path) -> None:
-    """@brief PDF 已确认文字框重叠时，工程图审查不能沿其它路径放行。"""
+    'Confirmed PDF text-box overlap must not pass via another drawing-review path.'
     fitz = _import_pdf_parser()
     target = tmp_path / "overlap-delivery.pdf"
     document = fitz.open()

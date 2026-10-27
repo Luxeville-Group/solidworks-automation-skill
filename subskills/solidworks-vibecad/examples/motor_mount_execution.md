@@ -1,10 +1,10 @@
-# SolidWorks 执行摘要
+# SolidWorks execution outline
 
-- 零件族: `cnc_mount`
-- 执行模式: `solidworks_com_serial`
-- 单位策略: plan uses mm; SolidWorks API receives meters via sw_connect.mm()
+- Part family: `cnc_mount`
+- Execution mode: `solidworks_com_serial`
+- Unit policy: plan uses mm; SolidWorks API receives meters via sw_connect.mm()
 
-## 步骤
+## Steps
 
 1. `close_same_name_documents` -> `sw_session.SolidWorksSession.close` [ready]
 2. `new_part` -> `sw_session.SolidWorksSession.new_part` [ready]
@@ -16,17 +16,17 @@
 8. `custom_properties` -> `model.Extension.CustomPropertyManager` [ready]
 9. `save_export_review` -> `session.save + session.export + sw_review.run_review` [ready]
 
-## 特征门禁
+## Feature gates
 
 - `BasePlate` (base_plate), required=True
-- `OuterCornerFillet` (fillet), required=True；降级：若圆角求解失败，降级为 R4 或逐边添加。
-- `TopEdgeChamfer` (chamfer), required=True；降级：若整圈倒角失败，按边对象分组选择后重试。
+- `OuterCornerFillet` (fillet), required=True; fallback: if the fillet solver fails, reduce to R4 or add edges individually.
+- `TopEdgeChamfer` (chamfer), required=True; fallback: if the full loop fails, select edge objects in groups and retry.
 - `CornerMountingHoles` (through_hole_pattern), required=True
 - `CenterShaftClearance` (through_hole), required=True
-- `SideLighteningPockets` (pocket_pair), required=False；降级：若口袋与中心孔或固定孔冲突，缩小口袋或跳过并记录。
+- `SideLighteningPockets` (pocket_pair), required=False; fallback: if pockets collide with center or mounting holes, shrink or skip them and record the change.
 - `HoleMouthChamfers` (chamfer), required=True
 
-## 停止条件
+## Stop conditions
 
 - SolidWorks preflight fails
 - required base geometry feature returns None

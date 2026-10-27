@@ -1,34 +1,34 @@
-# AutoCAD Automation 子技能
+# AutoCAD Automation Subskill
 
-> 当前 DXF 无头预览与结构审查可用；AutoCAD 2024 .NET 白名单后端已连续通过真实 DWG/PDF/PNG、重开、实体/图层/尺寸回归，运行时复验最近三次证据后等级为 `verified`。ActiveX/COM 原生写入仍受真机门禁，不能按稳定能力宣传。
+> Headless DXF preview and structural review are available. The AutoCAD 2024 .NET allowlisted backend has repeatedly passed real DWG/PDF/PNG output, reopen, entity/layer/dimension regressions; the runtime marks it `verified` after revalidating the latest three evidence runs. Native ActiveX/COM writes remain gated by live testing and must not be advertised as stable.
 
-本子技能是 `solidworks-automation-skill` 技能库中的 AutoCAD / DWG / DXF 专项能力。父技能负责 SolidWorks 三维建模、装配、工程图和导出；本子技能负责 Windows 桌面 AutoCAD 的 Python COM 自动化，包括二维绘图、批量改图、图层/文字/标注处理、DWG/DXF/PDF 导出、线稿矢量化和图纸自检。
+This AutoCAD / DWG / DXF subskill belongs to the `solidworks-automation-skill` repository. The parent handles SOLIDWORKS 3D modeling, assemblies, drawings and exports. This subskill handles Python COM automation of Windows desktop AutoCAD: 2D drafting, batch edits, layers/text/dimensions, DWG/DXF/PDF export, line-art vectorization and drawing checks.
 
-## 适用场景
+## When to use
 
-- 用户要求“画 DWG / DXF / AutoCAD 图纸”。
-- 需要把图片线稿转为 CAD 线条，并保存为 DWG/DXF。
-- 需要批量检查图层、实体数量、包围盒、文字、块、外部参照或输出文件。
-- 需要在 AutoCAD 中可见地逐步绘制，并导出原生预览用于审查。
-- SolidWorks 工程流中需要补充二维 AutoCAD 图纸、加工轮廓、激光切割 DXF 或图纸清理。
+- Requests for DWG / DXF / AutoCAD drawings.
+- Convert raster line art into CAD entities and save DWG/DXF.
+- Batch-check layers, entity counts, bounding boxes, text, blocks, external references or output files.
+- Draw visibly, step by step in AutoCAD and export native previews for review.
+- Supplement a SOLIDWORKS workflow with 2D drawings, machining profiles, laser-cut DXF or drawing cleanup.
 
-## 与父技能的关系
+## Relationship to the parent skill
 
-- `solidworks-automation`：SolidWorks COM 连接、零件/装配体/工程图建模、STEP/STL/PDF 导出和三维审查。
-- `autocad-automation`：AutoCAD COM 连接、DWG/DXF 二维图纸绘制、图层/标注/块处理、AutoCAD 原生预览和图纸自检。
+- `solidworks-automation`: SOLIDWORKS COM connection, parts/assemblies/drawings, STEP/STL/PDF export and 3D review.
+- `autocad-automation`: AutoCAD COM connection, 2D DWG/DXF drafting, layers/dimensions/blocks, native previews and drawing checks.
 
-当任务要求 SolidWorks 原生零件、装配体或工程图时，优先使用父技能；当任务明确涉及 AutoCAD、DWG、DXF、二维 CAD 图纸、线稿转 CAD 或批量改 DWG 时，读取本子技能。
+Use the parent for native SOLIDWORKS parts, assemblies and drawings. Read this subskill when the task explicitly involves AutoCAD, DWG, DXF, 2D CAD, line-art conversion or batch DWG edits.
 
-## 快速命令
+## Quick commands
 
-检查和回归 AutoCAD .NET 后端：
+Check and regression-test the AutoCAD .NET backend:
 
 ```powershell
 python subskills\autocad-automation\scripts\acad_dotnet_preflight.py
 python subskills\autocad-automation\scripts\acad_dotnet_regression.py --real-cad
 ```
 
-回归脚本只启动其拥有的 AutoCAD Core Console，并只执行 `CADSTUDIOPROBE`、`CADSTUDIOCREATE` 固定命令。桌面 AutoCAD 部署应使用受信任路径或签名插件包，不得开放任意代码执行入口。
+The regression script starts only its own AutoCAD Core Console and executes only the fixed `CADSTUDIOPROBE` and `CADSTUDIOCREATE` commands. Desktop deployments require a trusted path or signed plug-in package, not an arbitrary-code execution endpoint.
 
 ```powershell
 python subskills\autocad-automation\scripts\acad_preflight.py --launch
@@ -54,11 +54,11 @@ python subskills\autocad-automation\scripts\acad_preview.py `
   --launch
 ```
 
-## 线稿转 CAD 的硬规则
+## Line-art conversion rules
 
-普通“照图画 CAD”的最终交付必须只保留原图矢量化线条。不要把手工猜测的外围轮廓、五官椭圆、Logo 三角线、水波线、替代文字或图内审查说明留在最终 DWG/DXF 中。
+Final delivery for ordinary image-to-CAD tracing must contain only vectorized source lines. Remove manually guessed outlines, facial ellipses, logo triangles, wave lines, replacement text and in-drawing review notes from the final DWG/DXF.
 
-最终审查时要确认这些辅助层为 0：
+Confirm these auxiliary layers have zero entities at final review:
 
 ```text
 PORTRAIT_OUTLINE, BODY_OUTLINE, JERSEY_OUTLINE,
@@ -67,11 +67,11 @@ LOGO_GEOMETRY, WATER_SPLASH, JERSEY_STRIPE,
 TEXT_LOGO, TEXT_BRAND, REVIEW_NOTES
 ```
 
-这条规则来自一次真实线稿 demo 复盘：AI 为了“增强识别”补出的轮廓线、椭圆、三角形和彩色水波线，在 CAD 用户眼里会变成多余实体。后续普通线稿任务以干净、忠实、无多余实体为第一目标。
+This rule comes from a real demo review: AI-added outlines, ellipses, triangles and colored waves intended to improve recognition became unwanted CAD entities. Ordinary tracing jobs prioritize clean, faithful geometry without extra entities.
 
-## 参考文档
+## References
 
-- `SKILL.md`：AI 调用入口和完整工作流。
-- `references/api-lookup.md`：AutoCAD API 查证路线。
-- `references/engineering-patterns.md`：图层、单位、块、标注和批处理经验。
-- `references/troubleshooting.md`：本机 COM、DXF/BMP 导出、线稿污染和复核避坑。
+- `SKILL.md`: agent entrypoint and complete workflow.
+- `references/api-lookup.md`: AutoCAD API verification route.
+- `references/engineering-patterns.md`: layers, units, blocks, dimensions and batch-processing lessons.
+- `references/troubleshooting.md`: local COM, DXF/BMP export, contaminated line art and review pitfalls.

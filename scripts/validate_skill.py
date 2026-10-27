@@ -1,8 +1,7 @@
 """
-验证 SolidWorks Automation Skill 的基础完整性。
+Validate basic SOLIDWORKS Automation Skill integrity.
 
-该脚本不连接 SolidWorks，也不要求安装 pywin32；它只做静态检查，适合在提交前或
-CI 中快速发现语法错误、关键文件缺失、SKILL.md 元数据异常等问题。
+Static checks only; no SOLIDWORKS connection or pywin32 installation required. Catch syntax errors, missing key files, and SKILL.md metadata issues before commits or in CI.
 """
 import ast
 import json
@@ -11,7 +10,7 @@ import sys
 
 
 def _configure_stdio_utf8():
-    """在 Windows 旧代码页下尽量使用 UTF-8 输出中文提示。"""
+    """Prefer UTF-8 diagnostics on Windows systems with legacy code pages."""
     for stream in (sys.stdout, sys.stderr):
         if hasattr(stream, "reconfigure"):
             stream.reconfigure(encoding="utf-8", errors="replace")
@@ -85,25 +84,25 @@ REQUIRED_FILES = [
 
 
 def check_required_files():
-    """检查必需文件是否存在。"""
+    """Check required files exist."""
     missing = [path for path in REQUIRED_FILES if not (ROOT / path).exists()]
     if missing:
-        raise AssertionError("缺少必需文件: " + ", ".join(missing))
+        raise AssertionError("Eksik gerekli dosyalar: " + ", ".join(missing))
 
 
 def check_skill_frontmatter():
-    """检查 SKILL.md 的基础 frontmatter。"""
+    """Check basic SKILL.md frontmatter."""
     text = (ROOT / "SKILL.md").read_text(encoding="utf-8")
     if not text.startswith("---\n"):
-        raise AssertionError("SKILL.md 必须以 YAML frontmatter 开头")
+        raise AssertionError("SKILL.md YAML frontmatter ile başlamalı")
     if "name: solidworks-automation" not in text:
-        raise AssertionError("SKILL.md 缺少正确的 name")
+        raise AssertionError("SKILL.md doğru name alanını içermiyor")
     if "description:" not in text:
-        raise AssertionError("SKILL.md 缺少 description")
+        raise AssertionError("SKILL.md description alanı eksik")
 
 
 def check_python_syntax():
-    """检查主脚本、桌面后端、MCP、测试和全部子技能 Python 语法。"""
+    """Check Python syntax in primary scripts, desktop backend, MCP, tests, and every subskill."""
     roots = ["scripts", "examples", "tests", "apps/desktop", "mcp-server", "subskills"]
     targets = sorted(
         path
@@ -117,7 +116,7 @@ def check_python_syntax():
 
 
 def check_json_files():
-    """检查任务契约、输出契约和设计计划 Schema 是否为有效 JSON。"""
+    """Check task/output contracts and design-plan schemas are valid JSON."""
     targets = [
         ROOT / "apps/desktop/cad_workbench/schemas/automation_job.schema.json",
         ROOT / "apps/desktop/cad_workbench/schemas/codex_final_response.schema.json",
@@ -134,22 +133,22 @@ def check_json_files():
     json.loads((ROOT / "capabilities.yaml").read_text(encoding="utf-8"))
     workflows = json.loads((ROOT / "golden-workflows.yaml").read_text(encoding="utf-8"))
     if len(workflows.get("workflows", [])) != 10:
-        raise AssertionError("黄金工作流必须保持 10 项基线")
+        raise AssertionError("Golden workflow temel kümesi 10 öğe olarak kalmalı")
     return len(targets)
 
 
 def main():
-    """执行全部静态检查。"""
+    """Run all static checks."""
     check_required_files()
     check_skill_frontmatter()
     python_count = check_python_syntax()
     json_count = check_json_files()
-    print(f"验证通过: skill 文件完整，{python_count} 个 Python 文件和 {json_count} 个 JSON Schema 正常。")
+    print(f"Doğrulama başarılı: skill dosyaları eksiksiz; {python_count} Python dosyası ve {json_count} JSON Schema geçerli.")
 
 
 if __name__ == "__main__":
     try:
         main()
     except Exception as exc:
-        print(f"验证失败: {exc}", file=sys.stderr)
+        print(f"Doğrulama başarısız: {exc}", file=sys.stderr)
         sys.exit(1)

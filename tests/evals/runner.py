@@ -1,11 +1,11 @@
-"""@brief Golden Workflow Reliability Eval Runner（deterministic，不调 LLM / 不联网）。
+"""@brief Golden Workflow Reliability Eval Runner: deterministic, no LLM or network calls.
 
-运行方式：``python tests/evals/runner.py``（仓库现有脚本风格）。
+Run with ``python tests/evals/runner.py``, following the repository's existing script style.
 
-把 Scenario 拆成 Nominal / Robustness / Safety 三组口径：
-- Nominal：正常业务（happy / warning），用于 first-pass target 比较；
-- Robustness：recovery / fault_injection / guardrail，用 expected_outcome_accuracy 衡量；
-- Safety：假成功候选的 incidence / detection / escaped。
+Scenarios have separate Nominal / Robustness / Safety metrics:
+- Nominal: normal business tasks (happy); used for first-pass target comparison;
+- Robustness: recovery / fault_injection / guardrail, measured through expected_outcome_accuracy;
+- Safety: incidence / detection / escaped rates for false-completion candidates.
 """
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ try:
     from . import fixtures
     from .metrics import RECOVERABLE_ACTIONS, compute_metrics, scenario_category
     from .schemas import AttemptSpec, EvalRecord, EvalReport, EvalScenario
-except ImportError:  # 脚本模式（python tests/evals/runner.py）时的兜底
+except ImportError:  # Fallback for script mode: python tests/evals/runner.py
     import fixtures  # type: ignore
     from metrics import RECOVERABLE_ACTIONS, compute_metrics, scenario_category  # type: ignore
     from schemas import AttemptSpec, EvalRecord, EvalReport, EvalScenario  # type: ignore
@@ -37,7 +37,7 @@ SCHEMA_VERSION = "2.0"
 
 
 def load_golden_workflows(path: str | Path | None = None) -> dict[str, Any]:
-    """@brief 读取 golden-workflows.yaml（唯一 Golden Workflow 真源）。"""
+    """@brief Read golden-workflows.yaml, the sole Golden Workflow source of truth."""
     source = Path(path) if path else GOLDEN_WORKFLOWS
     return json.loads(source.read_text(encoding="utf-8"))
 
@@ -74,20 +74,20 @@ def _scenario(
 
 
 def build_scenarios(payload: dict[str, Any] | None = None) -> list[EvalScenario]:
-    """@brief 从 golden-workflows.yaml 派生场景：每 workflow 3 类 + 7 个跨切面场景。"""
+    """@brief Derive three scenarios per workflow plus seven cross-cutting scenarios from golden-workflows.yaml."""
     workflows = (payload or load_golden_workflows()).get("workflows", [])
     scenarios: list[EvalScenario] = []
     for workflow in workflows:
         wid = workflow["id"]
         caps = list(workflow.get("capabilities") or [])
         arts = list(workflow.get("required_artifacts") or [])
-        scenarios.append(_scenario(wid, "happy", "happy", f"{wid} 正常路径", caps, arts, "completed", [
+        scenarios.append(_scenario(wid, "happy", "happy", f"{wid} normal path", caps, arts, "completed", [
             AttemptSpec(handler=fixtures.success_handler(fixtures.ok_result(arts)), reviewer=fixtures.pass_reviewer()),
         ]))
-        scenarios.append(_scenario(wid, "verification-failure", "verification_failure", f"{wid} 验证失败", caps, arts, "failed", [
+        scenarios.append(_scenario(wid, "verification-failure", "verification_failure", f"{wid} verification failure", caps, arts, "failed", [
             AttemptSpec(handler=fixtures.success_handler(fixtures.incomplete_result()), reviewer=fixtures.fail_reviewer()),
         ]))
-        scenarios.append(_scenario(wid, "transient-recovery", "transient_recovery", f"{wid} 瞬时失败恢复", caps, arts, "completed", [
+        scenarios.append(_scenario(wid, "transient-recovery", "transient_recovery", f"{wid} transient-failure recovery", caps, arts, "completed", [
             AttemptSpec(handler=fixtures.fail_handler(TimeoutError("slow")), requires_review=False),
             AttemptSpec(handler=fixtures.success_handler(fixtures.ok_result(arts)), reviewer=fixtures.pass_reviewer()),
         ]))
@@ -96,7 +96,7 @@ def build_scenarios(payload: dict[str, Any] | None = None) -> list[EvalScenario]
 
 
 def _cross_cutting_scenarios() -> list[EvalScenario]:
-    """@brief 跨切面可靠性场景（backend fallback / gap / policy / user action / ...）。"""
+    """@brief Cross-cutting reliability scenarios: backend fallback / gap / policy / user action / ..."""
     arts = ["step", "preview", "review_report"]
     caps = ["part_and_features"]
     fallback_facade = fixtures.FakeCapabilityFacade(
@@ -113,33 +113,33 @@ def _cross_cutting_scenarios() -> list[EvalScenario]:
         )
 
     return [
-        sc("backend-fallback", "backend_fallback", "后端回退", "completed", [
+        sc("backend-fallback", "backend_fallback", "Backend fallback", "completed", [
             AttemptSpec(handler=fixtures.fail_handler(fixtures.SolidWorksConnectionError("conn")), requires_review=False),
             AttemptSpec(handler=fixtures.success_handler(fixtures.ok_result(arts)), reviewer=fixtures.pass_reviewer()),
         ], facade=fallback_facade, operation_id="solidworks_standard_automation"),
-        sc("capability-gap", "capability_gap", "能力缺口", "failed", [
+        sc("capability-gap", "capability_gap", "Capability gap", "failed", [
             AttemptSpec(handler=fixtures.fail_handler(fixtures.UnsupportedFeatureError("no support")), requires_review=False),
         ]),
-        sc("policy-block", "policy_block", "策略阻塞", "blocked", [
+        sc("policy-block", "policy_block", "Policy block", "blocked", [
             AttemptSpec(handler=fixtures.success_handler(fixtures.ok_result(arts)), policy_blocked=True),
         ]),
-        sc("user-action", "user_action_required", "需要用户操作", "blocked", [
+        sc("user-action", "user_action_required", "User action required", "blocked", [
             AttemptSpec(handler=fixtures.fail_handler(fixtures.DependencyInstallDeclined("declined")), requires_review=False),
         ]),
-        sc("retry-exhausted", "retry_exhausted", "重试耗尽", "failed", [
+        sc("retry-exhausted", "retry_exhausted", "Retries exhausted", "failed", [
             AttemptSpec(handler=fixtures.fail_handler(TimeoutError("slow")), requires_review=False),
         ], max_retries=0),
-        sc("reviewer-blocked", "reviewer_blocked", "Reviewer 阻塞", "blocked", [
+        sc("reviewer-blocked", "reviewer_blocked", "Reviewer blocked", "blocked", [
             AttemptSpec(handler=fixtures.success_handler(fixtures.ok_result(arts)), reviewer=fixtures.blocked_reviewer()),
         ]),
-        sc("warning", "warning", "警告等待人工复核", "blocked", [
+        sc("warning", "warning", "Warning awaiting human review", "blocked", [
             AttemptSpec(handler=fixtures.success_handler(fixtures.ok_result(arts)), reviewer=fixtures.warn_reviewer()),
         ]),
     ]
 
 
 def _terminal_status(assessment: Any, handler_called: bool) -> str:
-    """@brief 把 Execution Core 的 RunStatus 映射回 Eval 终态（含 user_action/block → blocked）。"""
+    """@brief Map Execution Core RunStatus to Eval terminal states, including user_action/block → blocked."""
     if not handler_called:
         return "blocked"
     if assessment is None:
@@ -156,7 +156,7 @@ def _terminal_status(assessment: Any, handler_called: bool) -> str:
 
 
 def run_scenario(scenario: EvalScenario) -> EvalRecord:
-    """@brief 用 Execution Core + 脚本化恢复执行一个场景，收集事实。"""
+    """@brief Run a scenario through Execution Core and scripted recovery, collecting facts."""
     from core.execution import execute_with_core
 
     start = time.monotonic()
@@ -175,7 +175,7 @@ def run_scenario(scenario: EvalScenario) -> EvalRecord:
     for attempt in scenario.attempts:
         attempt_count += 1
         if attempt.policy_blocked:
-            notes.append("策略阻塞：未执行 handler")
+            notes.append("Policy blocked: handler was not executed")
             break
         tool_call_count += 1
         handler_called = True
@@ -201,9 +201,9 @@ def run_scenario(scenario: EvalScenario) -> EvalRecord:
         if decision is not None:
             recovery_decisions.append(decision.decision)
             if decision.decision not in RECOVERABLE_ACTIONS:
-                break  # 不可恢复决策，结束脚本化恢复
+                break  # Nonrecoverable decision ends scripted recovery.
         else:
-            break  # 无恢复决策（成功），结束
+            break  # No recovery decision means success; stop.
 
     terminal = _terminal_status(last_assessment, handler_called)
     false_completion = bool(handler_success and verification_status in {"FAIL", "BLOCKED"})
@@ -229,13 +229,13 @@ def run_scenario(scenario: EvalScenario) -> EvalRecord:
 
 
 def run_eval(payload: dict[str, Any] | None = None) -> EvalReport:
-    """@brief 执行全部场景并按分组汇总指标。"""
+    """@brief Run all scenarios and aggregate grouped metrics."""
     workflows = payload or load_golden_workflows()
     scenarios = build_scenarios(workflows)
     records = [run_scenario(scenario) for scenario in scenarios]
     metrics = compute_metrics(records)
     target = float(workflows.get("target_first_pass_rate", 0.90))
-    # target 只与 Nominal first-pass 比较，不再与全部 37 场景混合比较。
+    # Compare the target only with nominal first-pass, never all 37 scenarios combined.
     nominal_first_pass = metrics["nominal"].get("first_pass_success_rate")
     target_status = "PASS" if (nominal_first_pass is not None and nominal_first_pass >= target) else "BELOW_TARGET"
     return EvalReport(
@@ -251,12 +251,12 @@ def run_eval(payload: dict[str, Any] | None = None) -> EvalReport:
 
 
 def _pct(value: Any) -> str:
-    """@brief 把 0..1 比例格式化为百分比，None 显示 N/A。"""
+    """@brief Format a 0..1 fraction as a percentage, or N/A for None."""
     return "N/A" if value is None else f"{float(value) * 100:.1f}%"
 
 
 def render_summary(report: EvalReport) -> str:
-    """@brief 控制台摘要（分 Nominal / Robustness / Safety / Overall）。"""
+    """@brief Console summary grouped by Nominal / Robustness / Safety / Overall."""
     n = report.metrics["nominal"]
     r = report.metrics["robustness"]
     s = report.metrics["safety"]
@@ -294,7 +294,7 @@ def render_summary(report: EvalReport) -> str:
 
 
 def render_markdown(report: EvalReport) -> str:
-    """@brief 生成 Markdown 报告（分 Nominal / Robustness / Safety / Overall）。"""
+    """@brief Generate a Markdown report grouped by Nominal / Robustness / Safety / Overall."""
     n = report.metrics["nominal"]
     r = report.metrics["robustness"]
     s = report.metrics["safety"]
@@ -348,7 +348,7 @@ def render_markdown(report: EvalReport) -> str:
         f"| Overall Average Tool Calls | {o['average_tool_calls']} |",
         f"| Overall Average Duration | {o['average_duration_ms']} ms |",
         "",
-        "> `Overall Raw Task Completion Rate` 仅作诊断，不用于 target 判断。",
+        "> `Overall Raw Task Completion Rate` is diagnostic only and is not used for target assessment.",
         "",
         "## Per Scenario",
         "",
@@ -365,7 +365,7 @@ def render_markdown(report: EvalReport) -> str:
 
 
 def write_reports(report: EvalReport, output_dir: str | Path | None = None) -> tuple[Path, Path]:
-    """@brief 写入 eval_report.json 与 eval_report.md，返回两个路径。"""
+    """@brief Write eval_report.json and eval_report.md and return both paths."""
     output_dir = Path(output_dir) if output_dir else DEFAULT_OUTPUT_DIR
     output_dir.mkdir(parents=True, exist_ok=True)
     json_path = output_dir / "eval_report.json"
@@ -377,8 +377,8 @@ def write_reports(report: EvalReport, output_dir: str | Path | None = None) -> t
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Golden Workflow Reliability Eval")
-    parser.add_argument("--workflows", type=Path, default=None, help="可选 golden-workflows.yaml 路径")
-    parser.add_argument("--output-dir", type=Path, default=None, help="报告输出目录（默认 tests/evals/reports）")
+    parser.add_argument("--workflows", type=Path, default=None, help="Optional golden-workflows.yaml path")
+    parser.add_argument("--output-dir", type=Path, default=None, help="Report output directory; defaults to tests/evals/reports")
     args = parser.parse_args(argv)
 
     payload = load_golden_workflows(args.workflows) if args.workflows else load_golden_workflows()

@@ -1,7 +1,7 @@
-"""@brief CalculiX 2.23 非线性静力网格收敛真机回归。
+"""@brief CalculiX 2.23 nonlinear static mesh-convergence real-solver regression.
 
-该脚本只改变结构化 C3D8 网格的厚度方向细化等级，保持材料、载荷、约束和
-NLGEOM 增量控制一致；它不会把收敛结果当作安全认证。
+This script changes only the thickness-direction refinement of a structured C3D8 mesh, preserving material,
+loads, constraints, and NLGEOM increment controls. Convergence results are not safety certification.
 """
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ from scripts.fea_convergence import run_convergence_study
 
 
 def _analysis(analysis_id: str, divisions: int) -> dict:
-    """@brief 构造 10x10x40 mm 受压块的厚度方向结构化非线性网格。"""
+    """@brief Build a structured nonlinear mesh through the thickness of a 10x10x40 mm compression block."""
     nodes = []
     node_id = 1
     for layer in range(divisions + 1):
@@ -70,7 +70,7 @@ def _analysis(analysis_id: str, divisions: int) -> dict:
 
 
 def build_request() -> dict:
-    """@brief 返回四档、物理条件一致的非线性收敛请求。"""
+    """@brief Return four nonlinear convergence requests with identical physical conditions."""
     cases = []
     for divisions in (1, 2, 4, 8):
         cases.append({
@@ -82,8 +82,8 @@ def build_request() -> dict:
 
 
 def main() -> int:
-    """@brief 执行真机回归并输出报告。"""
-    parser = argparse.ArgumentParser(description="CalculiX 非线性网格收敛回归")
+    """@brief Run the real-solver regression and write a report."""
+    parser = argparse.ArgumentParser(description="CalculiX nonlinear mesh-convergence regression")
     parser.add_argument("--output-dir", type=Path, required=True)
     args = parser.parse_args()
     report = run_convergence_study(build_request(), args.output_dir, timeout_seconds_per_case=180)

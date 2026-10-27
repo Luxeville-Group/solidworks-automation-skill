@@ -1,4 +1,4 @@
-"""@brief C# SolidWorks Add-in 宿主的离线契约测试。"""
+'Offline contracts for the C# SolidWorks add-in host.'
 from __future__ import annotations
 
 import re
@@ -10,7 +10,7 @@ PROJECT = ROOT / "dotnet" / "CadStudio.SolidWorks.AddinHost"
 
 
 def _read(name: str) -> str:
-    """@brief 读取 Add-in 源文件。"""
+    'Read add-in source.'
     return (PROJECT / name).read_text(encoding="utf-8")
 
 

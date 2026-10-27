@@ -1,4 +1,4 @@
-"""@brief CAD Studio 多 Agent Provider 协议回归测试。"""
+"""Regression tests for CAD Studio's multi-Agent provider protocol."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ from apps.desktop.cad_workbench.queue_worker import record_provider_verification
 
 
 def test_codex_prefers_npm_node_entry_over_windowsapps_alias(tmp_path: Path, monkeypatch) -> None:
-    """@brief 防止 Worker 命中可发现但不可执行的 WindowsApps Codex 别名。"""
+    """Prevent the worker from selecting discoverable but nonexecutable WindowsApps Codex aliases."""
     appdata = tmp_path / "AppData" / "Roaming"
     script = appdata / "npm" / "node_modules" / "@openai" / "codex" / "bin" / "codex.js"
     script.parent.mkdir(parents=True)
@@ -30,7 +30,7 @@ def test_codex_prefers_npm_node_entry_over_windowsapps_alias(tmp_path: Path, mon
 
 
 RESULT = {
-    "summary": "完成",
+    "summary": 'Tamamlandı',
     "changedFiles": [],
     "verification": [],
     "risks": [],
@@ -48,16 +48,16 @@ RESULT = {
     ],
 )
 def test_provider_commands_compile_unified_protocol(tmp_path: Path, provider_id: str, expected_tokens: list[str]) -> None:
-    """@brief 四类 Provider 都必须使用非交互命令并保留统一工作区。"""
+    """All four providers use noninteractive commands and preserve the unified workspace."""
     schema = tmp_path / "schema.json"
     schema.write_text(json.dumps({"type": "object"}), encoding="utf-8")
     provider = AgentProvider(provider_id, provider_id, f"{provider_id}-v1", provider_id in {"codex", "claude"}, True, (provider_id,))
 
-    command = build_provider_command(provider, "执行任务", tmp_path, tmp_path / "result.json", schema, "workspace-write")
+    command = build_provider_command(provider, 'Görevi yürüt', tmp_path, tmp_path / "result.json", schema, "workspace-write")
 
     assert command[0] == provider_id
     assert all(token in command for token in expected_tokens)
-    assert "执行任务" in command
+    assert 'Görevi yürüt' in command
 
 
 @pytest.mark.parametrize(
@@ -77,7 +77,7 @@ def test_provider_commands_compile_unified_protocol(tmp_path: Path, provider_id:
     ],
 )
 def test_provider_outputs_normalize_to_unified_result(tmp_path: Path, provider_id: str, stdout: str) -> None:
-    """@brief Provider 包装 JSON/JSONL 必须归一化成统一结果对象。"""
+    """Normalize provider JSON/JSONL wrappers into the unified result object."""
     provider = AgentProvider(provider_id, provider_id, f"{provider_id}-v1", False, True, (provider_id,))
     output = tmp_path / "result.json"
 
@@ -88,22 +88,22 @@ def test_provider_outputs_normalize_to_unified_result(tmp_path: Path, provider_i
 
 
 def test_claude_verification_aliases_normalize_to_reviewer_contract(tmp_path: Path) -> None:
-    """@brief Claude 常见 type/detail 输出必须归一化后再进入 Reviewer Gate。"""
+    """Normalize common Claude type/detail outputs before Reviewer Gate."""
     provider = AgentProvider("claude", "Claude Code", "claude-print-v1", True, True, ("claude",))
     output = tmp_path / "claude-normalised.json"
     provider_result = {
         **RESULT,
-        "verification": [{"type": "schema-check", "status": "success", "detail": "结构正确"}],
+        "verification": [{"type": "schema-check", "status": "success", "detail": "Structure valid"}],
     }
     stdout = json.dumps({"result": json.dumps(provider_result, ensure_ascii=False)}, ensure_ascii=False)
 
     parsed = parse_provider_result(provider, stdout, output)
 
-    assert parsed["verification"] == [{"command": "schema-check", "status": "passed", "note": "结构正确"}]
+    assert parsed["verification"] == [{"command": "schema-check", "status": "passed", "note": "Structure valid"}]
 
 
 def test_claude_agent_job_uses_selected_provider(tmp_path: Path, monkeypatch) -> None:
-    """@brief executor=agent 时不得回退到 Codex 命令。"""
+    """executor=agent must not fall back to the Codex command."""
     repo = Path(__file__).resolve().parents[1]
     output = tmp_path / "agent-result.json"
     monkeypatch.setattr("apps.desktop.cad_workbench.queue_worker.agent_output_path", lambda job, cwd: output)
@@ -112,8 +112,8 @@ def test_claude_agent_job_uses_selected_provider(tmp_path: Path, monkeypatch) ->
         "kind": "agent_task",
         "executor": "agent",
         "cwd": str(repo),
-        "prompt": "执行统一协议测试",
-        "objective": "验证 Claude Provider",
+        "prompt": "Run the unified protocol test",
+        "objective": "Validate the Claude Provider",
         "uiConfig": {
             "agentRuntime": {
                 "provider": "claude",
@@ -142,7 +142,7 @@ def test_claude_agent_job_uses_selected_provider(tmp_path: Path, monkeypatch) ->
 
 
 def test_live_provider_verification_is_persisted_without_secrets(tmp_path: Path) -> None:
-    """@brief 真实成功记录只保存协议与时间，不保存凭证或原始输出。"""
+    """Successful-run records store protocol and time, never credentials or raw output."""
     provider = AgentProvider("claude", "Claude Code", "claude-print-v1", True, True, ("claude",))
 
     path = record_provider_verification(tmp_path, provider)
@@ -154,7 +154,7 @@ def test_live_provider_verification_is_persisted_without_secrets(tmp_path: Path)
 
 
 def test_complex_agent_job_injects_auditable_engineering_dag(tmp_path: Path, monkeypatch) -> None:
-    """@brief 综合任务必须生成 DAG 证据，简单 Provider 协议仍保持不变。"""
+    """Combined tasks generate DAG evidence while simple provider protocols remain unchanged."""
     repo = Path(__file__).resolve().parents[1]
     output = tmp_path / "complex-agent-result.json"
     monkeypatch.setattr("apps.desktop.cad_workbench.queue_worker.agent_output_path", lambda job, cwd: output)
@@ -163,7 +163,7 @@ def test_complex_agent_job_injects_auditable_engineering_dag(tmp_path: Path, mon
         "kind": "agent_task",
         "executor": "agent",
         "cwd": str(repo),
-        "objective": "设计四零件装配机构，含沉孔、倒角、旋转马达、GB/T 工程图并导出 STEP/PDF",
+        "objective": "Silindirik havşa, pah, döner motor ve GB/T çizimleri içeren dört parçalı montaj mekanizması tasarla; STEP/PDF dışa aktar",
         "uiConfig": {
             "agentRuntime": {"provider": "claude", "providerName": "Claude Code", "protocol": "claude-print-v1"},
             "engineeringOrchestration": {"mode": "auto_dag"},
@@ -182,12 +182,12 @@ def test_complex_agent_job_injects_auditable_engineering_dag(tmp_path: Path, mon
 
 
 def test_follow_up_agent_job_replans_previous_dag_locally(tmp_path: Path, monkeypatch) -> None:
-    """@brief 对话追改必须恢复上一轮 DAG，而不是把局部要求当成全新简单任务。"""
+    """Conversational edits restore the previous DAG instead of treating a local change as a new simple task."""
     repo = Path(__file__).resolve().parents[1]
     queue = tmp_path / "queue"
     queue.mkdir()
     source_id = "job-source-plan"
-    source_plan = build_engineering_plan("四零件装配体，含沉孔、旋转马达、GB/T 工程图并导出 STEP/PDF").to_dict()
+    source_plan = build_engineering_plan("Silindirik havşa, döner motor ve GB/T çizimleri içeren dört parçalı montaj; STEP/PDF dışa aktar").to_dict()
     source_plan["phases"][0]["status"] = "completed"
     source_plan["phases"][1]["status"] = "completed"
     source_job = {
@@ -203,7 +203,7 @@ def test_follow_up_agent_job_replans_previous_dag_locally(tmp_path: Path, monkey
         "kind": "agent_task",
         "executor": "agent",
         "cwd": str(repo),
-        "objective": "把沉孔直径改为 12 mm",
+        "objective": "Silindirik havşa çapını 12 mm yap",
         "_runtime": {"jobPath": str(current_path)},
         "uiConfig": {
             "sourceJobId": source_id,
@@ -218,7 +218,7 @@ def test_follow_up_agent_job_replans_previous_dag_locally(tmp_path: Path, monkey
     result = run_agent_job(job, runner=fake_runner, timeout_seconds=3)
 
     assert result["engineeringPlan"]["revision"] == 2
-    assert result["engineeringPlan"]["change_request"] == "把沉孔直径改为 12 mm"
+    assert result["engineeringPlan"]["change_request"] == "Silindirik havşa çapını 12 mm yap"
     assert result["engineeringPlan"]["phases"][0]["status"] == "completed"
     assert result["engineeringPlan"]["phases"][1]["status"] == "completed"
     assert result["engineeringPlan"]["phases"][2]["status"] == "planned"

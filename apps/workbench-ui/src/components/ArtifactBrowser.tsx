@@ -9,7 +9,7 @@ type ArtifactBrowserProps = {
   showPreview?: boolean;
 };
 
-/** @brief 展示真实交付文件并为支持格式提供预览。 */
+/** @brief Show actual delivery files and preview supported formats. */
 export function ArtifactBrowser({ artifacts, selected, onSelect, showPreview = true }: ArtifactBrowserProps) {
   return (
     <div className="artifact-list delivery-artifacts">
@@ -19,7 +19,7 @@ export function ArtifactBrowser({ artifacts, selected, onSelect, showPreview = t
           className={`${artifact.exists === false ? "artifact-row missing" : "artifact-row"} ${selected?.path === artifact.path ? "selected" : ""}`}
           key={`${artifact.path}-${index}`}
           onClick={() => onSelect(artifact.path)}
-          title="在右侧预览此交付物"
+          title="Bu çıktıyı sağda önizle"
         >
           <div>
             <strong>{artifactKindLabel(artifact.kind, artifact.path)}</strong>
@@ -29,8 +29,8 @@ export function ArtifactBrowser({ artifacts, selected, onSelect, showPreview = t
         </button>
       )) : (
         <div className="inspector-empty">
-          <strong>还没有可交付文件</strong>
-          <p>先让 AI 完成建模、出图或转换任务，交付中心会读取真实输出物。</p>
+          <strong>Henüz teslim dosyası yok</strong>
+          <p>Önce  AI Modelleme, çizim veya dönüştürme görevini tamamlayın; teslim merkezi gerçek çıktıları okuyacaktır.</p>
         </div>
       )}
       {showPreview ? <CadPreview artifact={selected} /> : null}

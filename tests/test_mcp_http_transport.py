@@ -1,4 +1,4 @@
-"""@brief 实际 HTTP MCP 握手、身份与资源取回；不调用 CAD 写工具。"""
+"""@brief Real HTTP MCP handshake, authentication, and resources; no CAD write tools."""
 import asyncio
 import base64
 import hashlib
@@ -23,7 +23,7 @@ from artifact_access import ArtifactAccess
 
 
 def test_http_host_auth_image_and_binary_resource_roundtrip(tmp_path):
-    """@brief 明确允许的远端 Host 可以访问，未授权/错误 Origin 无法访问。"""
+    """@brief Allow explicitly permitted remote Hosts; reject unauthorized requests and invalid Origin."""
     output = tmp_path / "output"
     output.mkdir()
     source = output / "preview.bmp"
@@ -45,7 +45,7 @@ def test_http_host_auth_image_and_binary_resource_roundtrip(tmp_path):
             headers = {"Accept": "application/json, text/event-stream", "Host": f"cad.example:{port}", "Authorization": "Bearer " + token}
             message = {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2025-11-25",
                 "capabilities": {}, "clientInfo": {"name": "contract-test", "version": "1"}}}
-            # @brief Windows 在服务尚未监听时也可能连接超时；只在启动窗口内重试连接错误。
+            # @brief Windows may time out before listening; retry connection errors only during the startup window.
             startup_deadline = time.monotonic() + 30
             while time.monotonic() < startup_deadline:
                 if process.poll() is not None:
@@ -57,7 +57,7 @@ def test_http_host_auth_image_and_binary_resource_roundtrip(tmp_path):
                 except (httpx.ConnectError, httpx.ConnectTimeout):
                     time.sleep(.1)
             else:
-                raise AssertionError("HTTP MCP 启动超时\n" + (tmp_path / "server.log").read_text())
+                raise AssertionError("HTTP MCP başlatma zaman aşımı\n" + (tmp_path / "server.log").read_text())
             assert response.status_code == 200
             denied = {**headers, "Authorization": "Bearer wrong"}
             assert httpx.post(url, json=message, headers=denied, trust_env=False).status_code == 401

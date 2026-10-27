@@ -1,8 +1,9 @@
-"""@brief 受限 OCP 平滑 Loft、Sweep、Knit、Thicken 与连续性证据后端。
+"""@brief Bounded OCP smooth Loft, Sweep, Knit, Thicken and continuity-evidence backend.
 
-所有操作只接受结构化白名单输入。输入 B-Rep 必须绑定本轮产物标记与 SHA-256，
-输出必须版本化并在 STEP/BREP 重开后再次验证；G1/G2 结论来自共享边采样，不能
-用“B-Rep 有效”代替连续性证明。
+All operations accept structured allowlisted input only. Input B-Rep must be bound
+to this run's artifact marker and SHA-256. Version outputs and validate them again
+after STEP/BREP reopening. G1/G2 conclusions use shared-edge samples; B-Rep validity
+alone does not demonstrate continuity.
 """
 from __future__ import annotations
 
@@ -43,91 +44,91 @@ _OUTPUTS = {"step", "brep", "stl"}
 
 
 def _now_iso() -> str:
-    """@brief 返回 UTC 秒级时间戳。"""
+    """@brief Return a UTC timestamp with second precision."""
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
 def _load_request(value: str | Path | dict[str, Any]) -> dict[str, Any]:
-    """@brief 读取不超过 4 MiB 的 JSON object。"""
+    """@brief Read a JSON object of at most 4 MiB."""
     if isinstance(value, dict):
         return dict(value)
     path = Path(value).expanduser().resolve()
     if path.suffix.lower() != ".json" or not path.is_file():
-        raise ValueError("高级曲面请求必须是存在的 JSON 文件。")
+        raise ValueError("Gelişmiş yüzey isteği mevcut bir JSON dosyası olmalıdır.")
     if path.stat().st_size > 4 * 1024 * 1024:
-        raise ValueError("高级曲面请求超过 4 MiB 安全上限。")
+        raise ValueError("Gelişmiş yüzey isteği 4 MiB güvenlik sınırını aşıyor.")
     payload = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(payload, dict):
-        raise ValueError("高级曲面请求必须是 JSON object。")
+        raise ValueError("Gelişmiş yüzey isteği bir JSON object olmalıdır.")
     return payload
 
 
 def _finite(value: Any, field: str, *, positive: bool = False, maximum: float | None = None) -> float:
-    """@brief 校验有限数值及可选范围。"""
+    """@brief Validate finite numbers and optional ranges."""
     if isinstance(value, bool):
-        raise ValueError(f"{field} 必须是有限数值。")
+        raise ValueError(f"{field} sonlu sayısal değer olmalı.")
     try:
         number = float(value)
     except (TypeError, ValueError) as exc:
-        raise ValueError(f"{field} 必须是有限数值。") from exc
+        raise ValueError(f"{field} sonlu sayısal değer olmalı.") from exc
     if not math.isfinite(number) or (positive and number <= 0) or (maximum is not None and number > maximum):
-        raise ValueError(f"{field} 超出允许范围。")
+        raise ValueError(f"{field} izin verilen aralık dışında.")
     return number
 
 
 def _point3(value: Any, field: str) -> list[float]:
-    """@brief 校验三维点。"""
+    """@brief Validate a three-dimensional point."""
     if not isinstance(value, list) or len(value) != 3:
-        raise ValueError(f"{field} 必须是三个有限数值。")
+        raise ValueError(f"{field} üç sonlu sayısal değer içermeli.")
     return [_finite(item, f"{field}[{index}]") for index, item in enumerate(value)]
 
 
 def _validate_common(request: dict[str, Any], operation_fields: set[str]) -> None:
-    """@brief 校验公共协议字段、输出格式和未知字段。"""
+    """@brief Validate shared protocol fields, output formats and unknown fields."""
     unknown = set(request) - _COMMON_FIELDS - operation_fields
     if unknown:
-        raise ValueError(f"请求含未允许字段: {', '.join(sorted(unknown))}")
+        raise ValueError(f"İstekte izin verilmeyen alanlar var: {', '.join(sorted(unknown))}")
     if request.get("schemaVersion") != "1.0" or request.get("units") != "mm":
-        raise ValueError("schemaVersion/units 必须分别为 1.0/mm。")
+        raise ValueError("schemaVersion/units sırasıyla 1.0/mm olmalıdır.")
     model_id = str(request.get("modelId") or "")
     if not model_id or len(model_id) > 64 or not model_id[0].isalpha() or not all(char.isalnum() or char == "_" for char in model_id):
-        raise ValueError("modelId 只能使用字母开头的 1-64 位字母、数字或下划线。")
+        raise ValueError("modelId harfle başlayan 1-64 harf, rakam veya alt çizgi içermelidir.")
     _finite(request.get("toleranceMm"), "toleranceMm", positive=True, maximum=0.1)
     outputs = request.get("outputs")
     if not isinstance(outputs, list) or not outputs or len(outputs) != len(set(outputs)) or any(item not in _OUTPUTS for item in outputs):
-        raise ValueError("outputs 必须是无重复的 step/brep/stl 白名单数组。")
+        raise ValueError("outputs, yinelenmeyen step/brep/stl izinli değerlerinden oluşmalıdır.")
     if not {"step", "brep"}.intersection(outputs):
-        raise ValueError("outputs 至少包含 step 或 brep，以执行 B-Rep 重开验收。")
+        raise ValueError("B-Rep yeniden açma doğrulaması için outputs en az step veya brep içermelidir.")
 
 
 def _trusted_artifact(value: Any, field: str) -> dict[str, Any]:
-    """@brief 验证本轮可信 STEP/BREP 输入及哈希。"""
+    """@brief Validate trusted STEP/BREP input and hashes for this run."""
     if not isinstance(value, dict) or set(value) != {"path", "sha256", "producedThisRun"}:
-        raise ValueError(f"{field} 必须包含 path、sha256 和 producedThisRun。")
+        raise ValueError(f"{field} path, sha256 ve producedThisRun içermeli.")
     if value.get("producedThisRun") is not True:
-        raise ValueError(f"{field}.producedThisRun 必须为 true。")
+        raise ValueError(f"{field}.producedThisRun true olmalı.")
     path = Path(str(value.get("path") or "")).expanduser().resolve()
     if path.suffix.lower() not in {".step", ".stp", ".brep"} or not path.is_file():
-        raise ValueError(f"{field}.path 必须是存在的 STEP/BREP 文件。")
+        raise ValueError(f"{field}.path mevcut bir STEP/BREP dosyası olmalı.")
     if path.stat().st_size <= 0 or path.stat().st_size > 256 * 1024 * 1024:
-        raise ValueError(f"{field}.path 文件大小无效。")
+        raise ValueError(f"{field}.path dosya boyutu geçersiz.")
     digest = str(value.get("sha256") or "").lower()
     if len(digest) != 64 or any(char not in "0123456789abcdef" for char in digest) or digest != _sha256(path):
-        raise ValueError(f"{field}.sha256 与实际文件不一致。")
+        raise ValueError(f"{field}.sha256 gerçek dosyayla eşleşmiyor.")
     return {"path": str(path), "sha256": digest, "producedThisRun": True}
 
 
 def validate_surface_request(value: str | Path | dict[str, Any]) -> dict[str, Any]:
-    """@brief 按操作类型校验高级曲面请求。"""
+    """@brief Validate advanced-surface requests by operation type."""
     request = _load_request(value)
     operation = request.get("operation")
     if operation == "smooth_loft":
         _validate_common(request, {"solid", "sections", "continuityTarget", "maxDegree"})
         if request.get("solid") is not True or request.get("continuityTarget") not in {"C1", "C2"}:
-            raise ValueError("smooth_loft 只允许 solid=true 且 continuityTarget 为 C1/C2。")
+            raise ValueError("smooth_loft yalnızca solid=true ve continuityTarget C1/C2 kabul eder.")
         maximum_degree = request.get("maxDegree")
         if isinstance(maximum_degree, bool) or not isinstance(maximum_degree, int) or not 3 <= maximum_degree <= 12:
-            raise ValueError("maxDegree 必须是 3-12 的整数。")
+            raise ValueError("maxDegree 3-12 arasında bir tamsayı olmalıdır.")
         legacy = {
             "schemaVersion": "1.0", "modelId": request["modelId"], "units": "mm", "operation": "loft",
             "solid": True, "ruled": True, "toleranceMm": request["toleranceMm"],
@@ -138,47 +139,47 @@ def validate_surface_request(value: str | Path | dict[str, Any]) -> dict[str, An
         _validate_common(request, {"profile", "path"})
         profile = request.get("profile")
         if not isinstance(profile, dict) or set(profile) != {"type", "radiusMm"} or profile.get("type") != "circle":
-            raise ValueError("sweep.profile 当前只允许 circle + radiusMm。")
+            raise ValueError("sweep.profile şu anda yalnızca circle + radiusMm kabul eder.")
         _finite(profile.get("radiusMm"), "profile.radiusMm", positive=True)
         path = request.get("path")
         if not isinstance(path, dict) or path.get("type") not in {"line", "arc_xy"}:
-            raise ValueError("sweep.path 当前只允许 line 或 arc_xy。")
+            raise ValueError("sweep.path şu anda yalnızca line veya arc_xy kabul eder.")
         if path["type"] == "line":
             if set(path) != {"type", "start", "end"}:
-                raise ValueError("line path 必须且只能包含 type/start/end。")
+                raise ValueError("line path tam olarak type/start/end içermelidir.")
             start, end = _point3(path["start"], "path.start"), _point3(path["end"], "path.end")
             if math.dist(start, end) <= 1e-6:
-                raise ValueError("line path 长度必须大于 1e-6 mm。")
+                raise ValueError("line path uzunluğu 1e-6 mm değerinden büyük olmalıdır.")
         else:
             if set(path) != {"type", "center", "radiusMm", "startAngleDeg", "sweepAngleDeg"}:
-                raise ValueError("arc_xy path 必须且只能包含 type/center/radiusMm/startAngleDeg/sweepAngleDeg。")
+                raise ValueError("arc_xy path tam olarak type/center/radiusMm/startAngleDeg/sweepAngleDeg içermelidir.")
             _point3(path["center"], "path.center")
             _finite(path["radiusMm"], "path.radiusMm", positive=True)
             _finite(path["startAngleDeg"], "path.startAngleDeg")
             sweep = _finite(path["sweepAngleDeg"], "path.sweepAngleDeg", positive=True)
             if sweep > 180:
-                raise ValueError("arc_xy 首版只允许 (0, 180] 度单圆弧。")
+                raise ValueError("arc_xy ilk sürümü yalnızca (0, 180] derecelik tek dairesel yay kabul eder.")
     elif operation == "knit":
         _validate_common(request, {"inputs", "makeSolid"})
         inputs = request.get("inputs")
         if not isinstance(inputs, list) or not 1 <= len(inputs) <= 32:
-            raise ValueError("knit.inputs 必须包含 1-32 个可信输入。")
+            raise ValueError("knit.inputs 1-32 güvenilir girdi içermelidir.")
         request["inputs"] = [_trusted_artifact(item, f"inputs[{index}]") for index, item in enumerate(inputs)]
         if request.get("makeSolid") is not True:
-            raise ValueError("knit 首版只允许 makeSolid=true 的闭壳验收。")
+            raise ValueError("knit ilk sürümü yalnızca makeSolid=true kapalı kabuk (closed shell) doğrulaması kabul eder.")
     elif operation == "thicken":
         _validate_common(request, {"input", "thicknessMm"})
         request["input"] = _trusted_artifact(request.get("input"), "input")
         thickness = _finite(request.get("thicknessMm"), "thicknessMm")
         if abs(thickness) < 1e-6 or abs(thickness) > 100:
-            raise ValueError("thicknessMm 绝对值必须位于 [1e-6, 100] mm。")
+            raise ValueError("thicknessMm mutlak değeri [1e-6, 100] mm aralığında olmalıdır.")
     else:
-        raise ValueError("operation 仅支持 smooth_loft、sweep、knit、thicken。")
+        raise ValueError("operation yalnızca smooth_loft, sweep, knit, thicken destekler.")
     return request
 
 
 def collect_surface_continuity_evidence(shape, *, skip_planar_faces: bool = False) -> dict[str, Any]:
-    """@brief 对双邻接边五点采样，返回真实 C0/G1/G2 数值证据。"""
+    """@brief Sample five points on edges with two adjacent faces and return actual C0/G1/G2 numerical evidence."""
     from OCP.BRep import BRep_Tool
     from OCP.BRepAdaptor import BRepAdaptor_Surface
     from OCP.GeomAbs import GeomAbs_G2, GeomAbs_Plane
@@ -250,12 +251,12 @@ def collect_surface_continuity_evidence(shape, *, skip_planar_faces: bool = Fals
         "maximumG1AngleDeg": max((item["g1AngleDeg"] for item in all_samples), default=None),
         "maximumG2CurvatureGap": max((item["g2CurvatureGap"] for item in all_samples), default=None),
         "edges": edge_records,
-        "limitations": ["只对拓扑共享边的离散采样点判定；不等于 Class-A 曲面认证。"],
+        "limitations": ["Yalnızca topolojik ortak kenarlardaki ayrık örnek noktalar değerlendirilir; bu Class-A yüzey sertifikasyonu değildir."],
     }
 
 
 def _smooth_loft(request: dict[str, Any]):
-    """@brief 构造带平滑设置的封闭 Loft 实体。"""
+    """@brief Construct a closed Loft solid with smoothing settings."""
     from OCP.Approx import Approx_Centripetal
     from OCP.BRepOffsetAPI import BRepOffsetAPI_ThruSections
     from OCP.GeomAbs import GeomAbs_C1, GeomAbs_C2
@@ -270,12 +271,12 @@ def _smooth_loft(request: dict[str, Any]):
         builder.AddWire(_make_wire(section))
     builder.Build()
     if not builder.IsDone() or builder.Shape().IsNull():
-        raise RuntimeError("OCP 平滑 Loft 构造失败。")
+        raise RuntimeError("OCP smooth Loft oluşturulamadı.")
     return builder.Shape()
 
 
 def _circle_wire(center: list[float], normal: list[float], radius: float):
-    """@brief 在给定法向平面构造四段闭合圆形 Wire。"""
+    """@brief Construct a four-segment closed circular Wire on a plane with the supplied normal."""
     from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeEdge, BRepBuilderAPI_MakeWire
     from OCP.gp import gp_Ax2, gp_Circ, gp_Dir, gp_Pnt
 
@@ -284,12 +285,12 @@ def _circle_wire(center: list[float], normal: list[float], radius: float):
     for start in (0.0, math.pi / 2, math.pi, 3 * math.pi / 2):
         wire.Add(BRepBuilderAPI_MakeEdge(circle, start, start + math.pi / 2).Edge())
     if not wire.IsDone():
-        raise RuntimeError("Sweep 圆形截面构造失败。")
+        raise RuntimeError("Sweep dairesel kesiti oluşturulamadı.")
     return wire.Wire()
 
 
 def _sweep(request: dict[str, Any]):
-    """@brief 沿单直线或 XY 单圆弧扫描闭合圆形截面。"""
+    """@brief Sweep a closed circular section along one line or one XY circular arc."""
     from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeEdge, BRepBuilderAPI_MakeWire
     from OCP.BRepOffsetAPI import BRepOffsetAPI_MakePipeShell
     from OCP.gp import gp_Ax2, gp_Circ, gp_Dir, gp_Pnt
@@ -313,7 +314,7 @@ def _sweep(request: dict[str, Any]):
         length = radius * (end_angle - start_angle)
     spine_builder = BRepBuilderAPI_MakeWire(spine_edge)
     if not spine_builder.IsDone():
-        raise RuntimeError("Sweep 路径 Wire 构造失败。")
+        raise RuntimeError("Sweep yol Wire oluşturulamadı.")
     profile_radius = float(request["profile"]["radiusMm"])
     profile = _circle_wire(start, normal, profile_radius)
     builder = BRepOffsetAPI_MakePipeShell(spine_builder.Wire())
@@ -323,12 +324,12 @@ def _sweep(request: dict[str, Any]):
     builder.Add(profile, False, True)
     builder.Build()
     if not builder.IsDone() or not builder.MakeSolid() or builder.Shape().IsNull():
-        raise RuntimeError("OCP Sweep 未生成封闭实体。")
+        raise RuntimeError("OCP Sweep kapalı katı oluşturmadı.")
     return builder.Shape(), {"pathLengthMm": length, "expectedVolumeMm3": math.pi * profile_radius**2 * length}
 
 
 def _topology_counts(shape) -> dict[str, int]:
-    """@brief 返回形状的 face/shell/solid 数量。"""
+    """@brief Return shape face/shell/solid counts."""
     from OCP.TopAbs import TopAbs_FACE, TopAbs_SHELL, TopAbs_SOLID
     from OCP.TopExp import TopExp_Explorer
 
@@ -343,7 +344,7 @@ def _topology_counts(shape) -> dict[str, int]:
 
 
 def collect_curvature_radius_evidence(shape) -> dict[str, Any]:
-    """@brief 在各面内部九点采样主曲率，估算局部最小曲率半径。"""
+    """@brief Sample principal curvature at nine interior points per face to estimate minimum local curvature radius."""
     from OCP.BRepAdaptor import BRepAdaptor_Surface
     from OCP.BRepLProp import BRepLProp_SLProps
     from OCP.TopAbs import TopAbs_FACE
@@ -387,12 +388,12 @@ def collect_curvature_radius_evidence(shape) -> dict[str, Any]:
         "curvedSampleCount": len(radii),
         "minimumSampledCurvatureRadiusMm": min(radii, default=None),
         "faces": records,
-        "limitations": ["离散采样不能证明面内所有位置的全局最小曲率半径，也不能单独证明偏置无自交。"],
+        "limitations": ["Ayrık örnekleme, yüzeyin her yerindeki global minimum eğrilik yarıçapını veya offset işleminin kendisiyle kesişmediğini tek başına kanıtlamaz."],
     }
 
 
 def _knit(request: dict[str, Any]):
-    """@brief 缝合可信 STEP/BREP，并仅在闭壳时转为实体。"""
+    """@brief Sew trusted STEP/BREP and convert to a solid only when the shell is closed."""
     from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeSolid, BRepBuilderAPI_Sewing
     from OCP.BRepCheck import BRepCheck_Analyzer
     from OCP.TopAbs import TopAbs_SHELL
@@ -412,23 +413,23 @@ def _knit(request: dict[str, Any]):
         "valid": not sewed.IsNull() and bool(BRepCheck_Analyzer(sewed).IsValid()),
     }
     if not sewing_evidence["valid"] or sewing_evidence["freeEdgeCount"] or sewing_evidence["multipleEdgeCount"]:
-        raise RuntimeError(f"Knit 未形成无自由边、无多重边的有效闭壳: {sewing_evidence}")
+        raise RuntimeError(f"Knit, serbest veya çoklu kenar içermeyen geçerli kapalı kabuk oluşturmadı: {sewing_evidence}")
     shells = []
     explorer = TopExp_Explorer(sewed, TopAbs_SHELL)
     while explorer.More():
         shells.append(TopoDS.Shell(explorer.Current()))
         explorer.Next()
     if len(shells) != 1:
-        raise RuntimeError(f"Knit 转实体要求恰好一个闭壳，实际 {len(shells)}。")
+        raise RuntimeError(f"Knit katı dönüşümü tam olarak bir kapalı kabuk gerektirir; bulunan: {len(shells)}.")
     maker = BRepBuilderAPI_MakeSolid(shells[0])
     shape = maker.Solid()
     if shape.IsNull() or not BRepCheck_Analyzer(shape).IsValid():
-        raise RuntimeError("Knit 闭壳转实体失败。")
+        raise RuntimeError("Knit kapalı kabuk katıya dönüştürülemedi.")
     return shape, sewing_evidence
 
 
 def _thicken(request: dict[str, Any]):
-    """@brief 对可信开放面/壳执行简单偏置加厚。"""
+    """@brief Apply simple offset thickening to a trusted open face/shell."""
     from OCP.BRepOffsetAPI import BRepOffsetAPI_MakeThickSolid
 
     artifact = request["input"]
@@ -436,24 +437,24 @@ def _thicken(request: dict[str, Any]):
     source = _reopen_shape(path, "brep" if path.suffix.lower() == ".brep" else "step")
     topology = _topology_counts(source)
     if topology["solids"]:
-        raise ValueError("thicken 首版只接受开放 face/shell；实体抽壳请走后续 hollow 操作。")
+        raise ValueError("thicken ilk sürümü yalnızca açık face/shell kabul eder; katı kabuk oluşturma için sonraki hollow işlemini kullanın.")
     if topology["faces"] < 1:
-        raise ValueError("thicken 输入至少需要一个有效面。")
+        raise ValueError("thicken girdisi en az bir geçerli face içermelidir.")
     curvature = collect_curvature_radius_evidence(source)
     minimum_radius = curvature["minimumSampledCurvatureRadiusMm"]
     maximum_safe_thickness = minimum_radius * 0.5 if minimum_radius is not None else None
     if maximum_safe_thickness is not None and abs(float(request["thicknessMm"])) > maximum_safe_thickness:
         raise ValueError(
-            "thicken 厚度超过采样最小曲率半径的 50% 保守门禁: "
-            f"厚度={abs(float(request['thicknessMm'])):.6g} mm, "
-            f"采样半径={minimum_radius:.6g} mm。"
+            "thicken kalınlığı, örneklenen minimum eğrilik yarıçapının %50 koruyucu sınırını aşıyor: "
+            f"kalınlık={abs(float(request['thicknessMm'])):.6g} mm, "
+            f"örnekleme yarıçapı={minimum_radius:.6g} mm."
         )
     builder = BRepOffsetAPI_MakeThickSolid()
     builder.MakeThickSolidBySimple(source, float(request["thicknessMm"]))
     if not builder.IsDone() or builder.Shape().IsNull():
-        raise RuntimeError("OCP Thicken 构造失败，可能存在偏置自交或厚度过大。")
+        raise RuntimeError("OCP Thicken oluşturulamadı; offset kendisiyle kesişiyor veya kalınlık fazla olabilir.")
     shape = builder.Shape()
-    # MakeThickSolidBySimple 的正偏置可能返回反向 Solid；统一为正体积后再交付。
+    # A positive MakeThickSolidBySimple offset can return a reversed Solid; normalize to positive volume before delivery.
     from OCP.BRepGProp import BRepGProp
     from OCP.GProp import GProp_GProps
 
@@ -472,7 +473,7 @@ def _thicken(request: dict[str, Any]):
 
 
 def _persist_result(request: dict[str, Any], shape, output_dir: str | Path, *, backend: str, extra: dict[str, Any]) -> dict[str, Any]:
-    """@brief 写出版本化产物，重开 B-Rep，并附几何与连续性证据。"""
+    """@brief Write versioned artifacts, reopen B-Rep and attach geometry/continuity evidence."""
     original = _shape_evidence(shape)
     out_dir = Path(output_dir).expanduser().resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -509,14 +510,14 @@ def _persist_result(request: dict[str, Any], shape, output_dir: str | Path, *, b
         "continuityEvidence": continuity,
         "manual_review_required": True, "retryable": False, "error_code": None,
         "limitations": [
-            "B-Rep 有效和共享边采样不能替代 Class-A、模具质量或可制造性认证。",
-            "只有 continuityEvidence 中全部采样边通过时，才能声明该采样范围内的 G1/G2。",
+            "B-Rep geçerliliği ve ortak kenar örneklemesi Class-A, kalıp kalitesi veya üretilebilirlik sertifikasyonunun yerine geçmez.",
+            "G1/G2 yalnızca continuityEvidence içindeki tüm örnek kenarlar geçtiğinde ve yalnızca bu örnekleme kapsamı için bildirilebilir.",
         ],
     }
 
 
 def execute_advanced_surface(value: str | Path | dict[str, Any], output_dir: str | Path) -> dict[str, Any]:
-    """@brief 执行一个白名单高级曲面操作并返回稳定证据。"""
+    """@brief Execute one allowlisted advanced-surface operation and return stable evidence."""
     try:
         request = validate_surface_request(value)
     except (ValueError, json.JSONDecodeError) as exc:
@@ -536,7 +537,7 @@ def execute_advanced_surface(value: str | Path | dict[str, Any], output_dir: str
             relative_error = abs(actual_volume - extra["expectedVolumeMm3"]) / max(extra["expectedVolumeMm3"], 1e-12)
             extra["volumeRelativeError"] = relative_error
             if relative_error > 1e-4:
-                raise RuntimeError(f"Sweep 体积与截面积乘路径长度不一致: {relative_error:g}")
+                raise RuntimeError(f"Sweep hacmi, kesit alanı × yol uzunluğu ile eşleşmiyor: {relative_error:g}")
         elif request["operation"] == "knit":
             shape, extra = _knit(request)
         else:
@@ -551,7 +552,7 @@ def execute_advanced_surface(value: str | Path | dict[str, Any], output_dir: str
 
 
 def _surface_result(status: str, stage: str, error_code: str, message: str) -> dict[str, Any]:
-    """@brief 返回高级曲面专用 blocked/failed 稳定结构。"""
+    """@brief Return a stable blocked/failed structure for advanced surfaces."""
     return {
         "schemaVersion": "1.0", "status": status, "stage": stage,
         "backend": "headless_ocp_advanced_surface", "geometryProduced": False,

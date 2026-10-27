@@ -1,4 +1,4 @@
-"""ezdxf 只读后端回归测试。"""
+"""Regression tests for the read-only ezdxf backend."""
 from __future__ import annotations
 
 import sys
@@ -56,7 +56,7 @@ def test_inspect_dxf_reports_engineering_drawing_evidence(tmp_path):
         p2=(180, 100),
         dxfattribs={"layer": "DIM"},
     ).render()
-    for index, text in enumerate(("图号 W4-001", "名称 安装板", "材料 Q235B", "比例 1:1", "单位 mm")):
+    for index, text in enumerate(("Resim No W4-001", "Parça Adı Montaj Plakası", "Malzeme Q235B", "Ölçek 1:1", "Birim mm")):
         modelspace.add_text(text, dxfattribs={"layer": "TEXT", "height": 3}).set_placement((240, 15 + index * 5))
     document.saveas(source)
 
@@ -72,5 +72,5 @@ def test_inspect_dxf_reports_engineering_drawing_evidence(tmp_path):
 def test_headless_backend_rejects_dwg(tmp_path):
     source = tmp_path / "drawing.dwg"
     source.write_bytes(b"not-a-dwg")
-    with pytest.raises(ValueError, match="只接受 DXF"):
+    with pytest.raises(ValueError, match="accepts DXF only"):
         inspect_dxf(source)

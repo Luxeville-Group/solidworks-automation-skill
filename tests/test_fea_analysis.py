@@ -1,4 +1,4 @@
-"""开放 FEA Schema、门禁和 CalculiX 输入生成回归。"""
+"""Open FEA schema, gate, and CalculiX input generation regressions."""
 from __future__ import annotations
 
 import json
@@ -11,7 +11,7 @@ from scripts.fea_analysis import build_calculix_input, discover_solver, parse_ca
 
 
 def _request() -> dict:
-    """@brief 返回单四面体静力黄金输入。"""
+    """@brief Return a single-tetrahedron static golden request."""
     return {
         "schemaVersion": "1.0",
         "analysisId": "bracket_static",
@@ -34,7 +34,7 @@ def _request() -> dict:
 
 
 def _nonlinear_request() -> dict:
-    """@brief 返回含材料塑性和面接触的 FEA 1.1 请求。"""
+    """@brief Return an FEA 1.1 request with plasticity and surface contact."""
     request = _request()
     request.update({
         "schemaVersion": "1.1",
@@ -67,7 +67,7 @@ def _nonlinear_request() -> dict:
 
 
 def test_validate_analysis_accepts_consistent_mesh_and_references() -> None:
-    """@brief 合法材料、网格、载荷和约束应通过。"""
+    """@brief Valid material, mesh, loads, and constraints must pass."""
     validated = validate_analysis(_request())
     assert validated["analysisId"] == "bracket_static"
 
@@ -76,13 +76,13 @@ def test_validate_analysis_accepts_consistent_mesh_and_references() -> None:
     ("mutator", "message"),
     [
         (lambda payload: payload.update({"analysisId": "bad\n*INCLUDE"}), "analysisId"),
-        (lambda payload: payload["mesh"]["elements"][0].update({"nodeIds": [1, 2, 3, 99]}), "缺失"),
+        (lambda payload: payload["mesh"]["elements"][0].update({"nodeIds": [1, 2, 3, 99]}), "eksik"),
         (lambda payload: payload["material"].update({"poissonRatio": 0.5}), "poissonRatio"),
         (lambda payload: payload["loads"][0].update({"nodeSet": "Missing"}), "nodeSet"),
     ],
 )
 def test_validate_analysis_rejects_injection_and_invalid_engineering_references(mutator, message: str) -> None:
-    """@brief 注入、悬空拓扑引用和无效材料均必须阻断。"""
+    """@brief Block injection, dangling topology references, and invalid materials."""
     payload = _request()
     mutator(payload)
     with pytest.raises(ValueError, match=message):
@@ -90,7 +90,7 @@ def test_validate_analysis_rejects_injection_and_invalid_engineering_references(
 
 
 def test_calculix_input_is_whitelisted_and_never_overwrites(tmp_path: Path) -> None:
-    """@brief 输入文件只含固定模板，重复生成使用版本化文件。"""
+    """@brief Input decks contain fixed templates only; repeated generation uses versioned files."""
     output = tmp_path / "job.inp"
     first = build_calculix_input(_request(), output)
     second = build_calculix_input(_request(), output)
@@ -106,7 +106,7 @@ def test_calculix_input_is_whitelisted_and_never_overwrites(tmp_path: Path) -> N
 
 
 def test_calculix_sets_wrap_after_sixteen_ids(tmp_path: Path) -> None:
-    """@brief NSET/ELSET 每行不得超过 CalculiX 的 16 项限制。"""
+    """@brief NSET/ELSET lines must respect the CalculiX 16-item limit."""
     request = _request()
     request["mesh"]["nodes"].extend(
         {"id": node_id, "x": node_id, "y": 0, "z": 0}
@@ -121,7 +121,7 @@ def test_calculix_sets_wrap_after_sixteen_ids(tmp_path: Path) -> None:
 
 
 def test_nonlinear_contact_input_uses_only_whitelisted_keywords(tmp_path: Path) -> None:
-    """@brief 几何非线性、塑性和面接触应生成固定 CalculiX 关键字。"""
+    """@brief Geometric nonlinearity, plasticity, and contact generate fixed CalculiX keywords."""
     request = _nonlinear_request()
     assert validate_analysis(request)["analysisType"] == "static_nonlinear"
     report = build_calculix_input(request, tmp_path / "nonlinear.inp")
@@ -147,13 +147,13 @@ def test_nonlinear_contact_input_uses_only_whitelisted_keywords(tmp_path: Path) 
     ("mutator", "message"),
     [
         (lambda payload: payload["nonlinearControls"].update({"initialIncrement": 2}), "minimum <= initial"),
-        (lambda payload: payload["surfaces"]["MasterFace"].update({"face": "S5"}), "不适用于"),
-        (lambda payload: payload["contacts"][0].update({"masterSurface": "Missing"}), "已定义 surface"),
-        (lambda payload: payload["material"]["plasticCurve"][1].update({"plasticStrain": 0}), "严格递增"),
+        (lambda payload: payload["surfaces"]["MasterFace"].update({"face": "S5"}), "uygun değil"),
+        (lambda payload: payload["contacts"][0].update({"masterSurface": "Missing"}), "tanımlanmış iki farklı surface"),
+        (lambda payload: payload["material"]["plasticCurve"][1].update({"plasticStrain": 0}), "kesin artmalı"),
     ],
 )
 def test_nonlinear_extensions_reject_invalid_increment_surface_contact_and_curve(mutator, message: str) -> None:
-    """@brief 非法增量、单元面、接触引用和塑性曲线必须在写文件前阻断。"""
+    """@brief Reject invalid increments, faces, contacts, and plastic curves before writing files."""
     request = _nonlinear_request()
     mutator(request)
     with pytest.raises(ValueError, match=message):
@@ -161,7 +161,7 @@ def test_nonlinear_extensions_reject_invalid_increment_surface_contact_and_curve
 
 
 def test_pressure_requires_explicit_element_face_and_gravity_uses_defined_all_set(tmp_path: Path) -> None:
-    """@brief 实体压力必须指定面，重力必须引用生成器定义的全集。"""
+    """@brief Solid pressure requires a face; gravity references the generator-defined complete set."""
     pressure = _request()
     pressure["loads"] = [{"id": "pressure_load", "type": "pressure", "elementSet": "AllElements", "magnitude": 2.5}]
     with pytest.raises(ValueError, match="P1-P6"):
@@ -178,15 +178,15 @@ def test_pressure_requires_explicit_element_face_and_gravity_uses_defined_all_se
 
 
 def test_tetrahedral_pressure_rejects_nonexistent_face() -> None:
-    """@brief C3D4 四面体只有 P1-P4，不能生成无效 P5/P6 压力载荷。"""
+    """@brief C3D4 tetrahedra have P1–P4 only; never generate invalid P5/P6 pressure loads."""
     request = _request()
     request["loads"] = [{"id": "Pressure1", "type": "pressure", "elementSet": "AllElements", "face": "P5", "magnitude": 2.5}]
-    with pytest.raises(ValueError, match="不适用于"):
+    with pytest.raises(ValueError, match="uygun değil"):
         validate_analysis(request)
 
 
 def test_missing_solver_is_blocked_without_fake_results(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """@brief 求解器缺失时不得创建求解目录或结果。"""
+    """@brief A missing solver must not create a solve directory or results."""
     monkeypatch.delenv("CADSTUDIO_CALCULIX_EXE", raising=False)
     monkeypatch.delenv("CADSTUDIO_ELMER_EXE", raising=False)
     monkeypatch.setattr("scripts.fea_analysis.shutil.which", lambda _name: None)
@@ -204,7 +204,7 @@ def test_missing_solver_is_blocked_without_fake_results(tmp_path: Path, monkeypa
 
 
 def test_run_contact_requires_copen_and_cpress_fields(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """@brief 接触任务缺少 COPEN/CPRESS 时不得进入 review_required。"""
+    """@brief Contact tasks without COPEN/CPRESS cannot reach review_required."""
     executable = tmp_path / "ccx.exe"
     executable.write_bytes(b"test solver")
     monkeypatch.setattr(
@@ -239,7 +239,7 @@ def test_run_contact_requires_copen_and_cpress_fields(tmp_path: Path, monkeypatc
 
 
 def test_discover_solver_reads_windows_user_environment(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """@brief 当前进程未刷新时仍应读取 Windows 用户级求解器环境变量。"""
+    """@brief Read Windows user-level solver environment variables even before process refresh."""
     executable = tmp_path / "ccx.exe"
     executable.write_bytes(b"ccx")
     monkeypatch.delenv("CADSTUDIO_CALCULIX_EXE", raising=False)
@@ -253,7 +253,7 @@ def test_discover_solver_reads_windows_user_environment(tmp_path: Path, monkeypa
 
 
 def test_parse_calculix_results_reports_displacement_stress_and_convergence(tmp_path: Path) -> None:
-    """@brief FRD/STA 解析必须返回有限位移、等效应力和收敛增量。"""
+    """@brief FRD/STA parsing returns finite displacement, equivalent stress, and converged increments."""
     stem = "job"
     (tmp_path / f"{stem}.frd").write_text(
         "    1UVERSION           Version 2.23\n"
@@ -282,7 +282,7 @@ def test_parse_calculix_results_reports_displacement_stress_and_convergence(tmp_
 
 
 def test_parse_calculix_results_reports_contact_penetration_pressure_and_slip(tmp_path: Path) -> None:
-    """@brief CONTACT 最终块应拆出穿透、压力和切向滑移证据。"""
+    """@brief Extract penetration, pressure, and tangential-slip evidence from the final CONTACT block."""
     stem = "contact_job"
     (tmp_path / f"{stem}.frd").write_text(
         "    1UVERSION           Version 2.23\n"
@@ -309,7 +309,7 @@ def test_parse_calculix_results_reports_contact_penetration_pressure_and_slip(tm
 
 
 def test_parse_calculix_results_rejects_nonfinite_contact_field(tmp_path: Path) -> None:
-    """@brief 接触 COPEN/CPRESS 的非有限值不得进入有效结果。"""
+    """@brief Nonfinite contact COPEN/CPRESS values cannot enter valid results."""
     stem = "nonfinite_contact"
     (tmp_path / f"{stem}.frd").write_text(
         "    1UVERSION           Version 2.23\n"
@@ -335,7 +335,7 @@ def test_parse_calculix_results_rejects_nonfinite_contact_field(tmp_path: Path) 
 
 
 def test_parse_calculix_results_uses_latest_complete_result_blocks(tmp_path: Path) -> None:
-    """@brief 多增量 FRD 只汇总最后一个完整结果块，不混入旧位移和应力。"""
+    """@brief Summarize only the final complete FRD increment; exclude older displacement and stress."""
     stem = "multi_step"
     (tmp_path / f"{stem}.frd").write_text(
         "    1UVERSION           Version 2.23\n"
@@ -360,7 +360,7 @@ def test_parse_calculix_results_rejects_nonfinite_plastic_strain(
     token: str,
     token_detected: bool,
 ) -> None:
-    """@brief 非有限 PEEQ 必须使非线性结果失败，不能只检查位移和应力。"""
+    """@brief Nonfinite PEEQ must fail nonlinear results even when displacement/stress are finite."""
     stem = f"nonfinite_peeq_{token_detected}"
     (tmp_path / f"{stem}.frd").write_text(
         "    1UVERSION           Version 2.23\n"
@@ -385,7 +385,7 @@ def test_parse_calculix_results_rejects_nonfinite_plastic_strain(
 
 @pytest.mark.parametrize("defect", ["truncated", "mismatched_nodes", "duplicate_node", "failed_marker"])
 def test_parse_calculix_results_rejects_incomplete_or_inconsistent_evidence(tmp_path: Path, defect: str) -> None:
-    """@brief 截断、节点不一致、重复节点和失败关键词均不得误报收敛。"""
+    """@brief Truncation, mismatched/duplicate nodes, and failure keywords must not appear converged."""
     stem = "bad_job"
     displacement_rows = " -1         1 0.0 0.0 -2.0E-04\n"
     stress_rows = " -1         1 -2.0 -2.0 -6.0 0.0 0.0 0.0\n"
@@ -409,7 +409,7 @@ def test_parse_calculix_results_rejects_incomplete_or_inconsistent_evidence(tmp_
 
 
 def test_run_non_static_analysis_blocks_before_creating_output(tmp_path: Path) -> None:
-    """@brief 尚未实现的分析类型不能留下任务目录。"""
+    """@brief Unimplemented analysis types must not leave task directories."""
     request = _request()
     request["analysisType"] = "modal"
     result = run_analysis(request, tmp_path / "results")
@@ -419,7 +419,7 @@ def test_run_non_static_analysis_blocks_before_creating_output(tmp_path: Path) -
 
 
 def test_fea_json_schema_is_valid_and_accepts_golden_request() -> None:
-    """@brief 公共 JSON Schema 本身及 1.0/1.1 黄金请求均应通过 Draft 2020-12。"""
+    """@brief Public schema and golden 1.0/1.1 requests must pass Draft 2020-12."""
     jsonschema = pytest.importorskip("jsonschema")
     schema_path = Path(__file__).parents[1] / "apps" / "desktop" / "cad_workbench" / "schemas" / "fea_analysis.schema.json"
     schema = json.loads(schema_path.read_text(encoding="utf-8"))

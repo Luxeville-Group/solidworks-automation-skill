@@ -1,4 +1,4 @@
-"""标准外啮合直齿轮渐开线几何测试。"""
+'Standard external involute spur-gear geometry tests.'
 from __future__ import annotations
 
 import math
@@ -15,7 +15,7 @@ from sw_gear import SpurGearSpec, calculate_external_spur_gear  # noqa: E402
 
 
 def _unwrapped_angles(points: tuple[tuple[float, float], ...]) -> list[float]:
-    """@brief 将闭合轮廓的极角展开为单调角度序列。"""
+    'Unwrap closed-profile polar angles into a monotonic sequence.'
     result: list[float] = []
     offset = 0.0
     previous = None
@@ -30,7 +30,7 @@ def _unwrapped_angles(points: tuple[tuple[float, float], ...]) -> list[float]:
 
 
 def test_standard_module_two_twenty_tooth_dimensions_match_reference_equations() -> None:
-    """@brief 验证标准全齿高直齿轮的主要解析尺寸。"""
+    'Verify main analytic dimensions of standard full-depth spur gears.'
     geometry = calculate_external_spur_gear(
         SpurGearSpec(module_mm=2.0, teeth=20, face_width_mm=10.0, bore_diameter_mm=8.0)
     )
@@ -45,7 +45,7 @@ def test_standard_module_two_twenty_tooth_dimensions_match_reference_equations()
 
 
 def test_outline_is_closed_by_construction_counterclockwise_and_within_design_radii() -> None:
-    """@brief 齿廓必须连续绕圆周前进，且所有点落在齿根圆与齿顶圆之间。"""
+    'The tooth profile advances continuously around the circumference, between root and tip circles.'
     geometry = calculate_external_spur_gear(
         SpurGearSpec(
             module_mm=2.5,
@@ -68,29 +68,29 @@ def test_outline_is_closed_by_construction_counterclockwise_and_within_design_ra
 
 
 def test_low_tooth_count_is_allowed_but_explicitly_reports_undercut_risk() -> None:
-    """@brief 低齿数不能伪装成无根切的生产级齿形。"""
+    'Low tooth counts must not be presented as production geometry without undercut risk.'
     geometry = calculate_external_spur_gear(
         SpurGearSpec(module_mm=1.0, teeth=12, face_width_mm=6.0)
     )
 
     assert geometry.undercut_risk is True
     assert geometry.minimum_teeth_without_undercut >= 17
-    assert any("根切风险" in warning for warning in geometry.warnings)
+    assert any('undercut risk' in warning for warning in geometry.warnings)
     assert geometry.evidence()["profile"]["root_form"] == "radial_transition_plus_root_arc"
 
 
 @pytest.mark.parametrize(
     ("spec", "message"),
     [
-        (SpurGearSpec(module_mm=0.0, teeth=20, face_width_mm=10.0), "模数"),
+        (SpurGearSpec(module_mm=0.0, teeth=20, face_width_mm=10.0), 'Modül'),
         (SpurGearSpec(module_mm=2.0, teeth=5, face_width_mm=10.0), "6..300"),
-        (SpurGearSpec(module_mm=2.0, teeth=20, face_width_mm=0.0), "齿宽"),
-        (SpurGearSpec(module_mm=2.0, teeth=20, face_width_mm=10.0, pressure_angle_deg=40.0), "压力角"),
-        (SpurGearSpec(module_mm=2.0, teeth=20, face_width_mm=10.0, bore_diameter_mm=36.0), "轴孔直径"),
-        (SpurGearSpec(module_mm=2.0, teeth=20, face_width_mm=10.0, involute_segments=2), "渐开线段数"),
+        (SpurGearSpec(module_mm=2.0, teeth=20, face_width_mm=0.0), 'Diş genişliği'),
+        (SpurGearSpec(module_mm=2.0, teeth=20, face_width_mm=10.0, pressure_angle_deg=40.0), 'Basınç açısı'),
+        (SpurGearSpec(module_mm=2.0, teeth=20, face_width_mm=10.0, bore_diameter_mm=36.0), 'Mil deliği çapı'),
+        (SpurGearSpec(module_mm=2.0, teeth=20, face_width_mm=10.0, involute_segments=2), 'involute segment sayısı'),
     ],
 )
 def test_invalid_or_degenerate_specs_are_rejected(spec: SpurGearSpec, message: str) -> None:
-    """@brief 拒绝退化齿形和会造成失控草图规模的参数。"""
+    'Reject degenerate profiles and parameters causing unbounded sketch size.'
     with pytest.raises(ValueError, match=message):
         calculate_external_spur_gear(spec)

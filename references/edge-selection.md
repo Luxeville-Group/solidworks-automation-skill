@@ -1,87 +1,87 @@
-# 语义选边：圆角与倒角的正确做法
+# Semantic Edge Selection for Fillets and Chamfers
 
-## 为什么不能用 SelectByID2 选边
+## Why coordinate-based SelectByID2 is unreliable
 
-SolidWorks 传统的选边方式是：
+A traditional SolidWorks edge-selection call is:
 
 ```python
 model.Extension.SelectByID2("Edge1", "EDGE", 0.05, 0.03, 0.0, False, 0, None, 0)
 ```
 
-这里的 `x, y, z` 是**实体的坐标魔法值**。它有两个致命问题：
+Here `x, y, z` are **hard-coded entity coordinates** with two serious problems:
 
-1. **模型一改就失效**。改了板厚、加了个孔，坐标全部偏移，选择静默失败。
-2. **失败是静默的**。`SelectByID2` 返回 `False` 时，后续的 `FeatureFillet` 不会
-   报错——它会对"当前选择集"（可能是空的，也可能是上一次操作的残留）执行圆角，
-   产生难以定位的错误特征。
+1. **Model changes invalidate them.** A changed plate thickness or new hole shifts coordinates and selection may fail silently.
+2. **Failure can be silent.** When `SelectByID2` returns `False`, a subsequent `FeatureFillet` may
+   operate on the current selection set, which can be empty or left over from an earlier operation,
+   creating a wrong feature that is difficult to diagnose.
 
-## 正确做法：按 B-Rep 几何选边
+## Select by B-Rep geometry
 
-`scripts/sw_edge_select.py` 遍历模型的 B-Rep 拓扑，按**几何条件**挑选边线，
-再用边对象自身的 `Select2` 建立选择集。不依赖名称和坐标字符串，模型重建后依然可用。
+`scripts/sw_edge_select.py` traverses B-Rep topology and selects edges by **geometric conditions**,
+then calls each edge object's `Select2`. It avoids name/coordinate strings and remains usable after rebuilds.
 
 ```python
 from scripts.sw_edge_select import select_edges
 from scripts.sw_part import fillet
 from scripts.sw_connect import mm
 
-# 只倒平行于 Z 轴的凸边（即立板的外轮廓竖边）
+# Chamfer only convex edges parallel to Z (vertical exterior edges of the plate).
 result = select_edges(model, {"axis": "z", "convex_only": True})
 if result["status"] == "ok":
     fillet(model, mm(4))
 ```
 
-对应的 MCP 工具：
+Corresponding MCP tools:
 
 ```
-solidworks_list_edges  { "axis": "z" }              # 先看有哪些边
+solidworks_list_edges  { "axis": "z" }              # Inspect available edges first.
 solidworks_fillet      { "radius_mm": 4, "axis": "z", "convex_only": true, "dry_run": true }
 solidworks_fillet      { "radius_mm": 4, "axis": "z", "convex_only": true }
 ```
 
-**建议先用 `dry_run: true`** 确认选中的边正是你想倒的那些，再执行。
+**Use `dry_run: true` first** to confirm the intended edges before executing.
 
-## 筛选条件
+## Filters
 
-| 参数 | 取值 | 说明 |
+| Parameter | Values | Description |
 |---|---|---|
-| `axis` | `x` / `y` / `z` / `vertical` / `all` | 只保留平行于该轴的**直边**；`all` 不做方向过滤 |
-| `min_length_mm` / `max_length_mm` | 数值 | 按边长筛选 |
-| `circular` | `true` / `false` | 只保留圆边 / 只保留非圆边 |
-| `diameter_mm` + `diameter_tolerance_mm` | 数值 | 按圆边直径筛选（用于选孔的入口边） |
-| `position_mm` + `position_tolerance_mm` | `[x,y,z]` | 边中点必须靠近该坐标 |
-| `convex_only` | `true` | 只保留凸边（外轮廓），用于外圆角 |
-| `concave_only` | `true` | 只保留凹边（内角），用于内圆角 |
+| `axis` | `x` / `y` / `z` / `vertical` / `all` | Keep only **straight edges** parallel to the axis; `all` disables direction filtering |
+| `min_length_mm` / `max_length_mm` | Numeric | Filter by edge length |
+| `circular` | `true` / `false` | Keep circular / noncircular edges |
+| `diameter_mm` + `diameter_tolerance_mm` | Numeric | Filter circular edges by diameter, e.g. hole entrances |
+| `position_mm` + `position_tolerance_mm` | `[x,y,z]` | Require the edge midpoint near these coordinates |
+| `convex_only` | `true` | Exterior convex edges only, for outside fillets |
+| `concave_only` | `true` | Interior concave edges only, for inside fillets |
 
-`convex_only` 与 `concave_only` 不能同时为真。
+`convex_only` and `concave_only` cannot both be true.
 
-## 典型用法
+## Typical usage
 
-**板料四角外圆角**
+**Exterior fillets on plate corners**
 
 ```json
 { "axis": "z", "convex_only": true }
 ```
 
-**沉头孔入口倒角**（按孔径定位圆边）
+**Hole-entrance chamfer** (locate circular edges by diameter)
 
 ```json
 { "circular": true, "diameter_mm": 6.6, "diameter_tolerance_mm": 0.05 }
 ```
 
-**只倒长边**（避免倒到短边形成"圆角打架"）
+**Long edges only** (avoid intersecting fillets on short edges)
 
 ```json
 { "axis": "all", "min_length_mm": 50 }
 ```
 
-**减重口袋的内圆角**
+**Internal fillets in weight-reduction pockets**
 
 ```json
 { "axis": "z", "concave_only": true }
 ```
 
-## 返回值
+## Return value
 
 ```json
 {
@@ -92,59 +92,59 @@ solidworks_fillet      { "radius_mm": 4, "axis": "z", "convex_only": true }
       "is_circle": false, "diameter_mm": null, "convexity": "convex" }
   ],
   "rejected_count": 8,
-  "rejected_sample": [ { "index": 0, "reasons": ["方向不平行于 z 轴"] } ]
+  "rejected_sample": [ { "index": 0, "reasons": ["Direction is not parallel to the z axis"] } ]
 }
 ```
 
-`rejected_sample` 会说明每条边**为什么被排除**，便于调整条件而不是盲目放宽。
+`rejected_sample` explains **why each edge was excluded**, enabling targeted adjustments instead of blindly relaxing filters.
 
-**选不到边时返回 `status: "error"`，绝不继续创建特征。** 这是刻意设计：
-静默继续会把圆角加到错误的边上。错误信息会附上调用
-`solidworks_list_edges` 的建议。
+**If no edges match, return `status: "error"` and create no feature.** This is deliberate:
+continuing silently could apply fillets to wrong edges. The error includes a suggestion to
+call `solidworks_list_edges`.
 
-## 凸凹判定
+## Convexity classification
 
-`convexity` 通过边两侧面的法向关系计算，这是凸凹的几何定义，不依赖 SolidWorks
-的显示选项。
+`convexity` is computed from the normals of adjacent faces, a geometric definition independent of SolidWorks
+display settings.
 
-判定需要读取相邻面的参数。**读取失败时返回 `null`，该边不会被排除**——宁可多选
-也不漏选用户明确要求的边。此时请用 `solidworks_list_edges` 复核结果。
+Adjacent-face parameters must be read. **A read failure returns `null` and does not exclude the edge**, favoring inclusion
+over silently omitting a requested edge. Review such cases with `solidworks_list_edges`.
 
-## 已知边界
+## Known limits
 
-- 圆边没有"轴向"概念，`axis` 筛选会把它排除；选孔的入口边请用 `circular` + `diameter_mm`。
-- 曲面间的相切边（例如已有圆角产生的切边）会被当作普通边返回。**在同一模型上
-  连续做多组圆角/倒角时，后一组可能选到前一组产生的切边**——每组操作前用
-  `solidworks_list_edges` 确认当前拓扑，或把不同组的特征拆到不同阶段。
-- 保持线（hold line）圆角仍为受限能力，见 `subskills/solidworks-fillet-chamfer-cnc/`。
+- Circular edges have no straight axis direction and are excluded by `axis`; use `circular` + `diameter_mm` for hole entrances.
+- Tangent edges between surfaces, including edges introduced by existing fillets, are returned as ordinary edges. **When applying
+  several fillet/chamfer groups, later groups may select tangent edges created by earlier groups.** Inspect topology with
+  `solidworks_list_edges` before each operation, or separate groups into distinct modeling stages.
+- Hold-line fillets remain limited; see `subskills/solidworks-fillet-chamfer-cnc/`.
 
-## API 注意事项
+## API notes
 
-`IEdge::Select4(Append, Callout)` 的第二个参数是 **Callout 对象**，
-必须是 Dispatch VARIANT。传 Python 的 `None` 会得到
-`类型不匹配`（`0x80020005`）。
+The second argument of `IEdge::Select4(Append, Callout)` is a **Callout object**
+and must be a Dispatch VARIANT. Passing Python `None` causes
+`Type mismatch` (`0x80020005`).
 
-`IEdge::Select2(Append, Mark)` 没有这个问题，因此封装**优先走 Select2，失败才退到
-Select4**。写自己的选边代码时请沿用同样的顺序。
+`IEdge::Select2(Append, Mark)` avoids this issue, so the wrapper **tries Select2 first and falls back to
+Select4 only on failure**. Use the same order in custom selection code.
 
 ```python
-# 正确
+# Correct
 edge.Select2(True, 0)
-# 需要 Select4 时
+# When Select4 is required
 from scripts.sw_connect import create_empty_dispatch_variant
 edge.Select4(True, create_empty_dispatch_variant())
 ```
 
-## 圆角 API 的一个坑
+## A fillet API pitfall
 
-`IFeatureManager::FeatureFillet` 只接受 **4 个参数**：
+`IFeatureManager::FeatureFillet` accepts only **four arguments**:
 
 ```python
 model.FeatureManager.FeatureFillet(195, radius, 0, 0)   # (Options, Radius, R1, R2)
 ```
 
-不要传 7 个参数（在末尾补 `None`）——这会在 SolidWorks 2024/2026 上抛
-`非选择性的参数`（`0x8002000F`）。旧版本文档和早期封装里有这个错误写法。
+Do not pass seven arguments by appending `None`; SolidWorks 2024/2026 reports
+a nonoptional/required argument error (`0x8002000F`). Older documentation and early wrappers contained this mistake.
 
-同理，所选边必须非空；`sw_part.fillet()` 已经显式校验选择集，为空时抛
-`ValueError` 并提示改用 `select_edges()`。
+The selected-edge set must also be nonempty. `sw_part.fillet()` checks it explicitly and raises
+`ValueError` when empty, recommending `select_edges()`.

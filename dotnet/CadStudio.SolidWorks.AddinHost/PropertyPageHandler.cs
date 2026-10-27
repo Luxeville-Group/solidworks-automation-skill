@@ -4,7 +4,7 @@ using SolidWorks.Interop.swpublished;
 
 namespace CadStudio.SolidWorks.AddinHost
 {
-    /// <summary>SW2026 IPropertyManagerPage2Handler9 的完整托管回调实现。</summary>
+    /// <summary>Complete managed callbacks for SW2026 IPropertyManagerPage2Handler9.</summary>
     [ComVisible(true)]
     [Guid("8F33287B-C62A-4E05-85E6-3D7339A7F74B")]
     [ClassInterface(ClassInterfaceType.AutoDispatch)]
@@ -12,7 +12,7 @@ namespace CadStudio.SolidWorks.AddinHost
     {
         private readonly Action<string> activity;
 
-        /// <summary>创建带活动记录器的 PMP 处理器。</summary>
+        /// <summary>Create a PMP handler with an activity recorder.</summary>
         internal PropertyPageHandler(Action<string> activityRecorder)
         {
             activity = activityRecorder;

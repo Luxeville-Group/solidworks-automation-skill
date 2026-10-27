@@ -1,4 +1,4 @@
-"""SolidWorks BOM 清单与 Pack and Go 交付工具。"""
+"""SOLIDWORKS BOM inventory and Pack and Go delivery tools."""
 from __future__ import annotations
 
 import csv
@@ -66,9 +66,9 @@ def _property_value(model, configuration_name: str, names: tuple[str, ...]) -> s
 
 
 def collect_assembly_bom(model, *, include_excluded: bool = False) -> list[dict[str, Any]]:
-    """收集装配体顶层组件并按文件路径和配置汇总数量。"""
+    """Collect top-level assembly components and aggregate quantities by file path and configuration."""
     if int(get_com_member(model, "GetType")) != 2:
-        raise ValueError("BOM 清单只支持装配体文档")
+        raise ValueError("BOM listesi yalnızca montaj belgelerini destekler")
     components = get_com_member(model, "GetComponents", False) or []
     grouped: dict[tuple[str, str], dict[str, Any]] = {}
     for component in components:
@@ -77,7 +77,7 @@ def collect_assembly_bom(model, *, include_excluded: bool = False) -> list[dict[
             continue
         path = str(get_com_member(component, "GetPathName") or "")
         configuration = str(get_com_member(component, "ReferencedConfiguration") or "")
-        name = str(get_com_member(component, "Name2") or Path(path).stem or "虚拟组件")
+        name = str(get_com_member(component, "Name2") or Path(path).stem or "Sanal bileşen")
         key = ((path or name).casefold(), configuration.casefold())
         if key in grouped:
             grouped[key]["quantity"] += 1
@@ -86,13 +86,13 @@ def collect_assembly_bom(model, *, include_excluded: bool = False) -> list[dict[
         part_number = _property_value(
             referenced_model,
             configuration,
-            ("PartNumber", "Part Number", "零件代号", "零件号"),
+            ("PartNumber", "Part Number", "Parça Kodu", "Parça Numarası", "\u96f6\u4ef6\u4ee3\u53f7", "\u96f6\u4ef6\u53f7"),
         ) or Path(path).stem or name
         grouped[key] = {
             "item": 0,
             "part_number": part_number,
-            "description": _property_value(referenced_model, configuration, ("Description", "描述")),
-            "material": _property_value(referenced_model, configuration, ("Material", "材料")),
+            "description": _property_value(referenced_model, configuration, ("Description", "Açıklama", "\u63cf\u8ff0")),
+            "material": _property_value(referenced_model, configuration, ("Material", "Malzeme", "\u6750\u6599")),
             "quantity": 1,
             "file": path,
             "configuration": configuration,
@@ -112,10 +112,10 @@ def export_assembly_bom_csv(
     include_excluded: bool = False,
     overwrite: bool = False,
 ) -> dict[str, Any]:
-    """导出 UTF-8 BOM CSV，并返回文件大小与 SHA-256 证据。"""
+    """Export a UTF-8 BOM CSV with file-size and SHA-256 evidence."""
     target = Path(os.path.expandvars(str(output_path))).expanduser().resolve()
     if target.exists() and not overwrite:
-        raise FileExistsError(f"BOM 文件已存在，未允许覆盖: {target}")
+        raise FileExistsError(f"BOM dosyası mevcut; üzerine yazmaya izin verilmedi: {target}")
     target.parent.mkdir(parents=True, exist_ok=True)
     before = _file_signature(target)
     rows = collect_assembly_bom(model, include_excluded=include_excluded)
@@ -139,18 +139,18 @@ def export_assembly_bom_csv(
         "sha256": _sha256(target) if produced else "",
         "produced_this_run": produced,
         "review_required": True,
-        "limitations": ["CSV 为装配组件属性清单，必须与 SolidWorks 原生 BOM 和工程图人工核对"],
+        "limitations": ["CSV, montaj bileşeni özellik listesidir; yerel SOLIDWORKS BOM ve teknik çizim ile elle karşılaştırılmalıdır"],
     }
 
 
 def build_bom_traceability(bom_rows, *, model_path="", drawing_path="", review_path="") -> dict[str, Any]:
-    """@brief 建立 BOM、模型、工程图和复核报告之间的可追溯关系。"""
+    """@brief Establish traceability between BOM, model, drawing, and review report."""
     rows = list(bom_rows or [])
     checks = [
-        {"id": "bom-not-empty", "status": "pass" if rows else "warning", "message": "BOM 包含组件行" if rows else "BOM 为空，需要确认是否为单零件或读取失败"},
-        {"id": "model-reference", "status": "pass" if model_path else "warning", "message": "已关联模型路径" if model_path else "未提供模型路径"},
-        {"id": "drawing-reference", "status": "pass" if drawing_path else "warning", "message": "已关联工程图路径" if drawing_path else "未提供工程图路径"},
-        {"id": "review-reference", "status": "pass" if review_path else "warning", "message": "已关联复核报告" if review_path else "未提供复核报告"},
+        {"id": "bom-not-empty", "status": "pass" if rows else "warning", "message": "BOM bileşen satırları içeriyor" if rows else "BOM boş; tek parça mı yoksa okuma hatası mı olduğunu doğrulayın"},
+        {"id": "model-reference", "status": "pass" if model_path else "warning", "message": "Model yolu ilişkilendirildi" if model_path else "Model yolu verilmedi"},
+        {"id": "drawing-reference", "status": "pass" if drawing_path else "warning", "message": "Teknik çizim yolu ilişkilendirildi" if drawing_path else "Teknik çizim yolu verilmedi"},
+        {"id": "review-reference", "status": "pass" if review_path else "warning", "message": "İnceleme raporu ilişkilendirildi" if review_path else "İnceleme raporu verilmedi"},
     ]
     return {
         "status": "pass" if rows and model_path and drawing_path else "warning",
@@ -180,7 +180,7 @@ def _status_codes(value) -> list[int]:
 
 
 def _collect_new_outputs(target: Path, existing_files: dict[str, tuple[int, int] | None]) -> list[dict[str, Any]]:
-    """@brief 收集本轮 Pack and Go 实际新写入或覆盖的输出文件。"""
+    """@brief Collect output files actually created or overwritten by this Pack and Go run."""
     outputs = []
     for path in sorted(item for item in target.rglob("*") if item.is_file()):
         after = _file_signature(path)
@@ -197,7 +197,7 @@ def _collect_new_outputs(target: Path, existing_files: dict[str, tuple[int, int]
 
 
 def _document_dependency_paths(model, source_path: str) -> list[str]:
-    """@brief 读取当前文档引用路径，用于校验 Pack and Go 是否漏包。"""
+    """@brief Read current document dependencies to detect missing Pack and Go files."""
     try:
         dependencies = get_com_member(model, "GetDependencies2", False, True, False) or []
     except Exception:
@@ -214,7 +214,7 @@ def _document_dependency_paths(model, source_path: str) -> list[str]:
 
 
 def _optional_com_member(obj, name, *args, default=None):
-    """@brief 安全读取审计用 COM 成员，无法判断时保留 unknown。"""
+    """@brief Safely read COM audit members and retain unknown when indeterminate."""
     if obj is None:
         return default
     try:
@@ -225,7 +225,7 @@ def _optional_com_member(obj, name, *args, default=None):
 
 
 def _is_external_reference(path: str, source_path: str) -> bool | None:
-    """@brief 判断引用是否位于装配体目录树外。"""
+    """@brief Check whether a reference lies outside the assembly directory tree."""
     try:
         Path(path).expanduser().resolve().relative_to(Path(source_path).expanduser().resolve().parent)
         return False
@@ -236,7 +236,7 @@ def _is_external_reference(path: str, source_path: str) -> bool | None:
 
 
 def _toolbox_state(component, referenced_model, path: str) -> tuple[str, str]:
-    """@brief 读取 ToolboxPartType；不可用时仅以路径作为候选证据。"""
+    """@brief Read ToolboxPartType; when unavailable, use paths only as candidate evidence."""
     extension = _optional_com_member(referenced_model, "Extension")
     raw_type = _optional_com_member(extension, "ToolboxPartType")
     mapping = {0: "not_toolbox", 1: "standard", 2: "copied"}
@@ -252,7 +252,7 @@ def _toolbox_state(component, referenced_model, path: str) -> tuple[str, str]:
 
 
 def _suppression_state(component) -> tuple[str, int | None]:
-    """@brief 按 swComponentSuppressionState_e 记录组件加载状态。"""
+    """@brief Record component loading state using swComponentSuppressionState_e."""
     raw_state = _optional_com_member(component, "GetSuppression")
     mapping = {
         0: "suppressed",
@@ -273,7 +273,7 @@ def _suppression_state(component) -> tuple[str, int | None]:
 
 
 def _collect_component_audit_records(model, source_path: str) -> list[dict[str, Any]]:
-    """@brief 收集 Pack and Go 的配置、Toolbox 与压缩状态审计证据。"""
+    """@brief Collect configuration, Toolbox, and suppression audit evidence for Pack and Go."""
     components = _optional_com_member(model, "GetComponents", False, default=[]) or []
     records = []
     for component in components:
@@ -298,7 +298,7 @@ def _collect_component_audit_records(model, source_path: str) -> list[dict[str, 
 
 
 def _associated_drawing_paths(source_path: str, dependencies: list[str]) -> list[str]:
-    """@brief 查找模型同目录下真实存在的同名 SLDDrw。"""
+    """@brief Find an existing same-name SLDDrw alongside the model."""
     found = []
     seen = set()
     for raw_path in [source_path, *dependencies]:
@@ -332,7 +332,7 @@ def _required_pack_dependency_paths(
     include_toolbox_components: bool,
     include_suppressed: bool,
 ) -> list[str]:
-    """@brief 按 Pack and Go 选项计算本轮必须落盘的引用文件。"""
+    """@brief Determine references that must be written for the selected Pack and Go options."""
     metadata: dict[str, list[dict[str, Any]]] = {}
     for record in component_records:
         if record["path"]:
@@ -369,7 +369,7 @@ def build_pack_and_go_audit_matrix(
     include_toolbox_components: bool,
     include_suppressed: bool,
 ) -> dict[str, Any]:
-    """@brief 建立外部引用、Toolbox、配置、压缩组件和工程图审计矩阵。"""
+    """@brief Build an audit matrix for external references, Toolbox, configurations, suppressed components, and drawings."""
     required_dependencies = _required_pack_dependency_paths(
         dependencies,
         component_records,
@@ -472,12 +472,12 @@ def build_pack_and_go_audit_matrix(
     status = "blocked" if blocking_codes else "review_required" if review_codes else "pass"
     required_rows = [row for row in rows if row["required"]]
     checks = [
-        {"id": "pack-required-files", "status": "pass" if all(row["included"] for row in required_rows) else "fail", "message": f"必需文件 {sum(row['included'] for row in required_rows)}/{len(required_rows)} 已落盘"},
-        {"id": "pack-external-references", "status": "warning" if any(row["external_reference"] for row in rows) else "pass", "message": "外部引用需要人工重开验证" if any(row["external_reference"] for row in rows) else "未发现项目目录外引用"},
-        {"id": "pack-toolbox", "status": "warning" if any("unknown" in row["toolbox_states"] or any(item in {"standard", "copied", "candidate"} for item in row["toolbox_states"]) for row in rows if row["reference_kind"] == "model_dependency") else "pass", "message": "Toolbox 状态已记录；候选或未知项需人工确认"},
-        {"id": "pack-configurations", "status": "warning" if any(row["configurations"] for row in rows) else "pass", "message": "配置引用已记录，配置内容仍需重开验证"},
-        {"id": "pack-component-states", "status": "warning" if any(any(state in {"lightweight", "fully_lightweight", "suppressed", "internal_id_mismatch"} for state in row["load_states"]) for row in rows) else "pass", "message": "压缩、轻化和异常组件状态已纳入矩阵"},
-        {"id": "pack-associated-drawings", "status": "pass" if all(row["included"] for row in rows if row["reference_kind"] == "associated_drawing" and row["required"]) else "fail", "message": "已核对本机存在的同名关联工程图"},
+        {"id": "pack-required-files", "status": "pass" if all(row["included"] for row in required_rows) else "fail", "message": f"Gerekli dosya {sum(row['included'] for row in required_rows)}/{len(required_rows)} diske yazıldı"},
+        {"id": "pack-external-references", "status": "warning" if any(row["external_reference"] for row in rows) else "pass", "message": "Dış referanslar elle yeniden açılarak doğrulanmalı" if any(row["external_reference"] for row in rows) else "Proje dizini dışında referans bulunamadı"},
+        {"id": "pack-toolbox", "status": "warning" if any("unknown" in row["toolbox_states"] or any(item in {"standard", "copied", "candidate"} for item in row["toolbox_states"]) for row in rows if row["reference_kind"] == "model_dependency") else "pass", "message": "Toolbox durumu kaydedildi; aday veya bilinmeyen öğeler elle doğrulanmalı"},
+        {"id": "pack-configurations", "status": "warning" if any(row["configurations"] for row in rows) else "pass", "message": "Konfigürasyon referansları kaydedildi; içerik yeniden açılarak doğrulanmalı"},
+        {"id": "pack-component-states", "status": "warning" if any(any(state in {"lightweight", "fully_lightweight", "suppressed", "internal_id_mismatch"} for state in row["load_states"]) for row in rows) else "pass", "message": "Suppressed, lightweight ve hatalı bileşen durumları matrise eklendi"},
+        {"id": "pack-associated-drawings", "status": "pass" if all(row["included"] for row in rows if row["reference_kind"] == "associated_drawing" and row["required"]) else "fail", "message": "Yerelde mevcut aynı adlı ilişkili teknik çizimler denetlendi"},
     ]
     return {
         "schema_version": "1.0",
@@ -504,7 +504,7 @@ def build_pack_and_go_audit_matrix(
 
 
 def _missing_dependency_paths(dependencies: list[str], outputs: list[dict[str, Any]]) -> list[str]:
-    """@brief 按文件名检查原生 Pack and Go 输出是否缺少依赖文件。"""
+    """@brief Check native Pack and Go output names for missing dependencies."""
     produced_names = {Path(item["path"]).name.casefold() for item in outputs}
     missing = []
     seen = set()
@@ -519,7 +519,7 @@ def _missing_dependency_paths(dependencies: list[str], outputs: list[dict[str, A
 
 
 def _safe_staged_destination(source: Path, sources: list[Path], target: Path, *, flatten: bool) -> Path:
-    """@brief 计算依赖暂存路径，并阻止写出目标目录。"""
+    """@brief Compute dependency staging paths and prevent writes outside the destination directory."""
     target_root = target.resolve()
     if flatten:
         relative = Path(source.name)
@@ -528,13 +528,13 @@ def _safe_staged_destination(source: Path, sources: list[Path], target: Path, *,
             common_root = Path(os.path.commonpath([str(item.resolve()) for item in sources]))
             relative = source.resolve().relative_to(common_root)
         except (OSError, ValueError):
-            # 不同盘符或外部引用没有共同根目录时，使用稳定的外部引用目录。
+            # Use a stable external-reference directory when different drives or external references lack a common root.
             relative = Path("external") / hashlib.sha256(str(source.resolve()).encode("utf-8")).hexdigest()[:12] / source.name
     destination = (target_root / relative).resolve()
     try:
         destination.relative_to(target_root)
     except ValueError as exc:
-        raise RuntimeError(f"Pack and Go 暂存路径越界: {destination}") from exc
+        raise RuntimeError(f"Pack and Go hazırlama yolu sınır dışında: {destination}") from exc
     return destination
 
 
@@ -546,10 +546,9 @@ def _stage_pack_and_go_dependencies(
     *,
     flatten: bool,
 ) -> dict[str, Any]:
-    """@brief 在原生清单不完整时生成可审计的依赖暂存包。
+    """@brief Create an auditable dependency staging package when the native manifest is incomplete.
 
-    该后端只复制 SolidWorks 已报告的源文件，不修改 CAD 文件内容，也不宣称
-    这是原生 Pack and Go。每个文件和 manifest 都带有本轮产物与 SHA-256 证据。
+    Copy only source files reported by SOLIDWORKS. Do not modify CAD contents or claim this is native Pack and Go. Each file and manifest carries current-run and SHA-256 evidence.
     """
     raw_sources = [str(Path(source_path).expanduser().resolve()), *dependencies]
     source_paths: list[Path] = []
@@ -561,7 +560,7 @@ def _stage_pack_and_go_dependencies(
             continue
         seen_sources.add(key)
         if not path.is_file():
-            raise FileNotFoundError(f"Pack and Go 暂存源文件不存在: {path}")
+            raise FileNotFoundError(f"Pack and Go hazırlama kaynak dosyası yok: {path}")
         source_paths.append(path)
 
     destinations: dict[str, Path] = {}
@@ -570,7 +569,7 @@ def _stage_pack_and_go_dependencies(
         key = str(destination).casefold()
         previous = destinations.get(key)
         if previous is not None and previous.resolve() != source.resolve():
-            raise RuntimeError(f"Pack and Go 暂存文件重名冲突: {previous.name} <- {previous}, {source}")
+            raise RuntimeError(f"Pack and Go hazırlama dosya adı çakışması: {previous.name} <- {previous}, {source}")
         destinations[key] = source
 
     staged_files: list[dict[str, Any]] = []
@@ -578,11 +577,11 @@ def _stage_pack_and_go_dependencies(
         destination = _safe_staged_destination(source, source_paths, target, flatten=flatten)
         destination.parent.mkdir(parents=True, exist_ok=True)
         if source.resolve() == destination.resolve():
-            raise RuntimeError(f"Pack and Go 暂存目标不能覆盖源文件: {source}")
+            raise RuntimeError(f"Pack and Go hazırlama hedefi kaynak dosyanın üzerine yazamaz: {source}")
         shutil.copy2(source, destination)
         signature = _file_signature(destination)
         if signature is None or signature[0] <= 0:
-            raise RuntimeError(f"Pack and Go 暂存文件为空: {destination}")
+            raise RuntimeError(f"Pack and Go hazırlama dosyası boş: {destination}")
         staged_files.append({
             "source": str(source),
             "path": str(destination),
@@ -593,7 +592,7 @@ def _stage_pack_and_go_dependencies(
 
     manifest_path = target / "cadstudio-pack-manifest.json"
     if manifest_path.exists() and str(manifest_path) in existing_files:
-        raise FileExistsError(f"Pack and Go 暂存清单已存在，未允许覆盖: {manifest_path}")
+        raise FileExistsError(f"Pack and Go hazırlama manifest mevcut; üzerine yazmaya izin verilmedi: {manifest_path}")
     manifest = {
         "schemaVersion": "1.0",
         "backend": "staged_dependencies",
@@ -602,14 +601,14 @@ def _stage_pack_and_go_dependencies(
         "dependencies": [str(Path(item).expanduser().resolve()) for item in dependencies],
         "files": staged_files,
         "limitations": [
-            "这是基于 SolidWorks GetDependencies2 的本地暂存包，不是原生 IPackAndGo 清单",
-            "外部引用、Toolbox、配置和工程图仍需人工在 SolidWorks 中复核",
+            "Bu, SOLIDWORKS GetDependencies2 tabanlı yerel hazırlama paketidir; yerel IPackAndGo listesi değildir",
+            "Dış referanslar, Toolbox, konfigürasyonlar ve teknik çizimler SOLIDWORKS içinde elle incelenmeli",
         ],
     }
     manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
     manifest_signature = _file_signature(manifest_path)
     if manifest_signature is None or manifest_signature[0] <= 0:
-        raise RuntimeError(f"Pack and Go 暂存清单为空: {manifest_path}")
+        raise RuntimeError(f"Pack and Go hazırlama manifest boş: {manifest_path}")
     staged_files.append({
         "path": str(manifest_path),
         "size_bytes": manifest_signature[0],
@@ -626,29 +625,27 @@ def _stage_pack_and_go_dependencies(
 
 
 def _comtypes_document_names(package, document_count: int) -> list[str]:
-    """@brief 通过 IPackAndGo::IGetDocumentNames 读取固定长度原生数组。
+    """@brief Read a fixed-length native array through IPackAndGo::IGetDocumentNames.
 
-    SW2024 的 Automation ``GetDocumentNames`` 在部分 Python COM 代理上只返回
-    顶层文档。官方同时提供了基于 ``GetDocumentNamesCount`` 的原生
-    ``IGetDocumentNames``；这里显式分配 BSTR 数组，避免 SAFEARRAY 封送差异。
+    SW2024 Automation GetDocumentNames returns only the top-level document with some Python COM proxies. The official IGetDocumentNames uses GetDocumentNamesCount; allocate a BSTR array explicitly to avoid SAFEARRAY marshaling differences.
     """
     if document_count <= 0:
         return []
     names = (ctypes.c_wchar_p * document_count)()
-    # comtypes 会自动分配 [out] 数组，只需传入 Count。
+    # comtypes allocates the [out] array automatically; only Count is required.
     result = package.IGetDocumentNames(document_count)
-    # comtypes 对 [out, retval] 的 VARIANT_BOOL 可能直接返回 bool，也可能返回元组。
+    # comtypes may return [out, retval] VARIANT_BOOL as bool or tuple.
     if result is False:
-        raise RuntimeError("IPackAndGo.IGetDocumentNames 返回 False")
+        raise RuntimeError("IPackAndGo.IGetDocumentNames False döndü")
     returned_names = result[0] if isinstance(result, tuple) and result else result
     if isinstance(returned_names, (list, tuple)):
         return [str(item) for item in returned_names if item]
-    # 少数生成器仍直接填充本地缓冲；保留兼容路径。
+    # Some generators still populate a local buffer; preserve that compatibility path.
     return [str(item) for item in names if item]
 
 
 def _active_solidworks_major() -> int | None:
-    """@brief 返回当前 SolidWorks 类型库主版本，例如 SW2024 为 32。"""
+    """@brief Return the current SOLIDWORKS type library major version, such as 32 for SW2024."""
     try:
         sw = win32com_client.GetActiveObject("SldWorks.Application")
         revision = str(get_com_member(sw, "RevisionNumber"))
@@ -658,7 +655,7 @@ def _active_solidworks_major() -> int | None:
 
 
 def _load_sldworks_typelib_module():
-    """@brief 加载当前或最近注册的 SolidWorks 强类型 pywin32 模块。"""
+    """@brief Load the current or most recently registered strongly typed pywin32 SOLIDWORKS module."""
     detected = _active_solidworks_major()
     candidates = [detected] if detected is not None else []
     candidates.extend(major for major in range(40, 19, -1) if major != detected)
@@ -676,12 +673,12 @@ def _load_sldworks_typelib_module():
             )
         except Exception as exc:
             errors.append(f"{major}: {exc}")
-    detail = "; ".join(errors[:3]) or "未发现注册版本"
-    raise RuntimeError(f"无法加载 SolidWorks 类型库: {detail}")
+    detail = "; ".join(errors[:3]) or "Kayıtlı sürüm bulunamadı"
+    raise RuntimeError(f"SOLIDWORKS type library yüklenemedi: {detail}")
 
 
 def _model_doc_extension(model):
-    """@brief 从强类型 IModelDoc2 取得正确的 IModelDocExtension。"""
+    """@brief Obtain the correct IModelDocExtension from strongly typed IModelDoc2."""
     ole_object = getattr(model, "_oleobj_", None)
     if ole_object is None:
         return model.Extension
@@ -689,12 +686,12 @@ def _model_doc_extension(model):
     typed_model = module.IModelDoc2(ole_object)
     extension = typed_model.Extension
     if extension is None:
-        raise RuntimeError("SolidWorks 未返回 IModelDocExtension")
+        raise RuntimeError("SOLIDWORKS IModelDocExtension döndürmedi")
     return extension
 
 
 def _coerce_dispatch(value):
-    """@brief 将原始 IDispatch 包装为 pywin32 对象，普通假对象原样返回。"""
+    """@brief Wrap raw IDispatch as a pywin32 object; return ordinary test doubles unchanged."""
     if value is None:
         return None
     if hasattr(value, "_oleobj_") or hasattr(value, "SetSaveToName"):
@@ -706,7 +703,7 @@ def _coerce_dispatch(value):
 
 
 def _get_pack_and_go(extension):
-    """@brief 获取 IPackAndGo，优先遵循当前类型库的无参数返回值签名。"""
+    """@brief Obtain IPackAndGo, preferring the current type library no-argument return-value signature."""
     errors: list[str] = []
     try:
         package = get_com_member(extension, "GetPackAndGo")
@@ -732,8 +729,8 @@ def _get_pack_and_go(extension):
         except Exception as exc:
             errors.append(f"noarg-invoketypes: {exc}")
 
-        # SW2024 SP5 的 IDispatch::Invoke 实现要求以 by-ref dispatch 出参携带
-        # IPackAndGo (comtypes 走 vtable 无此限制)；返回值本身为空。
+        # SW2024 SP5 IDispatch::Invoke requires IPackAndGo in a by-ref dispatch output argument
+        # (comtypes vtable calls do not have this restriction); the return value itself is empty.
         if dispid is not None:
             output = _VARIANT(pythoncom.VT_BYREF | pythoncom.VT_DISPATCH, None)
             try:
@@ -750,7 +747,7 @@ def _get_pack_and_go(extension):
             except Exception as exc:
                 errors.append(f"byref-dispatch-out: {exc}")
 
-    # 仅保留给旧版异常包装器的兼容路径；当前官方类型库不是 by-ref 签名。
+    # Compatibility only for older anomalous wrappers; the current official type library is not by-ref.
     output = _VARIANT(pythoncom.VT_BYREF | pythoncom.VT_DISPATCH, None)
     member = getattr(extension, "GetPackAndGo", None)
     if callable(member):
@@ -762,8 +759,8 @@ def _get_pack_and_go(extension):
         except Exception as exc:
             errors.append(f"legacy-byref-method: {exc}")
 
-    detail = "; ".join(errors) or "未返回对象"
-    raise RuntimeError(f"SolidWorks 未返回 IPackAndGo 对象: {detail}")
+    detail = "; ".join(errors) or "Nesne döndürülmedi"
+    raise RuntimeError(f"SOLIDWORKS IPackAndGo nesnesi döndürmedi: {detail}")
 
 
 def _pywin32_pack_and_go(
@@ -777,7 +774,7 @@ def _pywin32_pack_and_go(
     include_suppressed: bool,
     flatten: bool,
 ) -> dict[str, Any]:
-    """@brief 使用 pywin32 调用 SolidWorks 原生 Pack and Go。"""
+    """@brief Call native SOLIDWORKS Pack and Go through pywin32."""
     package = _get_pack_and_go(extension)
     package.IncludeDrawings = bool(include_drawings)
     package.IncludeSimulationResults = bool(include_simulation_results)
@@ -786,7 +783,7 @@ def _pywin32_pack_and_go(
     package.FlattenToSingleFolder = bool(flatten)
     document_count = int(get_com_member(package, "GetDocumentNamesCount"))
     if not package.SetSaveToName(True, str(target) + os.sep):
-        raise RuntimeError("IPackAndGo.SetSaveToName 拒绝目标目录")
+        raise RuntimeError("IPackAndGo.SetSaveToName hedef dizini reddetti")
 
     status_codes = _status_codes(extension.SavePackAndGo(package))
     outputs = _collect_new_outputs(target, existing_files)
@@ -800,15 +797,15 @@ def _pywin32_pack_and_go(
 
 
 def _comtypes_module():
-    """@brief 加载 SolidWorks comtypes 早绑定模块。"""
+    """@brief Load the early-bound SOLIDWORKS comtypes module."""
     import comtypes.client
 
-    # 当前回退只验收 2026，不能在未知 ROT 状态时猜测其它主版本类型库。
+    # This fallback is validated only for 2026; do not guess another major-version type library when ROT state is unknown.
     return comtypes.client.GetModule((SLDWORKS_TYPELIB_ID, 34, 0))
 
 
 def _extract_comtypes_model(value):
-    """@brief 从 comtypes OpenDoc6 返回值中提取 IModelDoc2 指针。"""
+    """@brief Extract an IModelDoc2 pointer from the comtypes OpenDoc6 result."""
     candidates = []
 
     def walk(item):
@@ -820,7 +817,7 @@ def _extract_comtypes_model(value):
 
     walk(value)
     if not candidates:
-        raise RuntimeError(f"comtypes OpenDoc6 未返回 ModelDoc2: {value!r}")
+        raise RuntimeError(f"comtypes OpenDoc6 ModelDoc2 döndürmedi: {value!r}")
     from comtypes.gen import SldWorks
 
     for candidate in candidates:
@@ -832,35 +829,35 @@ def _extract_comtypes_model(value):
 
 
 def _comtypes_active_model(sw, source_path: str):
-    """@brief 在 OpenDoc6 返回空时，校验并返回当前活动文档。"""
+    """@brief Validate and return the active document when OpenDoc6 returns empty."""
     from comtypes.gen import SldWorks
 
     try:
         active = sw.ActiveDoc
     except Exception as exc:
-        raise RuntimeError(f"comtypes 无法读取 ActiveDoc: {exc}") from exc
+        raise RuntimeError(f"comtypes ActiveDoc okunamadı: {exc}") from exc
     if not active:
-        raise RuntimeError("comtypes ActiveDoc 为空")
+        raise RuntimeError("comtypes ActiveDoc boş")
     document = active.QueryInterface(SldWorks.IModelDoc2)
     active_path = str(document.GetPathName() or "")
     if Path(active_path).resolve() != Path(source_path).resolve():
-        raise RuntimeError(f"comtypes ActiveDoc 不是目标文档: {active_path}")
+        raise RuntimeError(f"comtypes ActiveDoc hedef belge değil: {active_path}")
     return document
 
 
 def _connect_comtypes_solidworks(client, progids: list[str], *, expected_pid=None):
-    """@brief 优先附着活动实例，返回应用对象、所有权标记和最后错误。"""
+    """@brief Prefer attaching to an active instance; return application, ownership flag, and last error."""
     def identity(app):
-        """@brief 核对真实 PID/版本，不能用构造器返回值推断归属。"""
+        """@brief Verify actual PID/version; constructor return values do not establish ownership."""
         try:
             pid = int(get_com_member(app, "GetProcessID"))
             version = get_sw_version(app)
         except Exception as error:
-            raise SolidWorksConnectionError("SW_PROCESS_STATE_UNAVAILABLE", "pack_and_go", "无法确认回退实例身份") from error
+            raise SolidWorksConnectionError("SW_PROCESS_STATE_UNAVAILABLE", "pack_and_go", "Fallback örneğinin kimliği doğrulanamadı") from error
         if pid <= 0 or version["year"] != 2026:
-            raise SolidWorksConnectionError("SW_VERSION_MISMATCH", "pack_and_go", "Pack and Go 回退只验收 SolidWorks 2026")
+            raise SolidWorksConnectionError("SW_VERSION_MISMATCH", "pack_and_go", "Pack and Go fallback yalnızca SOLIDWORKS 2026 için doğrulandı")
         if expected_pid is not None and pid != int(expected_pid):
-            raise SolidWorksConnectionError("SW_INSTANCE_MISMATCH", "pack_and_go", "回退连接到了其他 CAD 实例")
+            raise SolidWorksConnectionError("SW_INSTANCE_MISMATCH", "pack_and_go", "Fallback başka bir CAD örneğine bağlandı")
         return pid
 
     last_error = None
@@ -876,9 +873,9 @@ def _connect_comtypes_solidworks(client, progids: list[str], *, expected_pid=Non
             except Exception as exc:
                 last_error = exc
         if before is None:
-            raise SolidWorksConnectionError("SW_PROCESS_STATE_UNAVAILABLE", "pack_and_go", "进程清单不可读，已阻止不确定的构造")
+            raise SolidWorksConnectionError("SW_PROCESS_STATE_UNAVAILABLE", "pack_and_go", "Süreç listesi okunamıyor; belirsiz örnek oluşturma engellendi")
         if expected_pid is not None and int(expected_pid) not in before:
-            raise SolidWorksConnectionError("SW_INSTANCE_NOT_READY", "pack_and_go", "父实例已不可确认，已阻止回退启动")
+            raise SolidWorksConnectionError("SW_INSTANCE_NOT_READY", "pack_and_go", "Ana örnek doğrulanamıyor; fallback başlatma engellendi")
         for progid in progids:
             try:
                 app = client.CreateObject(progid)
@@ -903,12 +900,11 @@ def _comtypes_pack_and_go(
     flatten: bool,
     dependencies: list[str] | None = None,
 ) -> dict[str, Any]:
-    """@brief 进程隔离地执行 comtypes 兜底 Pack and Go。
+    """@brief Run the comtypes Pack and Go fallback in an isolated process.
 
-    隔离 Python COM 封送与输出；RPC_E_DISCONNECTED 也可能由误退出共享 CAD
-    服务引起，因此子进程仍须绑定父 PID，不能把进程隔离当成实例归属证据。
+    Isolate Python COM marshaling and output. RPC_E_DISCONNECTED can also result from accidentally quitting a shared CAD service, so the child must bind to the parent PID; process isolation does not prove instance ownership.
     """
-    # 父进程只读确认身份；子进程必须附着到同一 2026 实例，不能自行拉起替代实例。
+    # The parent verifies identity read-only; the child must attach to the same 2026 instance, never launch a replacement.
     expected_pid = _pack_parent_pid()
     payload = {
         "expected_pid": expected_pid,
@@ -932,23 +928,23 @@ def _comtypes_pack_and_go(
             timeout=120, cwd=str(Path(__file__).resolve().parent.parent),
         )
     except subprocess.TimeoutExpired as error:
-        raise SolidWorksConnectionError("SW_PACK_AND_GO_TIMEOUT", "pack_and_go", "回退已超时，CAD 输出状态需人工确认；禁止自动重试或覆盖") from error
+        raise SolidWorksConnectionError("SW_PACK_AND_GO_TIMEOUT", "pack_and_go", "Fallback zaman aşımına uğradı; CAD çıktı durumu elle doğrulanmalı; otomatik yeniden deneme veya üzerine yazma yasak") from error
     stdout = (completed.stdout or "").strip()
     try:
         if len(stdout) > 8 * 1024 * 1024:
-            raise ValueError("回退输出过大")
+            raise ValueError("Fallback çıktısı çok büyük")
         decoded = json.loads(stdout)
         if not isinstance(decoded, dict):
-            raise ValueError("回退结果必须是 JSON 对象")
+            raise ValueError("Fallback sonucu JSON nesnesi olmalı")
     except Exception as exc:
-        raise SolidWorksConnectionError("SW_PACK_AND_GO_WORKER_PROTOCOL", "pack_and_go", "回退输出不是完整的 JSON 结果") from exc
+        raise SolidWorksConnectionError("SW_PACK_AND_GO_WORKER_PROTOCOL", "pack_and_go", "Fallback çıktısı tam bir JSON sonucu değil") from exc
     if "error" in decoded:
         if decoded.get("code"):
             raise SolidWorksConnectionError(str(decoded["code"]), "pack_and_go", str(decoded["error"]))
-        raise RuntimeError(f"comtypes worker 内部失败: {decoded['error']}")
+        raise RuntimeError(f"comtypes worker iç hatası: {decoded['error']}")
     result = decoded.get("result")
     if completed.returncode != 0 or not isinstance(result, dict) or result.get("process_id") != expected_pid:
-        raise SolidWorksConnectionError("SW_PACK_AND_GO_WORKER_PROTOCOL", "pack_and_go", "回退结果与父实例身份不一致")
+        raise SolidWorksConnectionError("SW_PACK_AND_GO_WORKER_PROTOCOL", "pack_and_go", "Fallback sonucu ana örneğin kimliğiyle eşleşmiyor")
     return result
 
 
@@ -965,7 +961,7 @@ def _comtypes_pack_and_go_impl(
     dependencies: list[str] | None = None,
     expected_pid=None,
 ) -> dict[str, Any]:
-    """@brief 使用 comtypes 早绑定兜底执行 SolidWorks 原生 Pack and Go。"""
+    """@brief Run native SOLIDWORKS Pack and Go using the early-bound comtypes fallback."""
     import comtypes.client
 
     _comtypes_module()
@@ -975,31 +971,31 @@ def _comtypes_pack_and_go_impl(
     progids.append("SldWorks.Application")
     sw, started_here, last_error = _connect_comtypes_solidworks(comtypes.client, progids, expected_pid=expected_pid)
     if sw is None:
-        raise RuntimeError(f"comtypes 无法创建 SolidWorks 应用: {last_error}")
+        raise RuntimeError(f"comtypes SOLIDWORKS uygulamasını oluşturamadı: {last_error}")
     pid = int(get_com_member(sw, "GetProcessID"))
     before = _comtypes_documents(sw)
     source_resolved = Path(source_path).resolve()
     before_paths = [str(get_com_member(item, "GetPathName") or "") for item in before]
     opened_here = source_resolved not in {Path(path).resolve() for path in before_paths if path}
     if expected_pid is not None and opened_here:
-        raise SolidWorksConnectionError("SW_DOCUMENT_STATE_UNAVAILABLE", "pack_and_go", "父实例的目标文档不在回读清单中，已阻止不确定的打开/关闭")
+        raise SolidWorksConnectionError("SW_DOCUMENT_STATE_UNAVAILABLE", "pack_and_go", "Ana örneğin hedef belgesi okunan listede yok; belirsiz açma/kapatma engellendi")
     if opened_here and len(before) >= int(os.environ.get("SW_MAX_DOCUMENTS", "8")):
-        raise SolidWorksConnectionError("SW_DOCUMENT_BUDGET", "pack_and_go", "回退打开文档将超过预算")
+        raise SolidWorksConnectionError("SW_DOCUMENT_BUDGET", "pack_and_go", "Fallback belge açma işlemi bütçeyi aşacak")
     document = None
     result = None
     try:
         document_type = SW_DOC_TYPES.get(Path(source_path).suffix.casefold())
         if document_type is None:
-            raise ValueError(f"Pack and Go 不支持的文档类型: {source_path}")
-        # 强制加载完整模型并覆盖轻量化默认设置，否则 Pack and Go 只会看到顶层文档。
+            raise ValueError(f"Pack and Go belge türünü desteklemiyor: {source_path}")
+        # Force full-model loading and override lightweight defaults, otherwise Pack and Go sees only the top-level document.
         open_result = sw.OpenDoc6(str(source_path), document_type, 1 | 16 | 64 | 512 | (2 if opened_here else 0), "")
         try:
             document = _extract_comtypes_model(open_result)
         except RuntimeError:
             document = _comtypes_active_model(sw, source_path)
         if Path(str(document.GetPathName())).resolve() != source_resolved:
-            raise SolidWorksConnectionError("SW_DOCUMENT_STATE_UNAVAILABLE", "pack_and_go", "回退返回的文档不是指定源文件")
-        # 2026 的 Pack and Go 清单取决于活动文档；已打开文件的 OpenDoc6 不会自动激活。
+            raise SolidWorksConnectionError("SW_DOCUMENT_STATE_UNAVAILABLE", "pack_and_go", "Fallback tarafından döndürülen belge belirtilen kaynak dosya değil")
+        # The 2026 Pack and Go manifest depends on the active document; OpenDoc6 does not activate an already open file.
         sw.ActivateDoc3(str(document.GetTitle()), False, 0)
         extension = document.Extension.QueryInterface(SldWorks.IModelDocExtension)
         if document_type == 2:
@@ -1022,10 +1018,10 @@ def _comtypes_pack_and_go_impl(
             for path in (dependencies or [])
             if Path(path).resolve() not in enumerated_paths
         ]
-        # AddExternalDocuments 用于附加非模型依赖文件，不保证接受装配体的原生零件引用。
-        # 即使枚举不完整也执行原生保存，随后以实际落盘文件审计是否缺失依赖。
+        # AddExternalDocuments adds non-model dependencies and is not guaranteed to accept native assembly part references.
+        # Save natively even if enumeration is incomplete, then audit actual files for missing dependencies.
         if not package.SetSaveToName(True, str(target) + os.sep):
-            raise RuntimeError("IPackAndGo.SetSaveToName 拒绝目标目录")
+            raise RuntimeError("IPackAndGo.SetSaveToName hedef dizini reddetti")
 
         status_codes = _status_codes(extension.SavePackAndGo(package))
         outputs = _collect_new_outputs(target, existing_files)
@@ -1044,7 +1040,7 @@ def _comtypes_pack_and_go_impl(
     finally:
         if opened_here and document is not None:
             if int(get_com_member(sw, "GetProcessID")) != pid or Path(str(document.GetPathName())).resolve() != source_resolved:
-                raise SolidWorksConnectionError("SW_INSTANCE_MISMATCH", "pack_and_go", "清理前文档或实例身份改变，已阻止关闭")
+                raise SolidWorksConnectionError("SW_INSTANCE_MISMATCH", "pack_and_go", "Temizlemeden önce belge veya örnek kimliği değişti; kapatma engellendi")
             sw.CloseDoc(str(document.GetTitle()))
             if result is not None:
                 result["closed_owned_document"] = True
@@ -1053,23 +1049,23 @@ def _comtypes_pack_and_go_impl(
 
 
 def _comtypes_documents(sw):
-    """@brief 回读实际文档对象；无法回读时禁止猜测空实例。"""
+    """@brief Read actual document objects; never assume an empty instance when readback fails."""
     try:
-        # comtypes 对 VT_ARRAY|VT_DISPATCH 的解包不完整。复用已验证的 pywin32
-        # 只读清单，写操作仍在子进程里使用 comtypes，不改变父进程库状态。
+        # comtypes incompletely unpacks VT_ARRAY|VT_DISPATCH. Reuse the verified pywin32
+        # read-only inventory; writes still use comtypes in the child without changing parent library state.
         try:
             observer = win32com_client.GetActiveObject("SldWorks.Application")
         except Exception:
             observer = win32com_client.Dispatch("SldWorks.Application.34")
         if int(get_com_member(observer, "GetProcessID")) != int(get_com_member(sw, "GetProcessID")):
-            raise ValueError("清单观察器不是当前回退实例")
+            raise ValueError("Liste gözlemcisi mevcut fallback örneği değil")
         return list(get_com_member(observer, "GetDocuments") or [])
     except Exception as error:
-        raise SolidWorksConnectionError("SW_DOCUMENT_STATE_UNAVAILABLE", "pack_and_go", f"回退无法回读文档清单: {type(error).__name__}: {error}") from error
+        raise SolidWorksConnectionError("SW_DOCUMENT_STATE_UNAVAILABLE", "pack_and_go", f"Fallback belge listesi okunamadı: {type(error).__name__}: {error}") from error
 
 
 def _pack_parent_pid():
-    """@brief 优先使用 ROT 身份；隐藏实例未注册 ROT 时要求唯一明确的 2026 PID。"""
+    """@brief Prefer ROT identity; hidden instances without ROT registration require one unambiguous 2026 PID."""
     for progid in ("SldWorks.Application.34", "SldWorks.Application"):
         try:
             active = win32com_client.GetActiveObject(progid)
@@ -1079,7 +1075,7 @@ def _pack_parent_pid():
             continue
     processes = solidworks_processes()
     if processes is None or len(processes) != 1 or next(iter(processes.values())) != 2026:
-        raise SolidWorksConnectionError("SW_PROCESS_STATE_UNAVAILABLE", "pack_and_go", "无法唯一确认父实例 PID，已阻止回退")
+        raise SolidWorksConnectionError("SW_PROCESS_STATE_UNAVAILABLE", "pack_and_go", "Ana örneğin PID değeri tekil olarak doğrulanamadı; fallback engellendi")
     return next(iter(processes))
 
 
@@ -1095,21 +1091,20 @@ def pack_and_go(
     overwrite: bool = False,
     fallback_policy: str = "stage_dependencies",
 ) -> dict[str, Any]:
-    """执行原生 Pack and Go，并按策略处理不同版本的依赖枚举缺失。
+    """Run native Pack and Go and apply the selected policy to missing dependency enumeration.
 
-    ``fallback_policy=stage_dependencies`` 会在原生 API 已保存但漏枚举依赖时
-    生成明确标记的本地暂存包；``blocked`` 保持严格原生门禁。
+    fallback_policy=stage_dependencies produces an explicitly labeled local staging package if native save omits dependencies. blocked enforces the strict native gate.
     """
     if fallback_policy not in {"stage_dependencies", "blocked"}:
-        raise ValueError("fallback_policy 必须是 stage_dependencies 或 blocked")
+        raise ValueError("fallback_policy stage_dependencies veya blocked olmalı")
     source_path = str(get_com_member(model, "GetPathName") or "")
     if not source_path or not Path(source_path).is_file():
-        raise ValueError("当前文档必须先保存到磁盘，才能执行 Pack and Go")
+        raise ValueError("Pack and Go öncesinde etkin belge diske kaydedilmeli")
     target = Path(os.path.expandvars(str(output_dir))).expanduser().resolve()
     target.mkdir(parents=True, exist_ok=True)
     existing_files = {str(path): _file_signature(path) for path in target.rglob("*") if path.is_file()}
     if existing_files and not overwrite:
-        raise FileExistsError(f"Pack and Go 目标目录非空，未允许覆盖: {target}")
+        raise FileExistsError(f"Pack and Go hedef dizini boş değil; üzerine yazmaya izin verilmedi: {target}")
 
     dependencies = _document_dependency_paths(model, source_path)
     component_records = _collect_component_audit_records(model, source_path)
@@ -1153,7 +1148,7 @@ def pack_and_go(
             )
         except Exception as comtypes_exc:
             if isinstance(comtypes_exc, SolidWorksConnectionError):
-                # 超时/未知身份可能留下进行中的 CAD 操作，禁止另起暂存覆盖这次交付。
+                # Timeout or unknown identity may leave CAD operations running; never start staging that could overwrite this delivery.
                 raise
             fallback_errors.append(f"comtypes: {comtypes_exc}")
             native_error = str(comtypes_exc)
@@ -1194,7 +1189,7 @@ def pack_and_go(
         error_code = None
         retryable = False
         manual_review_required = True
-        limitations = ["Pack and Go 产物仍需人工抽查外部引用、Toolbox 和工程图"]
+        limitations = ["Pack and Go çıktılarında dış referanslar, Toolbox ve teknik çizimler elle örneklenerek denetlenmeli"]
     elif (missing_dependencies or native_audit["blocking_error_codes"]) and fallback_policy == "stage_dependencies":
         try:
             staged = _stage_pack_and_go_dependencies(
@@ -1215,8 +1210,8 @@ def pack_and_go(
             retryable = True
             manual_review_required = True
             limitations = [
-                "原生 IPackAndGo 未枚举全部依赖；已生成基于 GetDependencies2 的暂存包",
-                "暂存包不是原生 Pack and Go，外部引用、Toolbox、配置和工程图必须人工复核",
+                "Yerel IPackAndGo tüm bağımlılıkları listelemedi; GetDependencies2 tabanlı hazırlama paketi oluşturuldu",
+                "Hazırlama paketi yerel Pack and Go değildir; dış referanslar, Toolbox, konfigürasyonlar ve teknik çizimler elle incelenmeli",
             ]
             result = {
                 **result,
@@ -1227,21 +1222,21 @@ def pack_and_go(
             }
             missing_dependencies = []
         else:
-            # 暂存失败时保留原生漏包证据，不能把失败变成成功。
+            # Preserve evidence of native omissions if staging fails; never convert a failure into success.
             status = "blocked"
             stage = "review"
             error_code = "SW_PACK_AND_GO_DEPENDENCY_ENUMERATION_INCOMPLETE"
             retryable = True
             manual_review_required = True
-            limitations = ["SolidWorks 原生 Pack and Go 未枚举全部依赖，暂存回退也未完成"]
+            limitations = ["Yerel SOLIDWORKS Pack and Go tüm bağımlılıkları listelemedi ve hazırlama fallback tamamlanamadı"]
     elif (missing_dependencies or native_audit["blocking_error_codes"]) and result["status_codes"] and all(code == 0 for code in result["status_codes"]):
-        # 严格原生策略：保留证据并阻止误交付。
+        # Strict native policy: preserve evidence and prevent an incorrect delivery.
         status = "blocked"
         stage = "review"
         error_code = "SW_PACK_AND_GO_DEPENDENCY_ENUMERATION_INCOMPLETE"
         retryable = True
         manual_review_required = True
-        limitations = ["SolidWorks 原生 Pack and Go 未枚举全部依赖；fallback_policy=blocked，未复制补齐"]
+        limitations = ["Yerel SOLIDWORKS Pack and Go tüm bağımlılıkları listelemedi; fallback_policy=blocked nedeniyle eksikler kopyalanmadı"]
     else:
         if fallback_policy == "stage_dependencies" and (required_dependencies or native_audit["blocking_error_codes"]):
             try:
@@ -1263,8 +1258,8 @@ def pack_and_go(
                 retryable = True
                 manual_review_required = True
                 limitations = [
-                    "原生 Pack and Go 调用失败；已按 GetDependencies2 生成暂存包",
-                    "暂存包不是原生 Pack and Go，必须人工复核",
+                    "Yerel Pack and Go çağrısı başarısız; GetDependencies2 ile hazırlama paketi oluşturuldu",
+                    "Hazırlama paketi yerel Pack and Go değildir; elle incelenmeli",
                 ]
                 result = {
                     **result,

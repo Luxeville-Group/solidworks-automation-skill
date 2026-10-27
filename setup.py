@@ -5,21 +5,21 @@ import shutil
 import sys
 
 class PostInstallCommand(install):
-    """安装后自动注册到 Claude CLI / Codex"""
+    """Register with Claude CLI / Codex after installation."""
     def run(self):
         install.run(self)
 
-        # 获取源目录
+        # Resolve the source directory.
         source_dir = os.path.dirname(os.path.abspath(__file__))
 
-        # Claude CLI 路径
+        # Claude CLI skill path.
         claude_skills_dir = os.path.expanduser("~/.claude/skills/solidworks-automation")
 
-        # Codex 路径（如果存在）
+        # Codex skill path.
         codex_skills_dir = os.path.expanduser("~/.codex/skills/solidworks-automation")
 
-        # 需要复制的文件和目录
-        items_to_copy = ["scripts", "references", "mcp-server", "SKILL.md", "README.md", "requirements.txt"]
+        # Files and directories to copy.
+        items_to_copy = ["scripts", "references", "mcp-server", "SKILL.md", "README.md", "README.tr.md", "localization", "requirements.txt"]
 
         for target_dir in [claude_skills_dir, codex_skills_dir]:
             try:
@@ -33,9 +33,9 @@ class PostInstallCommand(install):
                         shutil.copytree(src, dst)
                     elif os.path.isfile(src):
                         shutil.copy2(src, dst)
-                print(f"✓ 已安装到: {target_dir}")
+                print(f"✓ Kuruldu / Installed: {target_dir}")
             except Exception as e:
-                print(f"⚠ 跳过 {target_dir}: {e}", file=sys.stderr)
+                print(f"⚠ Atlandı / Skipped {target_dir}: {e}", file=sys.stderr)
 
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
@@ -47,7 +47,7 @@ setup(
     description="Python automation toolkit for SolidWorks API",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/wzyn20051216/solidworks-automation-skill",
+    url="https://github.com/Luxeville-Group/solidworks-automation-skill",
     license="MIT",
     packages=["solidworks_automation"],
     package_dir={"solidworks_automation": "scripts"},

@@ -1,17 +1,17 @@
-"""@brief SolidWorks 装配体中英文基准面别名测试。"""
+'SolidWorks assembly localized reference-plane alias tests.'
 
 from scripts import sw_assembly
 
 
 class FakeModel:
-    """@brief 仅包含中文版前视基准面。"""
+    'Contains only the legacy localized front-plane alias.'
 
     def FeatureByName(self, name):
-        return object() if name == "前视基准面" else None
+        return object() if name == '\u524d\u89c6\u57fa\u51c6\u9762' else None
 
 
 class FakeComponent:
-    """@brief 提供组件名称用于错误信息。"""
+    'Provide the component name for error reporting.'
 
     Name2 = "base-1"
 

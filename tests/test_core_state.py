@@ -1,8 +1,4 @@
-"""@brief Execution Core 状态模型单元测试。
-
-通过顶层 ``core.*``（``scripts/`` 加入 sys.path）导入，避免触发
-``scripts/__init__.py`` 的 COM 依赖加载，因此本测试无需安装 pywin32 / SolidWorks。
-"""
+"""Execution Core state-model unit tests. Import top-level core.* with scripts/ on sys.path to avoid scripts/__init__.py COM dependency loading; these tests require neither pywin32 nor SolidWorks."""
 from __future__ import annotations
 
 import sys
@@ -48,7 +44,7 @@ def test_runcontext_json_roundtrip():
     assert restored.steps[0].step_id == "s1"
     assert restored.steps[0].status == StepStatus.SUCCESS
     assert restored.steps[0].capability_id == "part_and_features"
-    # JSON 字符串往返保持等价
+    # JSON string round-trip preserves equivalence.
     assert RunContext.from_json(run.to_json()).to_dict() == run.to_dict()
 
 
@@ -99,7 +95,7 @@ def test_illegal_run_transitions():
         (RunStatus.FAILED, RunStatus.COMPLETED),
         (RunStatus.BLOCKED, RunStatus.COMPLETED),
         (RunStatus.COMPLETED, RunStatus.RUNNING),
-        (RunStatus.FAILED, RunStatus.RUNNING),  # 必须先经 RETRYING
+        (RunStatus.FAILED, RunStatus.RUNNING),  # Transition through RETRYING first.
     ]
     for current, target in illegal:
         assert not can_transition_run(current, target), f"{current.value} -> {target.value}"

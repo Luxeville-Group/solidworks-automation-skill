@@ -1,4 +1,4 @@
-"""@brief CAD Studio/SolidWorks Skill 的能力真源读取与门禁工具。"""
+"""@brief Read the authoritative CAD Studio/SolidWorks capability registry and enforce gates."""
 
 from __future__ import annotations
 
@@ -22,66 +22,66 @@ VALID_ROUTE_SEMANTICS = {
 
 
 def manifest_path(path: str | Path | None = None) -> Path:
-    """@brief 返回能力清单路径。"""
+    """@brief Return the capability registry path."""
     return Path(path).expanduser().resolve() if path else MANIFEST_PATH
 
 
 def load_capabilities(path: str | Path | None = None) -> dict[str, Any]:
-    """@brief 读取 JSON-compatible YAML 能力清单并校验能力与多语言路由。"""
+    """@brief Read JSON-compatible YAML and validate capabilities and language-backend routes."""
     source = manifest_path(path)
     payload = json.loads(source.read_text(encoding="utf-8"))
     if not isinstance(payload, dict) or not isinstance(payload.get("capabilities"), list):
-        raise ValueError(f"能力清单格式无效: {source}")
+        raise ValueError(f"Capability listesi biçimi geçersiz: {source}")
     for item in payload["capabilities"]:
         if not isinstance(item, dict) or not item.get("id") or item.get("level") not in VALID_LEVELS:
-            raise ValueError(f"能力清单条目无效: {item!r}")
+            raise ValueError(f"Capability listesi kaydı geçersiz: {item!r}")
     backends = payload.get("backend_catalog", {})
     routes = payload.get("operation_routes", [])
     if not isinstance(backends, dict) or not all(isinstance(item, dict) for item in backends.values()):
-        raise ValueError("backend_catalog 必须是对象映射")
+        raise ValueError("backend_catalog bir object mapping olmalıdır")
     if not isinstance(routes, list):
-        raise ValueError("operation_routes 必须是数组")
+        raise ValueError("operation_routes bir array olmalıdır")
     route_ids: set[str] = set()
     capability_ids = {str(item["id"]) for item in payload["capabilities"]}
     for route in routes:
         if not isinstance(route, dict) or not route.get("id") or route["id"] in route_ids:
-            raise ValueError(f"操作路由 ID 无效或重复: {route!r}")
+            raise ValueError(f"İşlem route ID geçersiz veya yineleniyor: {route!r}")
         route_ids.add(str(route["id"]))
         unknown_capabilities = set(route.get("capability_ids", [])) - capability_ids
         if unknown_capabilities:
-            raise ValueError(f"路由 {route['id']} 引用了未知能力: {sorted(unknown_capabilities)}")
+            raise ValueError(f"Route {route['id']} bilinmeyen capability referansı içeriyor: {sorted(unknown_capabilities)}")
         candidates = route.get("candidates", [])
         if not isinstance(candidates, list):
-            raise ValueError(f"路由 {route['id']} 的 candidates 必须是数组")
+            raise ValueError(f"Route {route['id']} candidates alanı dizi olmalı")
         for candidate in candidates:
             backend_id = candidate.get("backend") if isinstance(candidate, dict) else None
             semantics = candidate.get("semantics") if isinstance(candidate, dict) else None
             if backend_id not in backends:
-                raise ValueError(f"路由 {route['id']} 引用了未知后端: {backend_id!r}")
+                raise ValueError(f"Route {route['id']} bilinmeyen backend referansı içeriyor: {backend_id!r}")
             if semantics not in VALID_ROUTE_SEMANTICS:
-                raise ValueError(f"路由 {route['id']} 的语义类型无效: {semantics!r}")
+                raise ValueError(f"Route {route['id']} semantik türü geçersiz: {semantics!r}")
             if not isinstance(candidate.get("priority"), int):
-                raise ValueError(f"路由 {route['id']} 的优先级必须是整数")
+                raise ValueError(f"Route {route['id']} önceliği tamsayı olmalı")
         unknown_diagnostics = set(route.get("diagnostic_backends", [])) - set(backends)
         if unknown_diagnostics:
-            raise ValueError(f"路由 {route['id']} 引用了未知诊断后端: {sorted(unknown_diagnostics)}")
+            raise ValueError(f"Route {route['id']} bilinmeyen tanılama backend referansı içeriyor: {sorted(unknown_diagnostics)}")
     return payload
 
 
 def capability_index(payload: Mapping[str, Any] | None = None) -> dict[str, dict[str, Any]]:
-    """@brief 返回能力 ID 到条目的索引。"""
+    """@brief Index capability entries by ID."""
     source = payload or load_capabilities()
     return {str(item["id"]): dict(item) for item in source.get("capabilities", [])}
 
 
 def backend_index(payload: Mapping[str, Any] | None = None) -> dict[str, dict[str, Any]]:
-    """@brief 返回执行后端 ID 到定义的索引。"""
+    """@brief Index execution-backend definitions by ID."""
     source = payload or load_capabilities()
     return {str(key): dict(value) for key, value in source.get("backend_catalog", {}).items()}
 
 
 def operation_route_index(payload: Mapping[str, Any] | None = None) -> dict[str, dict[str, Any]]:
-    """@brief 返回原子操作 ID 到多语言后端路由的索引。"""
+    """@brief Index language-backend routes by atomic-operation ID."""
     source = payload or load_capabilities()
     return {str(item["id"]): dict(item) for item in source.get("operation_routes", [])}
 
@@ -95,10 +95,11 @@ def resolve_operation_backend(
     exact_api: bool = False,
     payload: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """@brief 按语义、版本、依赖和可用运行时选择最合适的语言后端。
+    """@brief Choose a language backend by semantics, version, dependencies and available runtimes.
 
-    ``exact_api=False`` 允许优先选择官方 Automation 等价接口；只有调用者明确
-    要求原始 ``I*`` 指针语义时，才会跳过 ``automation_equivalent`` 候选。
+    exact_api=False permits preference for official Automation equivalents.
+    Skip automation_equivalent candidates only when the caller explicitly
+    requires raw I* pointer semantics.
     """
     source = payload or load_capabilities()
     backends = backend_index(source)
@@ -108,7 +109,7 @@ def resolve_operation_backend(
             "status": "blocked",
             "operation_id": operation_id,
             "error_code": "UNKNOWN_OPERATION_ROUTE",
-            "reason": "能力矩阵中不存在该原子操作路由",
+            "reason": "Capability matrix içinde bu atomik işlem rotası yok",
         }
 
     revision = str(solidworks_revision or "").strip()
@@ -133,7 +134,7 @@ def resolve_operation_backend(
             "status": "blocked",
             "operation_id": operation_id,
             "error_code": "MISSING_RUNTIME_REQUIREMENT",
-            "reason": "缺少与编程语言无关的运行条件，切换语言不能解除阻塞",
+            "reason": "Programlama dilinden bağımsız çalışma koşulları eksik; dil değiştirmek engeli kaldırmaz",
             "missing_requirements": missing_requirements,
             "review_required": True,
         }
@@ -144,7 +145,7 @@ def resolve_operation_backend(
             "status": "blocked",
             "operation_id": operation_id,
             "error_code": "NO_LANGUAGE_SUBSTITUTION",
-            "reason": str(route.get("blocked_reason") or "该操作没有可用执行后端"),
+            "reason": str(route.get("blocked_reason") or "Bu işlem için kullanılabilir execution backend yok"),
             "review_required": bool(route.get("review_required", True)),
         }
 
@@ -157,14 +158,14 @@ def resolve_operation_backend(
             considered.append({
                 "backend": backend_id,
                 "accepted": False,
-                "reason": "调用者要求原始接口语义，不能使用 Automation 等价接口",
+                "reason": "Çağıran ham arayüz semantiği gerektiriyor; Automation eşdeğeri kullanılamaz",
             })
             continue
         if backend_id not in available:
-            considered.append({"backend": backend_id, "accepted": False, "reason": "运行时不可用"})
+            considered.append({"backend": backend_id, "accepted": False, "reason": "Runtime kullanılamıyor"})
             continue
         backend = backends[backend_id]
-        considered.append({"backend": backend_id, "accepted": True, "reason": "按优先级选中"})
+        considered.append({"backend": backend_id, "accepted": True, "reason": "Öncelik sırasına göre seçildi"})
         return {
             "status": "ready",
             "operation_id": operation_id,
@@ -182,7 +183,7 @@ def resolve_operation_backend(
         "status": "unavailable",
         "operation_id": operation_id,
         "error_code": "NO_COMPATIBLE_BACKEND_AVAILABLE",
-        "reason": "已知后端均不可用或不满足请求的接口语义",
+        "reason": "Bilinen backend seçenekleri kullanılamıyor veya istenen arayüz semantiğini karşılamıyor",
         "exact_api_requested": exact_api,
         "considered": considered,
         "diagnostic_backends": list(route.get("diagnostic_backends", [])),
@@ -191,7 +192,7 @@ def resolve_operation_backend(
 
 
 def backend_route_snapshot(payload: Mapping[str, Any] | None = None) -> dict[str, Any]:
-    """@brief 生成技能矩阵的语言、运行时与操作路由摘要。"""
+    """@brief Summarize languages, runtimes and operation routes in the skill matrix."""
     source = payload or load_capabilities()
     backends = backend_index(source)
     routes = operation_route_index(source)
@@ -206,17 +207,17 @@ def backend_route_snapshot(payload: Mapping[str, Any] | None = None) -> dict[str
 
 
 def capability_level(capability_id: str, payload: Mapping[str, Any] | None = None) -> str:
-    """@brief 返回能力等级，未知能力按未实现处理。"""
+    """@brief Return capability level; treat unknown capabilities as unimplemented."""
     return capability_index(payload).get(capability_id, {}).get("level", "not_implemented")
 
 
 def unattended_allowed(capability_ids: Iterable[str], payload: Mapping[str, Any] | None = None) -> bool:
-    """@brief 判断一组能力是否允许无人值守执行。"""
+    """@brief Determine whether capabilities permit unattended execution."""
     return all(capability_level(capability_id, payload) == "verified" for capability_id in capability_ids)
 
 
 def capability_snapshot(capability_ids: Iterable[str] | None = None, payload: Mapping[str, Any] | None = None) -> list[dict[str, Any]]:
-    """@brief 生成可写入任务证据的能力快照。"""
+    """@brief Create a capability snapshot for task evidence."""
     index = capability_index(payload)
     selected = list(capability_ids) if capability_ids is not None else list(index)
     return [dict(index.get(capability_id, {"id": capability_id, "level": "not_implemented"})) for capability_id in selected]

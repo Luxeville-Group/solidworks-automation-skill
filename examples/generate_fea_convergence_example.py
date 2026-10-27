@@ -1,4 +1,4 @@
-"""@brief 生成五档真实 C3D8 悬臂梁网格收敛请求。"""
+"""@brief Generate five real C3D8 cantilever mesh-convergence requests."""
 from __future__ import annotations
 
 import argparse
@@ -7,7 +7,7 @@ from pathlib import Path
 
 
 def build_hex_cantilever(nx: int, ny: int, nz: int, *, analysis_id: str) -> dict:
-    """@brief 构造 60x12x12 mm 结构化六面体悬臂梁。"""
+    """@brief Build a 60x12x12 mm structured hexahedral cantilever."""
     length, width, height = 60.0, 12.0, 12.0
 
     def node_id(i: int, j: int, k: int) -> int:
@@ -64,7 +64,7 @@ def build_hex_cantilever(nx: int, ny: int, nz: int, *, analysis_id: str) -> dict
 
 
 def build_study() -> dict:
-    """@brief 返回粗到最细五档网格收敛请求。"""
+    """@brief Return five convergence meshes from coarse to finest."""
     levels = [
         ("coarse", 15.0, 4, 1, 1),
         ("medium", 7.5, 8, 2, 2),
@@ -88,13 +88,13 @@ def build_study() -> dict:
 
 
 def main() -> int:
-    """@brief 写出不覆盖旧文件的收敛示例 JSON。"""
-    parser = argparse.ArgumentParser(description="生成 CalculiX 悬臂梁网格收敛示例")
+    """@brief Write a convergence-example JSON without overwriting prior files."""
+    parser = argparse.ArgumentParser(description="CalculiX konsol kiriş mesh convergence örneği oluştur")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     target = args.output.expanduser().resolve()
     if target.exists():
-        raise SystemExit(f"拒绝覆盖已有文件: {target}")
+        raise SystemExit(f"Mevcut dosya üzerine yazma reddedildi: {target}")
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(json.dumps(build_study(), ensure_ascii=False, indent=2), encoding="utf-8")
     print(json.dumps({"status": "pass", "path": str(target), "sizeBytes": target.stat().st_size}, ensure_ascii=False))

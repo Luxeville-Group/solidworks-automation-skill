@@ -1,4 +1,4 @@
-"""CAD Studio 统一 CLI：doctor/run/status/retry/cancel/export-diagnostics。"""
+"""Unified CAD Studio CLI: doctor/run/status/retry/cancel/export-diagnostics."""
 from __future__ import annotations
 
 import argparse
@@ -23,7 +23,7 @@ from cad_diagnostics import create_diagnostic_bundle  # noqa: E402
 
 
 def _print_json(value: Any, *, indent: int | None = 2) -> None:
-    """输出可由当前控制台编码表示的 JSON，必要时转义 Unicode 字符。"""
+    """Emit console-encodable JSON, escaping Unicode when necessary."""
     text = json.dumps(value, ensure_ascii=False, indent=indent)
     encoding = getattr(sys.stdout, "encoding", None)
     if encoding:
@@ -58,11 +58,11 @@ def _job_path(queue_dir: Path, job_id: str) -> Path:
                 return candidate
         except Exception:
             continue
-    raise FileNotFoundError(f"未找到任务: {job_id}")
+    raise FileNotFoundError(f"Görev bulunamadı: {job_id}")
 
 
 def _retry_from_stage(job: dict[str, Any]) -> str:
-    """根据领域证据推断局部重试的最早阶段。"""
+    """Infer the earliest partial-retry stage from domain evidence."""
     phases = (((job.get("result") or {}).get("engineeringPlan") or {}).get("phases") or [])
     for phase in phases:
         if phase.get("status") in {"blocked", "failed", "review_required"} and phase.get("id"):
@@ -78,7 +78,7 @@ def _retry_from_stage(job: dict[str, Any]) -> str:
 
 
 def _run_history_snapshot(job: dict[str, Any]) -> dict[str, Any]:
-    """保存不包含 Prompt、凭据和递归历史的只读任务快照。"""
+    """Save a read-only task snapshot without prompts, credentials or recursive history."""
     fields = (
         "runId", "status", "stage", "createdAt", "updatedAt", "lastMessage", "error", "result",
         "artifacts", "artifactLedgerPath", "reviewGatePath", "reviewGate", "drawingEvidence",
@@ -88,9 +88,9 @@ def _run_history_snapshot(job: dict[str, Any]) -> dict[str, Any]:
 
 
 def prepare_job_for_retry(job: dict[str, Any], updated_at: str) -> dict[str, Any]:
-    """将终态任务重置为新一轮执行，同时保留旧产物和失败证据。"""
+    """Reset a terminal task for another run while retaining earlier artifacts and failure evidence."""
     if job.get("status") not in {"failed", "cancelled", "blocked", "review_required"}:
-        raise ValueError(f"任务当前状态不可重试: {job.get('status')}")
+        raise ValueError(f"Görevin mevcut durumu yeniden denemeye uygun değil: {job.get('status')}")
     previous_run_id = job.get("runId")
     history = [*(job.get("runHistory") or []), _run_history_snapshot(job)][-20:]
     retry_stage = _retry_from_stage(job)
@@ -108,7 +108,7 @@ def prepare_job_for_retry(job: dict[str, Any], updated_at: str) -> dict[str, Any
         "status": "queued",
         "progress": 0,
         "updatedAt": updated_at,
-        "lastMessage": "已重新排队，将从失败阶段及其后继阶段执行。",
+        "lastMessage": "Yeniden kuyruğa alındı; başarısız aşamadan ve onu izleyen aşamalardan yürütülecek.",
         "artifacts": [],
     })
     for field in (
@@ -122,7 +122,7 @@ def prepare_job_for_retry(job: dict[str, Any], updated_at: str) -> dict[str, Any
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="cad-studio", description="CAD Studio 本地任务与环境 CLI")
+    parser = argparse.ArgumentParser(prog="cad-studio", description="CAD Studio yerel görev ve ortam CLI")
     parser.add_argument("--queue-dir", type=Path, default=default_tauri_queue_dir())
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("doctor")
@@ -142,41 +142,41 @@ def main(argv: list[str] | None = None) -> int:
     write_open.add_argument("--out-dir", type=Path, required=True)
     write_open.add_argument("--formats", nargs="+", default=["cadstudio", "step", "iges", "brep", "stl", "obj", "glb", "dxf", "svg", "pdf", "png"])
     preview_dxf = sub.add_parser("preview-dxf")
-    preview_dxf.add_argument("--input", type=Path, required=True, help="只读 DXF 输入")
-    preview_dxf.add_argument("--output", type=Path, required=True, help="不覆盖的 .scene.json 输出")
+    preview_dxf.add_argument("--input", type=Path, required=True, help="Salt okunur DXF girdisi")
+    preview_dxf.add_argument("--output", type=Path, required=True, help="Mevcut dosyayı değiştirmeyen .scene.json çıktısı")
     dfm = sub.add_parser("check-dfm")
     dfm.add_argument("--input", type=Path, required=True, help="NeutralCadDocument .cadstudio.json")
-    dfm.add_argument("--output", type=Path, required=True, help="不覆盖旧文件的 DFM report JSON 输出")
-    dfm.add_argument("--process", default="auto", help="machining/sheet_metal/laser_cutting/3d_printing/injection_molding；auto 时读取文档 metadata")
-    dfm.add_argument("--profile", action="append", default=[], help="可重复指定 DFM Profile JSON，按供应商能力交集合并")
-    dfm.add_argument("--brep-evidence", type=Path, help="可选 SolidWorks/OCCT B-Rep 证据 JSON")
+    dfm.add_argument("--output", type=Path, required=True, help="Mevcut dosyayı değiştirmeyen DFM report JSON çıktısı")
+    dfm.add_argument("--process", default="auto", help="machining/sheet_metal/laser_cutting/3d_printing/injection_molding; auto belge metadata alanını okur")
+    dfm.add_argument("--profile", action="append", default=[], help="DFM Profile JSON birden fazla belirtilir; tedarikçi yeteneklerinin kesişimi alınır")
+    dfm.add_argument("--brep-evidence", type=Path, help="İsteğe bağlı SolidWorks/OCCT B-Rep kanıt JSON")
     routing = sub.add_parser("check-routing")
-    routing.add_argument("--input", type=Path, required=True, help="Routing 中性 JSON 输入")
-    routing.add_argument("--output", type=Path, required=True, help="不覆盖旧文件的 Routing report JSON 输出")
+    routing.add_argument("--input", type=Path, required=True, help="Routing neutral JSON girdisi")
+    routing.add_argument("--output", type=Path, required=True, help="Mevcut dosyayı değiştirmeyen Routing report JSON çıktısı")
     sub.add_parser("routing-preflight")
     fea_preflight = sub.add_parser("fea-preflight")
     fea_preflight.add_argument("--solver", choices=("auto", "calculix", "elmer"), default="auto")
     fea_prepare = sub.add_parser("prepare-fea")
-    fea_prepare.add_argument("--input", type=Path, required=True, help="FEA 1.0 请求 JSON")
-    fea_prepare.add_argument("--out-dir", type=Path, required=True, help="CalculiX 输入文件输出目录")
+    fea_prepare.add_argument("--input", type=Path, required=True, help="FEA 1.0 istek JSON")
+    fea_prepare.add_argument("--out-dir", type=Path, required=True, help="CalculiX girdi dosyası çıktı dizini")
     fea_prepare.add_argument("--solver", choices=("auto", "calculix", "elmer"), default="auto")
     fea_run = sub.add_parser("run-fea")
-    fea_run.add_argument("--input", type=Path, required=True, help="FEA 1.0 请求 JSON")
-    fea_run.add_argument("--out-dir", type=Path, required=True, help="版本化求解目录")
-    fea_run.add_argument("--timeout", type=int, default=600, help="求解超时秒数，范围 1-86400")
+    fea_run.add_argument("--input", type=Path, required=True, help="FEA 1.0 istek JSON")
+    fea_run.add_argument("--out-dir", type=Path, required=True, help="Sürümlendirilmiş solver dizini")
+    fea_run.add_argument("--timeout", type=int, default=600, help="Çözüm timeout süresi (saniye), 1-86400")
     fea_convergence = sub.add_parser("run-fea-convergence")
-    fea_convergence.add_argument("--input", type=Path, required=True, help="FEA 网格收敛 1.0 请求 JSON")
-    fea_convergence.add_argument("--out-dir", type=Path, required=True, help="版本化收敛序列目录")
-    fea_convergence.add_argument("--timeout-per-case", type=int, default=600, help="每档网格求解超时秒数，范围 1-86400")
+    fea_convergence.add_argument("--input", type=Path, required=True, help="FEA mesh convergence 1.0 istek JSON")
+    fea_convergence.add_argument("--out-dir", type=Path, required=True, help="Sürümlendirilmiş convergence sequence dizini")
+    fea_convergence.add_argument("--timeout-per-case", type=int, default=600, help="Her mesh seviyesi çözüm timeout süresi (saniye), 1-86400")
     advanced = sub.add_parser("review-advanced-geometry")
-    advanced.add_argument("--input", type=Path, required=True, help="复杂曲面/模具中性计划 JSON")
-    advanced.add_argument("--output", type=Path, required=True, help="不覆盖旧文件的前置报告 JSON 输出")
+    advanced.add_argument("--input", type=Path, required=True, help="Gelişmiş yüzey/mold neutral plan JSON")
+    advanced.add_argument("--output", type=Path, required=True, help="Mevcut dosyayı değiştirmeyen preflight report JSON çıktısı")
     loft = sub.add_parser("create-ocp-loft")
-    loft.add_argument("--input", type=Path, required=True, help="OCP Loft 1.0 参数 JSON")
-    loft.add_argument("--out-dir", type=Path, required=True, help="STEP/BREP/STL 版本化输出目录")
+    loft.add_argument("--input", type=Path, required=True, help="OCP Loft 1.0 parametre JSON")
+    loft.add_argument("--out-dir", type=Path, required=True, help="STEP/BREP/STL sürümlendirilmiş çıktı dizini")
     surface = sub.add_parser("create-ocp-surface")
-    surface.add_argument("--input", type=Path, required=True, help="OCP 高级曲面 1.0 参数 JSON")
-    surface.add_argument("--out-dir", type=Path, required=True, help="STEP/BREP/STL 版本化输出目录")
+    surface.add_argument("--input", type=Path, required=True, help="OCP gelişmiş yüzey 1.0 parametre JSON")
+    surface.add_argument("--out-dir", type=Path, required=True, help="STEP/BREP/STL sürümlendirilmiş çıktı dizini")
     args = parser.parse_args(argv)
 
     if args.command == "doctor":
@@ -206,7 +206,7 @@ def main(argv: list[str] | None = None) -> int:
                 raise SystemExit(str(exc)) from exc
             cancel_marker_path(path).unlink(missing_ok=True)
         else:
-            job.update({"status": "cancelled", "cancelRequested": True, "updatedAt": now, "lastMessage": "已请求取消任务。"})
+            job.update({"status": "cancelled", "cancelRequested": True, "updatedAt": now, "lastMessage": "Görev iptali istendi."})
             cancel_marker_path(path).touch()
         write_job(path, job)
         _print_json(job)
@@ -275,7 +275,7 @@ def main(argv: list[str] | None = None) -> int:
                 "manual_review_required": True,
                 "retryable": False,
                 "error_code": "fea_elmer_adapter_not_implemented",
-                "message": "Elmer 安全输入适配器尚未实现；当前 prepare-fea 只生成 CalculiX .inp。",
+                "message": "Elmer güvenli girdi adaptörü henüz uygulanmadı; prepare-fea şu anda yalnızca CalculiX .inp üretir.",
             }
         else:
             args.out_dir.mkdir(parents=True, exist_ok=True)

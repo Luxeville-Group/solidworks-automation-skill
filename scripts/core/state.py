@@ -1,17 +1,14 @@
-"""@brief Execution Core 轻量执行状态模型。
+"""@brief Lightweight Execution Core state models.
 
-本模块只定义「可 JSON 序列化、带 schema version、与 CAD Studio Queue Job 解耦」
-的运行时状态数据结构，供 Worker / MCP / CLI 复用。它**不**实现完整状态机框架，
-只提供最小转换白名单，用于拦截 ``FAILED -> COMPLETED``、``BLOCKED -> COMPLETED``
-这类明显非法转换。
+JSON-serializable, schema-versioned runtime structures decoupled from CAD Studio
+Queue Job and shared by Worker/MCP/CLI. Provide a minimal transition allowlist
+that rejects FAILED -> COMPLETED and BLOCKED -> COMPLETED rather than a full FSM.
 
-状态值统一使用小写（与仓库现有 queue 状态 ``queued/running/passed`` 保持一致）；
-``VerificationStatus`` 按 V2 约定使用大写 ``PASS/WARN/FAIL/BLOCKED``。
+State values are lowercase to match queue conventions; VerificationStatus follows
+the uppercase V2 PASS/WARN/FAIL/BLOCKED convention.
 
-安全约束：
-- 不保存完整 Prompt / API Key / 秘密信息；
-- 参数与结果只保存 ``arguments_summary`` / ``result_summary`` 摘要，不保存原文；
-- 不建议保存无必要的完整私人绝对路径。
+Retain no complete prompts, API keys or secrets. Store arguments_summary and
+result_summary instead of raw content. Avoid unnecessary complete private paths.
 """
 from __future__ import annotations
 
@@ -25,12 +22,12 @@ SCHEMA_VERSION = "1.0"
 
 
 def now_iso() -> str:
-    """@brief 返回 UTC 时区 ISO 时间字符串。"""
+    """@brief Return a UTC ISO timestamp."""
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
 class RunStatus(str, Enum):
-    """@brief 一次 Run 的生命周期状态。"""
+    """@brief Lifecycle state of a Run."""
 
     CREATED = "created"
     RUNNING = "running"
@@ -42,7 +39,7 @@ class RunStatus(str, Enum):
 
 
 class StepStatus(str, Enum):
-    """@brief 单个 Step 的生命周期状态。"""
+    """@brief Lifecycle state of a Step."""
 
     PENDING = "pending"
     RUNNING = "running"
@@ -54,7 +51,7 @@ class StepStatus(str, Enum):
 
 
 class VerificationStatus(str, Enum):
-    """@brief 验证结论（V2 约定统一使用大写）。"""
+    """@brief Verification conclusion using uppercase V2 values."""
 
     PASS = "PASS"
     WARN = "WARN"
@@ -62,7 +59,7 @@ class VerificationStatus(str, Enum):
     BLOCKED = "BLOCKED"
 
 
-#: 结构化恢复决策的允许取值（Recovery Engine 在后续 Phase 落地，这里只定义数据模型）。
+#: Allowed structured recovery decisions; the engine is implemented in a later phase.
 RECOVERY_ACTIONS = frozenset(
     {
         "retry",
@@ -76,10 +73,10 @@ RECOVERY_ACTIONS = frozenset(
 
 
 class InvalidStateTransition(ValueError):
-    """@brief 非法状态转换。"""
+    """@brief Invalid state transition."""
 
 
-# 最小转换白名单：只拦明显非法转换，不引入复杂 FSM 框架。
+# Minimal transition allowlist rejects obvious invalid transitions without a complex FSM.
 _RUN_TRANSITIONS: dict[RunStatus, set[RunStatus]] = {
     RunStatus.CREATED: {RunStatus.RUNNING, RunStatus.BLOCKED, RunStatus.FAILED},
     RunStatus.RUNNING: {
@@ -128,7 +125,7 @@ _STEP_TRANSITIONS: dict[StepStatus, set[StepStatus]] = {
 
 
 def _coerce_enum(enum_cls: type[Enum], value: Any, default: Any = None) -> Any:
-    """@brief 宽松地把字符串/枚举归一化为指定枚举成员，未知值返回默认。"""
+    """@brief Tolerantly normalize strings/enums to members, using the default for unknown values."""
     if value is None:
         return default
     if isinstance(value, enum_cls):
@@ -144,7 +141,7 @@ def _coerce_enum(enum_cls: type[Enum], value: Any, default: Any = None) -> Any:
 
 
 def _serialize(value: Any) -> Any:
-    """@brief 递归把 Enum 转为 value，生成 JSON 兼容结构。"""
+    """@brief Recursively convert Enum members to values for JSON compatibility."""
     if isinstance(value, Enum):
         return value.value
     if isinstance(value, Mapping):
@@ -159,7 +156,7 @@ def _serialize(value: Any) -> Any:
 
 
 def can_transition_run(current: RunStatus | str, target: RunStatus | str) -> bool:
-    """@brief 判断 Run 状态转换是否合法。"""
+    """@brief Determine whether a Run transition is permitted."""
     current = _coerce_enum(RunStatus, current, None)
     target = _coerce_enum(RunStatus, target, None)
     if current is None or target is None:
@@ -168,7 +165,7 @@ def can_transition_run(current: RunStatus | str, target: RunStatus | str) -> boo
 
 
 def can_transition_step(current: StepStatus | str, target: StepStatus | str) -> bool:
-    """@brief 判断 Step 状态转换是否合法。"""
+    """@brief Determine whether a Step transition is permitted."""
     current = _coerce_enum(StepStatus, current, None)
     target = _coerce_enum(StepStatus, target, None)
     if current is None or target is None:
@@ -177,27 +174,27 @@ def can_transition_step(current: StepStatus | str, target: StepStatus | str) -> 
 
 
 def ensure_run_transition(current: RunStatus | str, target: RunStatus | str) -> None:
-    """@brief 校验 Run 状态转换，非法时抛出 InvalidStateTransition。"""
+    """@brief Validate a Run transition or raise InvalidStateTransition."""
     if not can_transition_run(current, target):
         cur = _coerce_enum(RunStatus, current, current)
         tgt = _coerce_enum(RunStatus, target, target)
         raise InvalidStateTransition(
-            f"非法 Run 状态转换: {getattr(cur, 'value', cur)} -> {getattr(tgt, 'value', tgt)}"
+            f"Geçersiz Run durum geçişi: {getattr(cur, 'value', cur)} -> {getattr(tgt, 'value', tgt)}"
         )
 
 
 def ensure_step_transition(current: StepStatus | str, target: StepStatus | str) -> None:
-    """@brief 校验 Step 状态转换，非法时抛出 InvalidStateTransition。"""
+    """@brief Validate a Step transition or raise InvalidStateTransition."""
     if not can_transition_step(current, target):
         cur = _coerce_enum(StepStatus, current, current)
         tgt = _coerce_enum(StepStatus, target, target)
         raise InvalidStateTransition(
-            f"非法 Step 状态转换: {getattr(cur, 'value', cur)} -> {getattr(tgt, 'value', tgt)}"
+            f"Geçersiz Step durum geçişi: {getattr(cur, 'value', cur)} -> {getattr(tgt, 'value', tgt)}"
         )
 
 
 class _JsonModel:
-    """@brief 数据模型的 JSON 序列化基类，仅提供 to_dict/to_json/from_json。"""
+    """@brief JSON-serializable model base providing only to_dict/to_json/from_json."""
 
     def to_dict(self) -> dict[str, Any]:
         return _serialize(asdict(self))
@@ -212,7 +209,7 @@ class _JsonModel:
 
 @dataclass
 class VerificationResult(_JsonModel):
-    """@brief 统一验证结论。Tool/Handler 返回 success 不等于本结论 PASS。"""
+    """@brief Unified verification conclusion; Tool/Handler success does not establish PASS."""
 
     status: VerificationStatus
     reason: str | None = None
@@ -239,7 +236,7 @@ class VerificationResult(_JsonModel):
 
 @dataclass
 class RecoveryDecision(_JsonModel):
-    """@brief 结构化恢复决策（Recovery Engine 在后续 Phase 落地）。"""
+    """@brief Structured recovery decision; the engine is implemented in a later phase."""
 
     decision: str
     reason: str = ""
@@ -252,7 +249,7 @@ class RecoveryDecision(_JsonModel):
     def __post_init__(self) -> None:
         if self.decision not in RECOVERY_ACTIONS:
             raise ValueError(
-                f"非法恢复决策 {self.decision!r}，允许值: {sorted(RECOVERY_ACTIONS)}"
+                f"Geçersiz kurtarma kararı {self.decision!r}; izin verilen değerler: {sorted(RECOVERY_ACTIONS)}"
             )
 
     @classmethod
@@ -270,10 +267,10 @@ class RecoveryDecision(_JsonModel):
 
 @dataclass
 class ExecutionResult(_JsonModel):
-    """@brief 单步执行结果。
+    """@brief Single-step execution result.
 
-    ``success`` 仅表示 Tool/Handler 层成功，**不等于任务最终成功**；需要 Review 的
-    能力必须再经过 ``VerificationResult`` 判定后才能进入 COMPLETED。
+    success describes the Tool/Handler layer, not final task success. Capabilities
+    requiring Review must receive a VerificationResult before COMPLETED.
     """
 
     success: bool = False
@@ -303,7 +300,7 @@ class ExecutionResult(_JsonModel):
 
 @dataclass
 class StepRecord(_JsonModel):
-    """@brief 单个执行 Step 的记录，可被 Worker / MCP / CLI 复用。"""
+    """@brief Execution Step record shared by Worker/MCP/CLI."""
 
     step_id: str
     tool_name: str = ""
@@ -326,10 +323,10 @@ class StepRecord(_JsonModel):
 
     def __post_init__(self) -> None:
         if not self.step_id:
-            raise ValueError("StepRecord.step_id 不能为空")
+            raise ValueError("StepRecord.step_id boş olamaz")
 
     def transition(self, target: StepStatus | str) -> "StepRecord":
-        """@brief 校验并更新 Step 状态，非法转换抛 InvalidStateTransition。"""
+        """@brief Validate and update Step state, raising InvalidStateTransition on invalid transitions."""
         ensure_step_transition(self.status, target)
         self.status = _coerce_enum(StepStatus, target, self.status)
         return self
@@ -361,7 +358,7 @@ class StepRecord(_JsonModel):
 
 @dataclass
 class RunContext(_JsonModel):
-    """@brief 一次 Run 的统一上下文，与 CAD Studio Queue Job 解耦。"""
+    """@brief Unified Run context decoupled from CAD Studio Queue Job."""
 
     run_id: str
     goal: str = ""
@@ -380,18 +377,18 @@ class RunContext(_JsonModel):
 
     def __post_init__(self) -> None:
         if not self.run_id:
-            raise ValueError("RunContext.run_id 不能为空")
+            raise ValueError("RunContext.run_id boş olamaz")
         if not self.trace_id:
             self.trace_id = self.run_id
 
     def transition(self, target: RunStatus | str) -> "RunContext":
-        """@brief 校验并更新 Run 状态，非法转换抛 InvalidStateTransition。"""
+        """@brief Validate and update Run state, raising InvalidStateTransition on invalid transitions."""
         ensure_run_transition(self.status, target)
         self.status = _coerce_enum(RunStatus, target, self.status)
         return self
 
     def step(self, step_id: str) -> StepRecord | None:
-        """@brief 按 step_id 查找已记录 Step。"""
+        """@brief Find a recorded Step by step_id."""
         for item in self.steps:
             if item.step_id == step_id:
                 return item

@@ -1,7 +1,7 @@
-"""AutoCAD 混合后端前置检查。
+"""AutoCAD mixed-backend preflight.
 
-默认只读；只有显式 ``--install-sdk`` 时才调用 winget 安装 Microsoft .NET SDK。
-Autodesk Managed API DLL 只从本机 AutoCAD 安装目录发现，不自动下载或复制。
+Read-only by default; winget installs Microsoft .NET SDK only with explicit ``--install-sdk``.
+Autodesk Managed API DLLs are discovered only in the local AutoCAD installation; never downloaded or copied automatically.
 """
 from __future__ import annotations
 
@@ -38,7 +38,7 @@ REQUIRED_CONSECUTIVE_PASSES = 3
 
 
 def _find_managed_api(installation: dict[str, Any]) -> list[str]:
-    """@brief 在 AutoCAD 安装目录中查找 Autodesk.AutoCAD.Managed DLL。"""
+    """@brief Find Autodesk.AutoCAD.Managed DLLs in the AutoCAD installation directory."""
     executable = installation.get("executable")
     if not executable:
         return []
@@ -68,7 +68,7 @@ def _sdk_info() -> dict[str, Any]:
 
 
 def _runtime_evidence(path: Path) -> dict[str, Any]:
-    """@brief 校验真机回归证据；前置存在不代表插件已可用。"""
+    """@brief Validate real-machine regression evidence; prerequisites alone do not prove plugin readiness."""
     if not path.is_file():
         return {"status": "blocked", "path": str(path), "error_code": "AUTOCAD_DOTNET_RUNTIME_NOT_VERIFIED", "checks": {}}
     try:
@@ -88,16 +88,16 @@ def _runtime_evidence(path: Path) -> dict[str, Any]:
         try:
             artifact.relative_to(evidence_root)
         except ValueError:
-            artifact_errors.append(f"产物不在证据目录内: {artifact}")
+            artifact_errors.append(f"Artifact is outside the evidence directory: {artifact}")
             continue
         suffix = artifact.suffix.lower()
         ledger_by_suffix[suffix] = item
         if not artifact.is_file() or artifact.stat().st_size != item.get("size"):
-            artifact_errors.append(f"产物缺失或大小变化: {artifact}")
+            artifact_errors.append(f"Artifact missing or size changed: {artifact}")
             continue
         digest = hashlib.sha256(artifact.read_bytes()).hexdigest()
         if digest != item.get("sha256"):
-            artifact_errors.append(f"产物 SHA-256 变化: {artifact}")
+            artifact_errors.append(f"Artifact SHA-256 changed: {artifact}")
     missing_artifacts = [suffix for suffix in REQUIRED_ARTIFACT_SUFFIXES if suffix not in ledger_by_suffix]
     expected_backend = payload.get("backend") == "autocad_dotnet"
     passed = (
@@ -122,7 +122,7 @@ def _runtime_evidence(path: Path) -> dict[str, Any]:
 
 
 def _runtime_history(evidence_path: Path, *, required: int = REQUIRED_CONSECUTIVE_PASSES) -> dict[str, Any]:
-    """@brief 复验最近连续真机回归，达到门槛后允许升级 verified。"""
+    """@brief Recheck recent consecutive real-machine regressions before promotion to verified."""
     root = evidence_path.resolve().parent
     if evidence_path.name == "final-report.json":
         root = root.parent
@@ -162,14 +162,14 @@ def _runtime_history(evidence_path: Path, *, required: int = REQUIRED_CONSECUTIV
 def _install_sdk() -> dict[str, Any]:
     winget = shutil.which("winget") or shutil.which("winget.exe")
     if not winget:
-        return {"status": "blocked", "error_code": "WINGET_MISSING", "message": "未发现 winget，无法自动安装 .NET SDK"}
+        return {"status": "blocked", "error_code": "WINGET_MISSING", "message": "winget not found; cannot install .NET SDK automatically"}
     command = [winget, "install", "--id", "Microsoft.DotNet.SDK.8", "--exact", "--source", "winget", "--accept-source-agreements", "--accept-package-agreements"]
     result = subprocess.run(command, capture_output=True, text=True, check=False)
     return {"status": "pass" if result.returncode == 0 else "failed", "command": command, "returncode": result.returncode, "stdout_tail": result.stdout[-2000:], "stderr_tail": result.stderr[-2000:]}
 
 
 def run_preflight(*, install_sdk: bool = False, evidence_path: Path | None = None) -> dict[str, Any]:
-    """@brief 返回四类 AutoCAD 后端的统一前置报告。"""
+    """@brief Return unified preflight results for four AutoCAD backend categories."""
     installation = discover_installation("autocad")
     sdk = _sdk_info()
     install_result = _install_sdk() if install_sdk and not sdk["sdk_versions"] else None
@@ -212,15 +212,15 @@ def run_preflight(*, install_sdk: bool = False, evidence_path: Path | None = Non
         "runtime_history": history,
         "writable": writable,
         "backends": {
-            "dxf_headless": {"backend": "dxf_headless", "status": "pilot", "stage": "preflight", "artifacts": [], "limitations": ["只读 DXF"], "retryable": False},
-            "autocad_com": {"backend": "autocad_com", "status": "blocked", "stage": "preflight", "artifacts": [], "limitations": ["当前 AutoCAD 2024 ActiveX 动态代理不稳定"], "retryable": True, "error_code": "AUTOCAD_COM_UNSTABLE"},
-            "autocad_script": {"backend": "autocad_script", "status": "pilot", "stage": "preflight", "artifacts": [], "limitations": ["命令异步，必须保存后复核"], "retryable": True},
+            "dxf_headless": {"backend": "dxf_headless", "status": "pilot", "stage": "preflight", "artifacts": [], "limitations": ["Read-only DXF"], "retryable": False},
+            "autocad_com": {"backend": "autocad_com", "status": "blocked", "stage": "preflight", "artifacts": [], "limitations": ["AutoCAD 2024 ActiveX dynamic proxies are currently unstable"], "retryable": True, "error_code": "AUTOCAD_COM_UNSTABLE"},
+            "autocad_script": {"backend": "autocad_script", "status": "pilot", "stage": "preflight", "artifacts": [], "limitations": ["Commands are asynchronous; save and review afterward"], "retryable": True},
             "autocad_dotnet": {
                 "backend": "autocad_dotnet",
                 "status": dotnet_status,
                 "stage": dotnet_stage,
                 "artifacts": [str(evidence_path or DEFAULT_EVIDENCE_PATH)] if runtime_ready else [],
-                "limitations": ([] if dotnet_status == "verified" else [f"需要最近连续 {REQUIRED_CONSECUTIVE_PASSES} 次真机回归通过后升级 verified"]) if runtime_ready else ["需要 .NET SDK、本机 Autodesk Managed API DLL，并通过 NETLOAD、DWG 重开、PDF/PNG 和实体复核"],
+                "limitations": ([] if dotnet_status == "verified" else [f"Promotion to verified requires the latest {REQUIRED_CONSECUTIVE_PASSES} consecutive real-machine regressions to pass"]) if runtime_ready else ["Requires .NET SDK, local Autodesk Managed API DLLs, and successful NETLOAD, DWG reopen, PDF/PNG, and entity review"],
                 "retryable": True,
                 "error_code": dotnet_error,
             },
@@ -230,8 +230,8 @@ def run_preflight(*, install_sdk: bool = False, evidence_path: Path | None = Non
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="AutoCAD 混合后端前置检查")
-    parser.add_argument("--install-sdk", action="store_true", help="允许通过 winget 安装 Microsoft .NET SDK")
+    parser = argparse.ArgumentParser(description="AutoCAD mixed-backend preflight")
+    parser.add_argument("--install-sdk", action="store_true", help="Allow Microsoft .NET SDK installation through winget")
     args = parser.parse_args()
     report = run_preflight(install_sdk=args.install_sdk)
     print(json.dumps(report, ensure_ascii=False, indent=2))

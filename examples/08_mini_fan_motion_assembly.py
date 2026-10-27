@@ -1,12 +1,9 @@
 """
-示例 8: 桌面迷你散热风扇基准装配与 Motion Study。
+Example 8: Miniature desktop cooling-fan benchmark assembly and Motion Study.
 
-本示例用于验证完整自动化链路：生成 4 个零件、创建装配体、添加真实 Mate、
-固定静止组件、保留叶轮旋转自由度、添加 60RPM 旋转马达并导出自审查报告。
+Validate the complete automation chain: generate four parts, assemble them, add actual Mates, fix stationary components, retain impeller rotational freedom, add a 60 RPM rotary motor, and export a review report.
 
-注意：该示例优先追求稳定可运行，不把圆角/倒角作为成功标准。SolidWorks
-边线自动选择在不同版本、语言和建模顺序下差异较大，圆角美化建议在后续
-专门的实体选择策略中优化。
+Prioritize stable execution; fillets/chamfers are not success criteria. Automatic edge selection varies with version, locale, and modeling order. Refine cosmetic fillets later using a dedicated entity-selection strategy.
 """
 from __future__ import annotations
 
@@ -60,15 +57,15 @@ OUTPUT_DIR = Path(r"C:\temp\solidworks_mini_fan_demo")
 
 def save_and_close(sw, model, output_path: Path) -> Path:
     """
-    @brief 保存文档并关闭，避免同名文档残留影响 AddComponent4。
-    @param sw SolidWorks 应用对象。
-    @param model 当前 IModelDoc2。
-    @param output_path 输出文件路径。
-    @return 保存后的绝对路径。
+    @brief Save and close a document to prevent same-title leftovers affecting AddComponent4.
+    @param sw SOLIDWORKS application.
+    @param model Current IModelDoc2.
+    @param output_path Output file path.
+    @return Saved absolute path.
     """
     output_path.parent.mkdir(parents=True, exist_ok=True)
     if not save_document(model, str(output_path)):
-        raise RuntimeError(f"保存失败: {output_path}")
+        raise RuntimeError(f"Kaydetme başarısız: {output_path}")
     title = get_com_member(model, "GetTitle")
     sw.CloseDoc(title)
     return output_path
@@ -76,8 +73,8 @@ def save_and_close(sw, model, output_path: Path) -> Path:
 
 def create_base(sw) -> Path:
     """
-    @brief 创建底座零件。
-    @return .SLDPRT 文件路径。
+    @brief Create the base part.
+    @return .SLDPRT path.
     """
     model = new_document(sw, "part")
     with sketch(model, "Front Plane") as sketch_name:
@@ -93,8 +90,8 @@ def create_base(sw) -> Path:
 
 def create_stand(sw) -> Path:
     """
-    @brief 创建中心立柱/轴零件。
-    @return .SLDPRT 文件路径。
+    @brief Create the center post/shaft part.
+    @return .SLDPRT path.
     """
     model = new_document(sw, "part")
     with sketch(model, "Front Plane") as sketch_name:
@@ -107,8 +104,8 @@ def create_stand(sw) -> Path:
 
 def create_impeller(sw) -> Path:
     """
-    @brief 创建带十字叶片的叶轮零件。
-    @return .SLDPRT 文件路径。
+    @brief Create the impeller part with cross-shaped blades.
+    @return .SLDPRT path.
     """
     model = new_document(sw, "part")
 
@@ -116,7 +113,7 @@ def create_impeller(sw) -> Path:
         sketch_circle(model, 0, 0, mm(12))
     extrude_boss(model, sketch_name, mm(7))
 
-    # 这里使用矩形叶片保证稳定；弧形叶片和圆角美化留给后续选择策略优化。
+    # Use rectangular blades for stability; refine curved blades and fillets later with improved selection strategies.
     blade_rects = [
         (mm(12), mm(-5), mm(39), mm(5)),
         (mm(-39), mm(-5), mm(-12), mm(5)),
@@ -135,8 +132,8 @@ def create_impeller(sw) -> Path:
 
 def create_front_guard(sw) -> Path:
     """
-    @brief 创建圆形防护前盖零件。
-    @return .SLDPRT 文件路径。
+    @brief Create the circular front guard part.
+    @return .SLDPRT path.
     """
     model = new_document(sw, "part")
 
@@ -148,7 +145,7 @@ def create_front_guard(sw) -> Path:
         sketch_circle(model, 0, 0, mm(39))
     extrude_cut(model, sketch_name, 0)
 
-    # 十字防护筋，比复杂网罩更稳定，便于验证装配和运动链路。
+    # Cross-shaped guard ribs are more stable than a complex grille for validating assembly/motion workflows.
     guard_bars = [
         (mm(-47), mm(-2), mm(47), mm(2)),
         (mm(-2), mm(-47), mm(2), mm(47)),
@@ -165,11 +162,11 @@ def create_front_guard(sw) -> Path:
 
 def set_component_fixed(asm, component, fixed: bool) -> bool:
     """
-    @brief 固定或浮动装配体组件。
-    @param asm 装配体 IModelDoc2/IAssemblyDoc。
-    @param component 目标 IComponent2。
-    @param fixed True=固定，False=浮动。
-    @return 操作是否成功。
+    @brief Fix or float an assembly component.
+    @param asm Assembly IModelDoc2/IAssemblyDoc.
+    @param component Target IComponent2.
+    @param fixed True=fixed, False=floating.
+    @return Whether the operation succeeded.
     """
     asm.ClearSelection2(True)
     selected = False
@@ -192,7 +189,7 @@ def set_component_fixed(asm, component, fixed: bool) -> bool:
             )
         )
     if not selected:
-        raise RuntimeError(f"无法选择组件: {get_com_member(component, 'Name2')}")
+        raise RuntimeError(f"Bileşen seçilemedi: {get_com_member(component, 'Name2')}")
     member_name = "FixComponent" if fixed else "UnfixComponent"
     result = get_com_member(asm, member_name)
     asm.ClearSelection2(True)
@@ -201,13 +198,13 @@ def set_component_fixed(asm, component, fixed: bool) -> bool:
 
 def add_plane_coincident_mate(asm, component_a, component_b, plane="Front Plane", name=None):
     """
-    @brief 使用两个组件内部基准面创建重合 Mate。
-    @param asm 装配体文档。
-    @param component_a 第一个组件。
-    @param component_b 第二个组件。
-    @param plane 基准面名称。
-    @param name 可选 Mate 名称。
-    @return Mate2 对象。
+    @brief Create a coincident Mate between internal planes of two components.
+    @param asm Assembly document.
+    @param component_a First component.
+    @param component_b Second component.
+    @param plane Plane name.
+    @param name Optional Mate name.
+    @return Mate2.
     """
     entity_a = get_component_feature_entity(component_a, plane)
     entity_b = get_component_feature_entity(component_b, plane)
@@ -217,14 +214,14 @@ def add_plane_coincident_mate(asm, component_a, component_b, plane="Front Plane"
 
 def add_plane_distance_mate(asm, component_a, component_b, distance_mm, plane="Front Plane", name=None):
     """
-    @brief 使用两个组件内部基准面创建距离 Mate。
-    @param asm 装配体文档。
-    @param component_a 第一个组件。
-    @param component_b 第二个组件。
-    @param distance_mm 距离，单位 mm。
-    @param plane 基准面名称。
-    @param name 可选 Mate 名称。
-    @return Mate2 对象。
+    @brief Create a distance Mate between internal planes of two components.
+    @param asm Assembly document.
+    @param component_a First component.
+    @param component_b Second component.
+    @param distance_mm Distance in mm.
+    @param plane Plane name.
+    @param name Optional Mate name.
+    @return Mate2.
     """
     entity_a = get_component_feature_entity(component_a, plane)
     entity_b = get_component_feature_entity(component_b, plane)
@@ -239,10 +236,10 @@ def add_plane_distance_mate(asm, component_a, component_b, distance_mm, plane="F
 
 def create_assembly(sw, part_paths: dict[str, Path]) -> Path:
     """
-    @brief 创建风扇装配体并添加 Mate 与 Motion Study。
-    @param sw SolidWorks 应用对象。
-    @param part_paths 零件路径字典。
-    @return .SLDASM 文件路径。
+    @brief Create a fan assembly with Mates and Motion Study.
+    @param sw SOLIDWORKS application.
+    @param part_paths Dictionary of part paths.
+    @return .SLDASM path.
     """
     asm = new_document(sw, "assembly")
 
@@ -253,7 +250,7 @@ def create_assembly(sw, part_paths: dict[str, Path]) -> Path:
 
     for component in (base, stand, impeller, front_guard):
         if component is None:
-            raise RuntimeError("添加组件失败，请检查零件路径和活动装配体。")
+            raise RuntimeError("Bileşen eklenemedi; parça yollarını ve etkin montajı denetleyin.")
         resolve_component(component)
 
     add_plane_coincident_mate(asm, base, stand, "Front Plane", name="base_stand_front_coincident")
@@ -317,7 +314,7 @@ def create_assembly(sw, part_paths: dict[str, Path]) -> Path:
         name="impeller_rotary_motor_60RPM",
     )
     calculated = calculate_and_play(study, play=False)
-    print(f"Motion Study 计算结果: {calculated}")
+    print(f"Motion Study hesaplama sonucu: {calculated}")
     motion_audit = validate_motion_studies(
         asm,
         study_name="mini_fan_impeller_60RPM_loop",
@@ -328,16 +325,16 @@ def create_assembly(sw, part_paths: dict[str, Path]) -> Path:
     motion_audit_path = OUTPUT_DIR / "mini_fan_motion_audit.json"
     motion_audit_path.write_text(json.dumps(motion_audit, ensure_ascii=False, indent=2), encoding="utf-8")
     if motion_audit["validation"]["status"] != "pass":
-        raise RuntimeError(f"Motion Study 验收失败: {motion_audit['validation']['issues']}")
-    print(f"Motion Study 验收: {motion_audit_path}")
-    print("Mate 摘要:")
+        raise RuntimeError(f"Motion Study kabulü başarısız: {motion_audit['validation']['issues']}")
+    print(f"Motion Study kabulü: {motion_audit_path}")
+    print("Mate özeti:")
     for item in collect_mate_feature_summary(asm):
         print(f"  - {item['name']} ({item['type']})")
 
     asm.ForceRebuild3(False)
     assembly_path = OUTPUT_DIR / "mini_fan_motion_assembly.SLDASM"
     if not save_document(asm, str(assembly_path)):
-        raise RuntimeError(f"保存装配体失败: {assembly_path}")
+        raise RuntimeError(f"Montaj kaydedilemedi: {assembly_path}")
 
     review_dir = OUTPUT_DIR / "review"
     report, report_path = run_review(
@@ -346,14 +343,14 @@ def create_assembly(sw, part_paths: dict[str, Path]) -> Path:
         basename="mini_fan_motion_assembly",
         expected_outputs=[str(assembly_path)],
     )
-    print(f"审查报告: {report_path}")
-    print(f"审查状态: {report.get('evaluation')}")
+    print(f"İnceleme raporu: {report_path}")
+    print(f"İnceleme durumu: {report.get('evaluation')}")
     return assembly_path
 
 
 def main() -> None:
     """
-    @brief 运行完整微型风扇基准示例。
+    @brief Run the complete miniature-fan benchmark.
     """
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     sw, _ = connect_solidworks()
@@ -364,7 +361,7 @@ def main() -> None:
         "front_guard": create_front_guard(sw),
     }
     assembly_path = create_assembly(sw, part_paths)
-    print(f"完成: {assembly_path}")
+    print(f"Tamamlandı: {assembly_path}")
 
 
 if __name__ == "__main__":

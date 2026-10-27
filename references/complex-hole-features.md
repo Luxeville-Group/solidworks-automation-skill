@@ -1,26 +1,26 @@
-# 复杂孔槽自动化
+# Complex Hole and Slot Automation
 
-## 支持范围
+## Supported scope
 
-`scripts/sw_hole_features.py` 使用草图和切除特征创建以下结构：
+`scripts/sw_hole_features.py` creates these structures with sketches and cut features:
 
-- 定深盲孔。
-- 完全贯穿孔。
-- 通孔 + 圆柱沉孔的两级复合孔。
-- 通孔 + 指定包含角的锥形沉头孔。
-- 两端为半圆的直槽，支持贯穿或定深。
-- 按显式坐标创建的孔阵列。
+- Fixed-depth blind holes.
+- Through-all holes.
+- Two-stage compound holes: through hole + cylindrical counterbore.
+- Through hole + conical countersink with a specified included angle.
+- Straight slots with semicircular ends, through-all or fixed-depth.
+- Hole patterns built from explicit coordinates.
 
-该模块不调用 `HoleWizard5`。Hole Wizard 的长参数和版本差异没有完成官方签名与真实版本验证前，禁止凭记忆拼接参数。
+This module does not call `HoleWizard5`. Until official signatures and real-version behavior are verified, do not assemble Hole Wizard's long argument lists from memory.
 
-## 单位与基准
+## Units and references
 
-- 所有输入长度使用米，建议由 `sw_connect.mm()` 转换。
-- `center`、`start`、`end` 是目标草图平面的局部二维坐标。
-- 默认基准面是 `Front Plane`，中文版由 `sw_part.start_sketch()` 自动兼容。
-- 创建参数证据同时输出米和毫米字段，但毫米字段只用于报告，不回传 COM。
+- All input lengths are meters; use `sw_connect.mm()` for conversion.
+- `center`, `start` and `end` are local 2D coordinates in the target sketch plane.
+- The default reference is `Front Plane`; `sw_part.start_sketch()` handles localized aliases.
+- Creation evidence includes meter and millimeter fields; millimeter fields are reporting-only and are not passed back to COM.
 
-## 示例
+## Example
 
 ```python
 from sw_connect import mm
@@ -31,14 +31,14 @@ from sw_hole_features import (
     create_semicircular_slot,
 )
 
-blind = create_blind_hole(model, (mm(20), mm(20)), mm(8), mm(10), name="H1_盲孔")
+blind = create_blind_hole(model, (mm(20), mm(20)), mm(8), mm(10), name="H1_BlindHole")
 counterbore = create_counterbore_hole(
     model,
     (mm(50), mm(20)),
     hole_diameter=mm(6),
     counterbore_diameter=mm(12),
     counterbore_depth=mm(4),
-    name="H2_沉孔",
+    name="H2_Counterbore",
 )
 countersink = create_countersink_hole(
     model,
@@ -46,7 +46,7 @@ countersink = create_countersink_hole(
     hole_diameter=mm(5),
     countersink_diameter=mm(10),
     included_angle_deg=90,
-    name="H3_沉头",
+    name="H3_Countersink",
 )
 slot = create_semicircular_slot(
     model,
@@ -54,24 +54,24 @@ slot = create_semicircular_slot(
     (mm(60), mm(50)),
     width=mm(10),
     depth=0,
-    name="S1_半圆端槽",
+    name="S1_SemicircularEndedSlot",
 )
 ```
 
-## 验收证据
+## Acceptance evidence
 
-创建函数返回的是参数证据，不是几何验收结论。交付前必须继续执行：
+Creation functions return parameter evidence, not geometric acceptance. Before delivery:
 
-1. `sw_review.collect_geometry_measurements()` 读取 B-Rep 圆柱面。
-2. `sw_review.validate_hole_positions()` 验证孔径和孔轴线位置。
-3. 对盲孔深度、沉孔深度和沉头角度回读特征参数，或用剖视图人工复核。
-4. 半圆槽端部圆柱面必须进入 `slot_arc_candidates`，不能被计入圆孔数量。
-5. 复合孔应在 `compound_holes` 中出现同轴多直径孔段。
+1. Read B-Rep cylindrical faces with `sw_review.collect_geometry_measurements()`.
+2. Verify hole diameters and axis positions with `sw_review.validate_hole_positions()`.
+3. Read back blind-hole depth, counterbore depth and countersink angle from feature definitions, or review them in a section view.
+4. Slot-end cylindrical faces must appear in `slot_arc_candidates`; do not count them as round holes.
+5. Compound holes should appear in `compound_holes` as coaxial segments of different diameters.
 
-推荐每个孔至少记录：孔型、规格、数量、基准边定位、中心距、深度/贯穿状态、尺寸公差和证据来源。
+For each hole, record at least its type, specification, quantity, location from datum edges, center distances, depth/through condition, dimensional tolerances and evidence source.
 
-## 已知限制
+## Known limitations
 
-- 锥形沉头使用通孔入口圆边的角度/距离倒角。入口边按圆心、半径和基准面位置筛选，不依赖临时边线名称；倒角后仍必须查看剖视图确认入口方向。
-- B-Rep 单独不能可靠区分盲孔和通孔；必须与创建参数或特征定义回读交叉验证。
-- 当前孔阵列按显式孔位逐个建特征，优先保证可审计性；大量规则阵列后续可增加 Linear/Circular Pattern 封装。
+- Conical countersinks use an angle/distance chamfer on the through-hole entrance edge. Select that edge by center, radius and reference-plane position, not transient edge names; inspect a section after chamfering to confirm entrance direction.
+- B-Rep alone cannot reliably distinguish blind and through holes; cross-check creation parameters or feature-definition readback.
+- Current hole patterns create individual features at explicit positions for auditability. Large regular patterns may later use Linear/Circular Pattern wrappers.

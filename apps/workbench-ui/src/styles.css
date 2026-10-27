@@ -22,7 +22,7 @@
   --wallpaper-blur: 3px;
   --wallpaper-vignette: 0.18;
   --workspace-opacity: 0.36;
-  font-family: "SF Pro Display", "SF Pro Text", "HarmonyOS Sans SC", "Microsoft YaHei UI", sans-serif;
+  font-family: "SF Pro Display", "SF Pro Text", "Segoe UI", sans-serif;
 }
 
 * {
@@ -4497,7 +4497,7 @@ textarea {
 
 }
 
-/* 桌面工作台：结构优先，减少网页式悬浮卡片和无效装饰。 */
+/* Desktop workbench: prioritize structure and avoid floating web-style cards or unnecessary decoration. */
 :root {
   --radius-xl: 8px;
   --radius-lg: 8px;
@@ -5217,7 +5217,7 @@ textarea:focus-visible {
   outline-offset: 2px;
 }
 
-/* 壁纸穿透层：壁纸始终在最底层，内容面只提供局部对比保护。 */
+/* Wallpaper underlay: keep wallpaper at the bottom and provide local contrast protection on content surfaces. */
 .capability-card,
 .project-brief,
 .project-list-panel,

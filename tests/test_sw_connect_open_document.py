@@ -1,15 +1,15 @@
-"""SolidWorks 文档打开兼容路径测试。"""
+'SolidWorks document-opening compatibility paths.'
 from pathlib import Path
 
 from scripts import sw_connect
 
 
 class FakeModel:
-    """@brief 最小文档对象。"""
+    'Minimal document object.'
 
 
 def test_open_document_reuses_existing_model(tmp_path):
-    """@brief 装配体已加载组件时不重复调用 OpenDoc6。"""
+    'Do not repeat OpenDoc6 for components already loaded by an assembly.'
     source = tmp_path / "part.sldprt"
     source.write_bytes(b"part")
     expected = FakeModel()
@@ -20,13 +20,13 @@ def test_open_document_reuses_existing_model(tmp_path):
             return expected
 
         def OpenDoc6(self, *_args):
-            raise AssertionError("不应重复打开已加载文档")
+            raise AssertionError('Do not reopen an already loaded document')
 
     assert sw_connect.open_document(FakeSolidWorks(), source) is expected
 
 
 def test_open_document_falls_back_to_dynamic_proxy(tmp_path, monkeypatch):
-    """@brief makepy 拒绝 by-ref VARIANT 时使用动态代理。"""
+    'Use a dynamic proxy when makepy rejects by-ref VARIANT.'
     source = tmp_path / "part.sldprt"
     source.write_bytes(b"part")
     expected = FakeModel()
@@ -56,7 +56,7 @@ def test_open_document_falls_back_to_dynamic_proxy(tmp_path, monkeypatch):
 
 
 def test_step_import_falls_back_to_dynamic_loadfile4(tmp_path, monkeypatch):
-    """@brief SW2026 LoadFile4 的 by-ref VARIANT 失败时也必须切换动态代理。"""
+    'SW2026 LoadFile4 must also switch to a dynamic proxy on by-ref VARIANT failure.'
     source = tmp_path / "complex.step"
     source.write_bytes(b"ISO-10303-21")
     expected = FakeModel()

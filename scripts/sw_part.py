@@ -1,6 +1,6 @@
 """
-SolidWorks 零件建模工具
-提供草图绘制和特征创建的常用函数
+SOLIDWORKS part modeling utilities.
+Common functions for sketching and feature creation.
 """
 import weakref
 from dataclasses import dataclass
@@ -16,11 +16,9 @@ except ImportError:
 
 def _callout_variant():
     """
-    构造 Select4 需要的空 Callout（Dispatch VARIANT）。
+    Construct an empty Callout (Dispatch VARIANT) for Select4.
 
-    sw_connect.create_empty_dispatch_variant 在测试替身里可能不存在，因此这里做
-    防御式导入而不是模块级硬依赖：缺它就退回 None，Select4 仍可用（只是部分版本
-    会报类型不匹配，此时 Select2 才是首选路径）。
+    Test doubles may lack sw_connect.create_empty_dispatch_variant, so use a defensive import instead of a hard module dependency. Fall back to None when unavailable; Select4 may still work, but versions reporting type mismatch should prefer Select2.
     """
     try:
         from sw_connect import create_empty_dispatch_variant  # type: ignore
@@ -37,27 +35,32 @@ def _callout_variant():
 pythoncom, _win32com, VARIANT = import_com_dependencies()
 
 PLANE_NAME_ALIASES = {
-    "Front Plane": ["Front Plane", "前视基准面"],
-    "Top Plane": ["Top Plane", "上视基准面"],
-    "Right Plane": ["Right Plane", "右视基准面"],
-    "前视基准面": ["前视基准面", "Front Plane"],
-    "上视基准面": ["上视基准面", "Top Plane"],
-    "右视基准面": ["右视基准面", "Right Plane"],
+    "Ön Düzlem": ["Ön Düzlem", "Front Plane"],
+    "Üst Düzlem": ["Üst Düzlem", "Top Plane"],
+    "Sağ Düzlem": ["Sağ Düzlem", "Right Plane"],
+    "Front Plane": ["Front Plane", "Ön Düzlem", "\u524d\u89c6\u57fa\u51c6\u9762"],
+    "Top Plane": ["Top Plane", "Üst Düzlem", "\u4e0a\u89c6\u57fa\u51c6\u9762"],
+    "Right Plane": ["Right Plane", "Sağ Düzlem", "\u53f3\u89c6\u57fa\u51c6\u9762"],
+    "\u524d\u89c6\u57fa\u51c6\u9762": ["\u524d\u89c6\u57fa\u51c6\u9762", "Front Plane"],
+    "\u4e0a\u89c6\u57fa\u51c6\u9762": ["\u4e0a\u89c6\u57fa\u51c6\u9762", "Top Plane"],
+    "\u53f3\u89c6\u57fa\u51c6\u9762": ["\u53f3\u89c6\u57fa\u51c6\u9762", "Right Plane"],
 }
 
+# Escaped legacy prefixes are API lookup aliases, not user-facing prose.
 SKETCH_NAME_PREFIX_ALIASES = {
-    "Sketch": "草图",
-    "草图": "Sketch",
+    "Sketch": "\u8349\u56fe",
+    "\u8349\u56fe": "Sketch",
+    "Çizim": "Sketch",
+    "Eskiz": "Sketch",
 }
 
 
 @dataclass
 class SketchSelectionRef:
     """
-    记录草图对象引用，避免后续只能靠 SelectByID2("SKETCH") 按名称反查。
+    Store sketch object references instead of relying on name-based SelectByID2("SKETCH") lookup.
 
-    SolidWorks 2024 中文版中，按名称选择 SKETCH 可能持续返回 False。创建草图时
-    保存对象引用，后续特征创建可直接 Select2 草图、草图特征或轮廓。
+    Chinese-localized SOLIDWORKS 2024 may consistently reject name-based SKETCH selection. Retaining references at creation permits later direct Select2 of the sketch, feature, or contour.
     """
 
     name: str
@@ -69,11 +72,11 @@ class SketchSelectionRef:
     source: str = ""
 
     def __str__(self):
-        """保持与旧代码中普通草图名称字符串相近的表现。"""
+        """Behave similarly to legacy plain sketch-name strings."""
         return self.name
 
     def __eq__(self, other):
-        """与草图名字符串比较时按名称等价，保持向后兼容。"""
+        """Compare by name against sketch-name strings for backward compatibility."""
         if isinstance(other, SketchSelectionRef):
             return self.name == other.name
         if isinstance(other, str):
@@ -86,11 +89,9 @@ class SketchSelectionRef:
 
 class _SketchCacheEntry:
     """
-    单个文档的草图选择缓存条目。
+    Sketch-selection cache entry for one document.
 
-    同时保留 model 的弱引用与 ``_oleobj_`` 的标识，用于判定缓存是否仍然对应当前
-    文档。仅用 ``id(ole_object)`` 作键是不可靠的：COM 代理被 GC 后 CPython 会复用
-    内存地址，旧条目可能错误命中新文档，从而把草图特征建到错误的文档上。
+    Retain a weak model reference and _oleobj_ identity to verify ownership. id(ole_object) alone is unsafe: CPython can reuse addresses after COM proxy collection, allowing an old entry to match a new document and create features in the wrong document.
     """
 
     __slots__ = ("model_ref", "ole_id", "sketches", "fingerprint")
@@ -102,12 +103,12 @@ class _SketchCacheEntry:
         self.fingerprint = None
 
     def matches(self, model, ole_id):
-        """@brief 判断该条目是否仍对应当前模型。"""
+        """@brief Check whether the entry still belongs to this model."""
         if ole_id is not None and self.ole_id is not None:
             if ole_id != self.ole_id:
                 return False
         if self.model_ref is None:
-            # 该版本 COM 代理不支持弱引用，只能依赖 _oleobj_ 标识。
+            # This COM proxy does not support weak references; use _oleobj_ identity.
             return ole_id is not None and ole_id == self.ole_id
         alive = self.model_ref()
         if alive is None:
@@ -116,7 +117,7 @@ class _SketchCacheEntry:
 
 
 def _weak_model(model):
-    """@brief 尽力创建模型的弱引用；不支持时返回 None。"""
+    """@brief Try to create a weak model reference; return None if unsupported."""
     try:
         return weakref.ref(model)
     except TypeError:
@@ -125,9 +126,9 @@ def _weak_model(model):
 
 def _document_fingerprint(model):
     """
-    读取所属文档的指纹（标题 + 路径）。
+    Read the owning document fingerprint (title and path).
 
-    用于检测"当前活动文档已经换成别的文档"，此时旧缓存必须整体失效。
+    Detect active-document changes that invalidate the entire previous cache.
     """
     try:
         document = get_com_member(model, "GetTitle"), get_com_member(model, "GetPathName")
@@ -142,14 +143,12 @@ _SKETCH_CACHE_LIMIT = 32
 
 def clear_sketch_selection_cache(model=None):
     """
-    清理草图选择缓存。
+    Clear the sketch-selection cache.
 
-    参数:
-        model: 指定文档时只清理该文档的条目；None 时清空全部。
+    Args:
+        model: Clear only this document when supplied; None clears all entries.
 
-    说明:
-        长跑进程（例如常驻 MCP server）必须调用本函数，否则缓存会一直持有已关闭
-        文档的 ISketch COM 对象，导致 SolidWorks 侧无法释放文档。
+    Long-running processes such as an MCP server must call this, otherwise cached ISketch COM objects retain closed documents and prevent SOLIDWORKS from releasing them.
     """
     if model is None:
         _SKETCH_SELECTION_CACHE.clear()
@@ -159,7 +158,7 @@ def clear_sketch_selection_cache(model=None):
 
 
 def _prune_sketch_cache():
-    """@brief 淘汰已失效条目；条目数超限时按插入顺序丢弃最旧项。"""
+    """@brief Evict invalid entries; discard oldest inserted entries when over capacity."""
     for key, entry in list(_SKETCH_SELECTION_CACHE.items()):
         if entry.model_ref is not None and entry.model_ref() is None:
             _SKETCH_SELECTION_CACHE.pop(key, None)
@@ -171,14 +170,14 @@ def _prune_sketch_cache():
 
 
 def _get_sketch_cache_entry(model, create=False):
-    """@brief 取得（或创建）当前模型的缓存条目，自动识别文档切换。"""
+    """@brief Get or create the model cache entry and detect document changes automatically."""
     ole_id = _model_cache_key(model)
     entry = _SKETCH_SELECTION_CACHE.get(ole_id)
     if entry is not None and entry.matches(model, ole_id) and entry.fingerprint == _document_fingerprint(model):
         return entry
     if not create:
         return None
-    # 文档已切换或地址已被复用：丢弃旧条目，避免跨文档误命中。
+    # Document changed or address reused: discard the old entry to avoid cross-document matches.
     _prune_sketch_cache()
     entry = _SketchCacheEntry(model, ole_id)
     entry.fingerprint = _document_fingerprint(model)
@@ -187,27 +186,27 @@ def _get_sketch_cache_entry(model, create=False):
 
 
 # ============================================================
-# 草图操作
+# Sketch operations
 # ============================================================
 
 def _empty_callout():
-    """创建兼容 SelectByID2 的空 Callout 参数。"""
+    """Create an empty Callout argument compatible with SelectByID2."""
     return VARIANT(pythoncom.VT_DISPATCH, None)
 
 
 def _select_by_id(extension, entity_name, entity_type, append=False, mark=0):
     """
-    统一封装 SelectByID2，避免 None 在部分 SolidWorks 版本中触发类型不匹配。
+    Wrap SelectByID2 to avoid None causing type mismatches in some SOLIDWORKS versions.
 
-    参数:
-        extension: ModelDocExtension 对象
-        entity_name: 实体名称
-        entity_type: 实体类型字符串
-        append: 是否追加选择
-        mark: 选择标记
+    Args:
+        extension: ModelDocExtension object.
+        entity_name: Entity name.
+        entity_type: Entity type string.
+        append: Append to the selection when True.
+        mark: Selection mark.
 
-    返回:
-        bool
+    Returns:
+        bool.
     """
     return extension.SelectByID2(
         entity_name, entity_type, 0, 0, 0, append, mark, _empty_callout(), 0
@@ -216,39 +215,41 @@ def _select_by_id(extension, entity_name, entity_type, append=False, mark=0):
 
 def _get_plane_name_candidates(plane_name):
     """
-    获取基准面的候选名称列表
+    Get candidate plane names.
 
-    参数:
-        plane_name: 用户提供的基准面名称
+    Args:
+        plane_name: User-supplied plane name.
 
-    返回:
-        list[str]
+    Returns:
+        list[str].
     """
     return PLANE_NAME_ALIASES.get(plane_name, [plane_name])
 
 
 def _get_sketch_name_candidates(sketch_name):
     """
-    获取草图名称候选列表，自动兼容中英文前缀。
+    Get sketch-name candidates with localized prefix compatibility.
 
-    参数:
-        sketch_name: 草图名称
+    Args:
+        sketch_name: Sketch name.
 
-    返回:
-        list[str]
+    Returns:
+        list[str].
     """
     sketch_name = str(sketch_name)
     candidates = [sketch_name]
     for prefix, alias in SKETCH_NAME_PREFIX_ALIASES.items():
         if sketch_name.startswith(prefix):
-            alias_name = alias + sketch_name[len(prefix):]
-            if alias_name not in candidates:
-                candidates.append(alias_name)
+            suffix = sketch_name[len(prefix):]
+            for candidate_prefix in (alias, "Sketch", "Eskiz", "Çizim"):
+                alias_name = candidate_prefix + suffix
+                if alias_name not in candidates:
+                    candidates.append(alias_name)
     return candidates
 
 
 def _as_tuple(value):
-    """把 COM 返回的单对象、SAFEARRAY 或 None 统一成 tuple。"""
+    """Normalize a COM single object, SAFEARRAY, or None to a tuple."""
     if value is None:
         return ()
     if isinstance(value, tuple):
@@ -259,7 +260,7 @@ def _as_tuple(value):
 
 
 def _safe_com_member(obj, attr_name, *args, default=None):
-    """读取 COM 成员，失败时返回默认值，避免排障路径再次抛 COM 异常。"""
+    """Read COM members with a default fallback so diagnostics cannot raise another COM error."""
     if obj is None:
         return default
     try:
@@ -270,7 +271,7 @@ def _safe_com_member(obj, attr_name, *args, default=None):
 
 
 def _model_cache_key(model):
-    """生成仅用于当前 Python 进程的模型缓存键。"""
+    """Build a model cache key scoped to the current Python process."""
     ole_object = getattr(model, "_oleobj_", None)
     if ole_object is not None:
         return id(ole_object)
@@ -278,7 +279,7 @@ def _model_cache_key(model):
 
 
 def _cache_name_variants(sketch_name):
-    """生成草图缓存名称，兼容中英文默认草图名前缀。"""
+    """Build sketch cache names with localized default-prefix compatibility."""
     variants = []
     for candidate in _get_sketch_name_candidates(sketch_name):
         if candidate not in variants:
@@ -287,7 +288,7 @@ def _cache_name_variants(sketch_name):
 
 
 def _cache_sketch_ref(model, sketch_ref):
-    """缓存草图对象引用，后续可跳过 SelectByID2("SKETCH")。"""
+    """Cache sketch object references to bypass later SelectByID2("SKETCH") calls."""
     if not sketch_ref or not sketch_ref.name:
         return sketch_ref
     entry = _get_sketch_cache_entry(model, create=True)
@@ -297,7 +298,7 @@ def _cache_sketch_ref(model, sketch_ref):
 
 
 def _find_cached_sketch_ref(model, sketch_name):
-    """从当前进程缓存中查找草图对象引用。"""
+    """Find sketch object references in the current-process cache."""
     if isinstance(sketch_name, SketchSelectionRef):
         return sketch_name
 
@@ -312,7 +313,7 @@ def _find_cached_sketch_ref(model, sketch_name):
 
 
 def _capture_sketch_ref(model, sketch_obj=None, fallback="Sketch1", source=""):
-    """从活动草图或给定草图对象中提取可复用的选择引用。"""
+    """Extract reusable selection references from the active or supplied sketch."""
     if sketch_obj is None:
         sketch_obj = _safe_com_member(model.SketchManager, "ActiveSketch")
     if sketch_obj is None:
@@ -332,7 +333,7 @@ def _capture_sketch_ref(model, sketch_obj=None, fallback="Sketch1", source=""):
 
 
 def _refresh_sketch_ref(sketch_ref):
-    """退出草图后再次刷新 Feature/Contour 引用。"""
+    """Refresh Feature/Contour references after exiting the sketch."""
     if not sketch_ref or sketch_ref.sketch is None:
         return sketch_ref
     feature = _safe_com_member(sketch_ref.sketch, "GetFeature")
@@ -352,17 +353,17 @@ def _refresh_sketch_ref(sketch_ref):
 
 def _select_first_candidate(extension, candidate_names, entity_type, append=False, mark=0):
     """
-    按候选名称列表依次尝试选择实体。
+    Try selecting entities by candidate name in order.
 
-    参数:
-        extension: ModelDocExtension 对象
-        candidate_names: 候选名称列表
-        entity_type: 实体类型字符串
-        append: 是否追加选择
-        mark: 选择标记
+    Args:
+        extension: ModelDocExtension.
+        candidate_names: Candidate names.
+        entity_type: Entity type string.
+        append: Append selection when True.
+        mark: Selection mark.
 
-    返回:
-        str | None
+    Returns:
+        str | None.
     """
     for candidate_name in candidate_names:
         if _select_by_id(extension, candidate_name, entity_type, append=append, mark=mark):
@@ -372,13 +373,13 @@ def _select_first_candidate(extension, candidate_names, entity_type, append=Fals
 
 def _get_selection_count(model):
     """
-    获取当前选择集中的对象数量。
+    Get the current selection count.
 
-    参数:
-        model: IModelDoc2 对象
+    Args:
+        model: IModelDoc2.
 
-    返回:
-        int
+    Returns:
+        int.
     """
     selection_manager = model.SelectionManager
     count_member = getattr(selection_manager, "GetSelectedObjectCount2")
@@ -386,7 +387,7 @@ def _get_selection_count(model):
 
 
 def _select_com_object(obj, append=False, mark=0):
-    """使用对象自身 Select2/Select4 选择，优先避开 SelectByID2 名称解析。"""
+    """Select through object Select2/Select4, preferring to avoid SelectByID2 name resolution."""
     if obj is None:
         return False
     for method_name in ("Select2", "Select4"):
@@ -405,7 +406,7 @@ def _select_com_object(obj, append=False, mark=0):
 
 
 def _select_any_object(objects, append=False, mark=0):
-    """从一组 COM 对象里尽量选择全部对象，至少选中一个即视为成功。"""
+    """Try selecting all supplied COM objects; succeed if at least one is selected."""
     selected_count = 0
     for obj in _as_tuple(objects):
         if _select_com_object(obj, append=(append or selected_count > 0), mark=mark):
@@ -415,10 +416,9 @@ def _select_any_object(objects, append=False, mark=0):
 
 def _select_sketch_ref(model, sketch_ref, mark=0):
     """
-    按稳定优先级选择草图引用。
+    Select sketch references in a stable priority order.
 
-    轮廓/区域更接近 FeatureExtrusion3 需要的预选对象；不可用时再回退草图
-    Feature 或 Sketch 对象。
+    Contours/regions match FeatureExtrusion3 preselection requirements best; fall back to sketch Feature or Sketch objects when unavailable.
     """
     if not sketch_ref:
         return False
@@ -438,7 +438,7 @@ def _select_sketch_ref(model, sketch_ref, mark=0):
 
 
 def _select_sketch_feature_by_name(model, sketch_name, mark=0):
-    """通过 FeatureByName 找到草图特征后对象级选择。"""
+    """Find a sketch feature with FeatureByName, then select the object directly."""
     for candidate in _get_sketch_name_candidates(sketch_name):
         feature = _safe_com_member(model, "FeatureByName", candidate)
         if feature and _select_com_object(feature, append=False, mark=mark):
@@ -448,14 +448,14 @@ def _select_sketch_feature_by_name(model, sketch_name, mark=0):
 
 def _ensure_sketch_selected(model, sketch_name):
     """
-    确保拉伸/切除前已有可用的草图选择。
+    Ensure a usable sketch selection before extrusion/cutting.
 
-    参数:
-        model: IModelDoc2 对象
-        sketch_name: 草图名称
+    Args:
+        model: IModelDoc2.
+        sketch_name: Sketch name.
 
-    返回:
-        str
+    Returns:
+        str.
     """
     if str(sketch_name) == "__current_selection__" and _get_selection_count(model) > 0:
         return "__current_selection__"
@@ -478,21 +478,19 @@ def _ensure_sketch_selected(model, sketch_name):
     if not selected_sketch:
         model.ClearSelection2(True)
         raise ValueError(
-            f"无法选择草图: {sketch_name}。已尝试活动草图对象、缓存草图对象、"
-            "FeatureByName 和 SelectByID2('SKETCH')。"
+            f"Sketch seçilemedi: {sketch_name}. Etkin Sketch nesnesi, önbellekteki Sketch nesnesi, "
+            "FeatureByName ve SelectByID2('SKETCH')."
         )
     return selected_sketch
 
 
 def start_sketch(model, plane_name="Front Plane"):
     """
-    在指定基准面上开始草图
+    Start a sketch on a reference plane.
 
-    参数:
-        model: IModelDoc2
-        plane_name: 基准面名称
-            英文: "Front Plane", "Top Plane", "Right Plane"
-            中文: "前视基准面", "上视基准面", "右视基准面"
+    Args:
+        model: IModelDoc2.
+        plane_name: Reference-plane name, such as "Front Plane", "Top Plane", or "Right Plane"; localized aliases are supported.
     """
     model.ClearSelection2(True)
 
@@ -503,15 +501,14 @@ def start_sketch(model, plane_name="Front Plane"):
         model.SketchManager.InsertSketch(True)
         return selected_plane
 
-    raise ValueError(f"无法选择基准面: {plane_name}")
+    raise ValueError(f"Düzlem seçilemedi: {plane_name}")
 
 
 def end_sketch(model):
     """
-    退出当前草图，并返回可复用的草图选择引用。
+    Exit the current sketch and return a reusable selection reference.
 
-    返回值兼容旧调用：调用者可以忽略它；需要稳定选择时可传给
-    `extrude_boss()` / `extrude_cut()` 等特征函数。
+    Existing callers may ignore the result; pass it to extrude_boss(), extrude_cut(), or other feature functions for stable selection.
     """
     sketch_ref = _capture_sketch_ref(model, source="end_sketch")
     model.SketchManager.InsertSketch(True)
@@ -521,18 +518,15 @@ def end_sketch(model):
 @contextmanager
 def sketch(model, plane_name="Front Plane"):
     """
-    草图上下文管理器。
+    Sketch context manager.
 
-    示例:
+    Example:
         with sketch(model, "Front Plane") as sketch_ref:
             sketch_circle(model, 0, 0, mm(25))
         extrude_boss(model, sketch_ref, mm(50))
 
-    产出值:
-        SketchSelectionRef。它保留了草图对象引用和轮廓/区域集合，后续特征可直接
-        用对象自身 Select2 建立选择集，无需依赖 SelectByID2 按名称反查——后者在
-        中文版或重建后可能持续返回 False。它的 __str__ 返回草图名，所以把它当
-        字符串传给旧代码（例如 "Sketch1" 的比较或格式化）同样成立。
+    Yields:
+        SketchSelectionRef, retaining sketch references and contour/region collections for direct object Select2. This avoids name-based SelectByID2 failures in localized versions or after rebuilds. __str__ returns the sketch name for compatibility with legacy string comparisons and formatting.
     """
     start_sketch(model, plane_name)
     sketch_ref = None
@@ -551,11 +545,11 @@ def sketch(model, plane_name="Front Plane"):
 
 def current_sketch_name(model, fallback="Sketch1"):
     """
-    获取当前草图名称。
+    Get the current sketch name.
 
-    参数:
-        model: IModelDoc2
-        fallback: 无法读取当前草图时返回的默认名称
+    Args:
+        model: IModelDoc2.
+        fallback: Default name when the current sketch cannot be read.
     """
     active_sketch = model.SketchManager.ActiveSketch
     if active_sketch:
@@ -564,50 +558,50 @@ def current_sketch_name(model, fallback="Sketch1"):
 
 
 def sketch_line(model, x1, y1, x2, y2):
-    """画直线（单位: 米）"""
+    """Draw a line (meters)."""
     return model.SketchManager.CreateLine(x1, y1, 0, x2, y2, 0)
 
 
 def sketch_rectangle(model, cx, cy, w, h):
-    """以中心点画矩形（单位: 米）"""
+    """Draw a center rectangle (meters)."""
     return model.SketchManager.CreateCenterRectangle(
         cx, cy, 0, cx + w / 2, cy + h / 2, 0
     )
 
 
 def sketch_corner_rectangle(model, x1, y1, x2, y2):
-    """以对角线画矩形（单位: 米）"""
+    """Draw a corner rectangle (meters)."""
     return model.SketchManager.CreateCornerRectangle(x1, y1, 0, x2, y2, 0)
 
 
 def sketch_circle(model, cx, cy, radius):
-    """画圆（单位: 米）"""
+    """Draw a circle (meters)."""
     return model.SketchManager.CreateCircleByRadius(cx, cy, 0, radius)
 
 
 def sketch_arc(model, cx, cy, x1, y1, x2, y2, direction=1):
     """
-    画圆弧
+    Draw an arc.
 
-    参数:
-        cx, cy: 圆心坐标（米）
-        x1, y1: 起点坐标
-        x2, y2: 终点坐标
-        direction: 1=逆时针, -1=顺时针
+    Args:
+        cx, cy: Center coordinates in meters.
+        x1, y1: Start coordinates.
+        x2, y2: End coordinates.
+        direction: 1=counterclockwise, -1=clockwise.
     """
     return model.SketchManager.CreateArc(cx, cy, 0, x1, y1, 0, x2, y2, 0, direction)
 
 
 def sketch_polygon(model, cx, cy, radius, sides=6):
-    """画正多边形（内切圆方式）"""
+    """Draw a regular polygon using an inscribed circle."""
     return model.SketchManager.CreatePolygon(cx, cy, 0, cx + radius, cy, 0, sides, True)
 
 
 def sketch_slot(model, x1, y1, x2, y2, radius):
-    """画槽口"""
+    """Draw a slot."""
     return model.SketchManager.CreateSketchSlot(
         0,  # swSketchSlotCreationType_e: 0=Straight
-        radius, radius,  # 宽度
+        radius, radius,  # Width
         x1, y1, 0,
         x2, y2, 0,
         0, 0, 0,
@@ -617,10 +611,10 @@ def sketch_slot(model, x1, y1, x2, y2, radius):
 
 def sketch_spline(model, points):
     """
-    画样条曲线
+    Draw a spline.
 
-    参数:
-        points: [(x1,y1), (x2,y2), ...] 控制点列表（单位: 米）
+    Args:
+        points: Control points [(x1,y1), (x2,y2), ...] in meters.
     """
     import array
     point_array = array.array('d')
@@ -630,15 +624,11 @@ def sketch_spline(model, points):
 
 
 def auto_dimension_sketch(model, sketch=None, sketch_segments=None):
-    """@brief 按官方 AutoDimension2 流程为当前草图创建真实模型尺寸。
+    """@brief Create actual sketch dimensions using the official AutoDimension2 workflow.
 
-    SolidWorks 的工程图 ``InsertModelAnnotations`` 只能导入模型中已有的
-    显示尺寸，不能凭空为拉伸深度或矩形轮廓生成尺寸。该函数在草图编辑态
-    选择水平/垂直基准线，再调用 ``ISketch.AutoDimension2``，因此生成的尺寸
-    会成为模型的真实 DisplayDimension，可被工程图导入并复核。
+    Drawing InsertModelAnnotations imports existing display dimensions; it cannot invent dimensions for extrusion depths or rectangular profiles. In sketch edit mode, select horizontal/vertical datum lines and call ISketch.AutoDimension2. The resulting DisplayDimensions belong to the model and can be imported and reviewed in drawings.
 
-    返回值包含 ``status_code``（官方约定 0 表示成功）、选择数量和是否创建
-    尺寸的可审计信息。函数不会把失败伪装成成功。
+    Return status_code (officially 0 for success), selection count, and auditable dimension-creation evidence. Never disguise a failure as success.
     """
     active = sketch or _safe_com_member(model.SketchManager, "ActiveSketch")
     if active is None:
@@ -672,8 +662,8 @@ def auto_dimension_sketch(model, sketch=None, sketch_segments=None):
 
     model.ClearSelection2(True)
     selected = 0
-    # SW2024 swAutodimMark_e：2=水平基准，4=垂直基准。
-    # 官方示例要求垂直线作为水平基准、水平线作为垂直基准。
+    # SW2024 swAutodimMark_e: 2=horizontal datum, 4=vertical datum.
+    # The official example uses a vertical line as horizontal datum and a horizontal line as vertical datum.
     for segment, mark in ((vertical, 2), (horizontal, 4)):
         if segment is None:
             continue
@@ -689,7 +679,7 @@ def auto_dimension_sketch(model, sketch=None, sketch_segments=None):
 
     status_code = None
     try:
-        # swAutodimEntitiesAll=1, Baseline=1, Below=-1, Left=-1。
+        # swAutodimEntitiesAll=1, Baseline=1, Below=-1, Left=-1.
         status_code = int(get_com_member(active, "AutoDimension2", 1, 1, -1, 1, -1))
     except Exception as exc:
         model.ClearSelection2(True)
@@ -714,42 +704,42 @@ def auto_dimension_sketch(model, sketch=None, sketch_segments=None):
 
 
 def add_dimension(model, x, y):
-    """在指定位置添加尺寸标注"""
+    """Add a dimension at a specified position."""
     return model.AddDimension2(x, y, 0)
 
 
 def add_sketch_relation(model, relation_type):
     """
-    添加草图几何关系
+    Add a sketch geometric relation.
 
-    常用 relation_type:
+    Common relation_type values:
         "sgFIXED", "sgHORIZONTAL", "sgVERTICAL", "sgCOLINEAR",
         "sgPARALLEL", "sgPERPENDICULAR", "sgTANGENT", "sgCONCENTRIC",
-        "sgEQUAL", "sgSYMMETRIC", "sgMIDPOINT", "sgCOINCIDENT"
+        "sgEQUAL", "sgSYMMETRIC", "sgMIDPOINT", "sgCOINCIDENT".
     """
     return model.SketchAddConstraints(relation_type)
 
 
 # ============================================================
-# 特征操作
+# Feature operations
 # ============================================================
 
 def extrude_boss(model, sketch_name, depth, direction=True, merge=True):
     """
-    凸台拉伸
+    Extrude a boss.
 
-    参数:
-        model: IModelDoc2
-        sketch_name: 草图名称（如 "Sketch1"）
-        depth: 拉伸深度（米）
-        direction: True=反转默认方向；凸台默认沿草图法向
-        merge: True=合并结果
+    Args:
+        model: IModelDoc2.
+        sketch_name: Sketch name, such as "Sketch1".
+        depth: Extrusion depth in meters.
+        direction: True reverses the default sketch-normal direction.
+        merge: Merge results when True.
     """
     _ensure_sketch_selected(model, sketch_name)
     return model.FeatureManager.FeatureExtrusion3(
-        True,         # Sd: 单向拉伸
+        True,         # Sd: single-direction extrusion
         False,        # Flip
-        direction,    # Dir: 拉伸方向
+        direction,    # Dir: extrusion direction
         0,            # T1: Blind
         0,            # T2: Blind
         depth,        # D1
@@ -767,7 +757,7 @@ def extrude_boss(model, sketch_name, depth, direction=True, merge=True):
         merge,        # Merge
         False,        # UseFeatScope
         True,         # UseAutoSelect
-        0,            # T0: 从草图平面开始
+        0,            # T0: start from the sketch plane
         0.0,          # StartOffset
         False         # FlipStartOffset
     )
@@ -775,20 +765,20 @@ def extrude_boss(model, sketch_name, depth, direction=True, merge=True):
 
 def extrude_cut(model, sketch_name, depth, direction=True, flip=False):
     """
-    切除拉伸
+    Extruded cut.
 
-    参数:
-        model: IModelDoc2
-        sketch_name: 草图名称
-        depth: 切除深度（米），0 表示完全贯穿
-        direction: True=反转默认方向；切除默认逆草图法向
-        flip: True=切除轮廓外侧，False=切除轮廓内侧
+    Args:
+        model: IModelDoc2.
+        sketch_name: Sketch name.
+        depth: Cut depth in meters; 0 means through-all.
+        direction: True reverses the default direction opposite to sketch normal.
+        flip: True cuts outside the profile; False cuts inside.
     """
     _ensure_sketch_selected(model, sketch_name)
     if depth == 0:
-        # 完全贯穿
+        # Through-all
         end_condition = 1  # swEndCondThroughAll
-        depth = 0.01  # 占位值
+        depth = 0.01  # Placeholder value
     else:
         end_condition = 0  # swEndCondBlind
 
@@ -804,14 +794,14 @@ def extrude_cut(model, sketch_name, depth, direction=True, flip=False):
 
 def extrude_midplane(model, sketch_name, total_depth):
     """
-    中面拉伸（两侧对称拉伸）
+    Mid-plane extrusion, symmetric on both sides.
 
-    参数:
-        total_depth: 总深度（米），每侧为 total_depth/2
+    Args:
+        total_depth: Total depth in meters; each side is total_depth/2.
     """
     _ensure_sketch_selected(model, sketch_name)
     return model.FeatureManager.FeatureExtrusion3(
-        True,         # Sd: 单向定义，终止条件控制为中面
+        True,         # Sd: single-direction definition, with end condition set to mid-plane
         False,        # Flip
         True,         # Dir
         6,            # T1: swEndCondMidPlane
@@ -839,12 +829,12 @@ def extrude_midplane(model, sketch_name, total_depth):
 
 def revolve_boss(model, sketch_name, angle_rad, axis_sketch_name=None):
     """
-    旋转凸台
+    Revolved boss.
 
-    参数:
-        sketch_name: 轮廓草图名称
-        angle_rad: 旋转角度（弧度），2*pi 表示 360 度
-        axis_sketch_name: 旋转轴草图名称（None 则需预先选择轴线）
+    Args:
+        sketch_name: Profile sketch name.
+        angle_rad: Revolution angle in radians; 2*pi is 360 degrees.
+        axis_sketch_name: Axis sketch name; None requires a preselected axis.
     """
     _ensure_sketch_selected(model, sketch_name)
     return model.FeatureManager.FeatureRevolve2(
@@ -860,24 +850,19 @@ def revolve_boss(model, sketch_name, angle_rad, axis_sketch_name=None):
 
 def fillet(model, radius, edges=None):
     """
-    倒圆角（恒定半径）。
+    Create a constant-radius fillet.
 
-    参数:
-        model: IModelDoc2
-        radius: 圆角半径（米）
-        edges: 预先选择的边线列表，None 则使用当前选择集
+    Args:
+        model: IModelDoc2.
+        radius: Fillet radius in meters.
+        edges: Edges to select; None uses the current selection.
 
-    返回:
-        IFeature 或 None。
+    Returns:
+        IFeature or None.
 
-    说明:
-        IFeatureManager::FeatureFillet 只接受 4 个参数：
-        ``(Options, Radius, R1, R2)``。传 7 个参数（在末尾补 None）会在
-        SolidWorks 2024/2026 上抛 "非选择性的参数"（0x8002000F），这是旧文档和
-        早期封装误导的地方——已在真机实测确认。
+    IFeatureManager::FeatureFillet takes four arguments: (Options, Radius, R1, R2). Passing seven arguments with trailing None raises a non-optional-argument error (0x8002000F) on SOLIDWORKS 2024/2026 in upstream machine checks. Older documentation/wrappers were misleading.
 
-        调用前必须先建立边线选择集；选择集为空时 SolidWorks 会对"当前轮廓"
-        执行圆角，产生难以排查的错误特征。因此这里显式校验选择集。
+    Explicitly validate edge selection: with an empty set SOLIDWORKS may fillet the current profile and create an unintended feature.
     """
     if edges is not None:
         for edge in edges:
@@ -890,19 +875,19 @@ def fillet(model, radius, edges=None):
                     continue
     if _get_selection_count(model) <= 0:
         raise ValueError(
-            "圆角需要先选择边线。请用 select_edges() 按几何条件选边，"
-            "或用 solidworks_list_edges 查看可用边线。"
+            "Fillet öncesinde kenar seçin. Geometri koşullarıyla select_edges() kullanın "
+            "veya kullanılabilir kenarları solidworks_list_edges ile görüntüleyin."
         )
     return model.FeatureManager.FeatureFillet(195, radius, 0, 0)
 
 
 def chamfer(model, distance, angle_deg=45):
     """
-    倒角
+    Create a chamfer.
 
-    参数:
-        distance: 倒角距离（米）
-        angle_deg: 倒角角度（度）
+    Args:
+        distance: Chamfer distance in meters.
+        angle_deg: Chamfer angle in degrees.
     """
     import math
     angle_rad = angle_deg * math.pi / 180.0
@@ -914,12 +899,12 @@ def chamfer(model, distance, angle_deg=45):
 def linear_pattern(model, feature_name, d1_x, d1_y, d1_z, d1_spacing, d1_count,
                     d2_x=0, d2_y=0, d2_z=0, d2_spacing=0, d2_count=1):
     """
-    线性阵列
+    Create a linear pattern.
 
-    参数:
-        feature_name: 要阵列的特征名称
-        d1_*: 方向1 的方向向量、间距（米）和数量
-        d2_*: 方向2（可选）
+    Args:
+        feature_name: Seed feature name.
+        d1_*: First direction vector, spacing in meters, and count.
+        d2_*: Optional second direction.
     """
     try:
         from .sw_pattern import linear_pattern as create_pattern
@@ -931,14 +916,14 @@ def linear_pattern(model, feature_name, d1_x, d1_y, d1_z, d1_spacing, d1_count,
 
 def circular_pattern(model, feature_name, axis_name, angle_rad, count, equal_spacing=True):
     """
-    圆形阵列
+    Create a circular pattern.
 
-    参数:
-        feature_name: 要阵列的特征名称
-        axis_name: 旋转轴名称
-        angle_rad: 总角度（弧度）
-        count: 实例数量
-        equal_spacing: True=等间距
+    Args:
+        feature_name: Seed feature name.
+        axis_name: Rotation axis name.
+        angle_rad: Total angle in radians.
+        count: Number of instances.
+        equal_spacing: Equal spacing when True.
     """
     try:
         from .sw_pattern import circular_pattern as create_pattern
@@ -949,22 +934,22 @@ def circular_pattern(model, feature_name, axis_name, angle_rad, count, equal_spa
 
 def shell(model, thickness, faces_to_remove=None):
     """
-    抽壳
+    Create a shell.
 
-    参数:
-        thickness: 壁厚（米）
-        faces_to_remove: 需预先选择要移除的面
+    Args:
+        thickness: Wall thickness in meters.
+        faces_to_remove: Faces requiring preselection for removal.
     """
     return model.FeatureManager.InsertFeatureShell(thickness, False)
 
 
 def mirror_feature(model, feature_name, mirror_plane_name):
     """
-    镜像特征
+    Mirror a feature.
 
-    参数:
-        feature_name: 要镜像的特征名称
-        mirror_plane_name: 镜像基准面名称
+    Args:
+        feature_name: Feature to mirror.
+        mirror_plane_name: Mirror plane name.
     """
     _select_by_id(model.Extension, feature_name, "BODYFEATURE", mark=4)
     _select_by_id(model.Extension, mirror_plane_name, "PLANE", append=True, mark=1)
@@ -973,22 +958,22 @@ def mirror_feature(model, feature_name, mirror_plane_name):
 
 def hole_wizard(model, hole_type, standard, fastener_type, size, depth, x, y, z):
     """
-    异型孔向导（简化版）
-    注意：完整的异型孔向导参数复杂，建议参考 API 文档调整
+    Simplified Hole Wizard scaffold.
+    Full Hole Wizard parameters are complex; consult target-version API documentation before adjusting.
     """
-    # 异型孔向导需要通过 FeatureManager.HoleWizard5 调用
-    # 具体参数取决于孔类型，此处提供框架
+    # Hole Wizard uses FeatureManager.HoleWizard5.
+    # Parameters depend on hole type; this is a scaffold.
     pass
 
 
 def rib(model, sketch_name, thickness, direction=True):
     """
-    筋特征
+    Create a rib.
 
-    参数:
-        sketch_name: 筋轮廓草图名称
-        thickness: 筋厚度（米）
-        direction: 拉伸方向
+    Args:
+        sketch_name: Rib profile sketch name.
+        thickness: Rib thickness in meters.
+        direction: Extrusion direction.
     """
     _ensure_sketch_selected(model, sketch_name)
     return model.FeatureManager.InsertRib(

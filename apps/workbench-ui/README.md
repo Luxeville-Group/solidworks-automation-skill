@@ -1,141 +1,124 @@
-# CAD Studio 桌面工作台
+# CAD Studio desktop workbench
 
-这是 CAD Studio 的正式 React + Tauri 桌面客户端。
+This is the CAD Studio React + Tauri desktop client. Its user interface is Turkish and retains English CAD and API terminology; technical documentation is English. See the [Turkish quick start](README.tr.md).
 
-设计方向:
+The design uses a light desktop window, an appearance center, local wallpaper import, a right-hand Inspector, visible P0 gates, and executable workflows.
 
-```text
-Apple-style 本地工程软件，浅色悬浮窗口、外观中心、本地壁纸导入、右侧 Inspector、清晰 P0 门禁和可执行工作流。
-```
+Two execution modes are supported:
 
-当前运行方式支持两种:
+- Vite browser preview for fast UI development.
+- Tauri desktop application for building a Windows `.exe`.
 
-- Vite 浏览器预览，用于快速调 UI。
-- Tauri 桌面软件，用于生成 Windows `.exe`。
+## Features
 
-当前界面包含:
+- An appearance popover in the upper right supports local images, GIFs, and video wallpapers, with brightness, blur, and vignette controls.
+- Local configuration remembers the current and recent wallpapers, appearance controls, and recent imported-model paths.
+- A local automation queue persists CAD creation, model import, and delivery-package tasks as JSON.
+- Agent Bridge converts graphical configuration into executable tasks for Codex, Claude Code, Gemini CLI, or OpenCode.
+- CC Switch reads the current user's SQLite or legacy JSON configuration to display model routing for the selected Agent. It does not read or display secrets.
+- Automatic AI planning selects task type, process, material, output formats, and checks when the user has not specified them.
+- Policy Gate holds risky tasks for approval.
+- Artifact Ledger records output existence, file size, and SHA-256.
+- The desktop queue panel starts and stops a local Python worker and shows its state and PID.
+- Worker Health provides heartbeat status; Reviewer Gate reviews artifacts and format signatures.
+- Tasks awaiting review can be approved or rejected manually, recording reviewer, time, conclusion, and audit events.
+- The default animated cherry-blossom wallpaper has its audio track and location metadata removed. Aurora, Blueprint, Studio, and Mist backgrounds are also available, along with local image/GIF/video import.
+- A local-first knowledge base searches SolidWorks, manufacturing, and drawing guidance and can include company-standard directories.
+- Optional HTTPS cloud RAG runs only when explicitly enabled and approved for external network access. Tokens are read only from environment variables.
+- The window bar, light Dock navigation, project workbench, and right-hand Inspector provide the desktop layout.
+- Projects support search, archive/restore, copy, and deletion. Terminal task history can be cleaned in batches. These operations remove application metadata, not delivered CAD files.
+- SQLite migrations preserve the old snapshot and create project, conversation, message, and task indexes. Settings show index-count consistency.
+- Buttons provide hover/press feedback and a highlight sweep on the primary action.
+- Layouts support desktop and mobile preview sizes.
 
-- 右上角外观浮层，支持导入本地图片、GIF、视频壁纸，并可调节亮度、模糊和暗角。
-- 本地配置持久化，自动记住当前壁纸、最近壁纸、亮度、模糊、暗角和最近导入模型路径。
-- 本地自动化队列，桌面端把新建 CAD 任务、导入模型、生成交付包任务保存为 JSON。
-- Agent Bridge 面板，把图形化配置转换为 Codex、Claude Code、Gemini CLI 或 OpenCode 可执行任务。
-- CC Switch 同步读取当前用户的 SQLite/旧版 JSON 配置，按所选 Agent 显示模型路由，不读取或展示密钥。
-- 默认 `AI 自动选择最佳方案`，用户不指定时自动判断任务类型、工艺、材料、输出格式和检查项。
-- Policy Gate 审批门禁，危险任务会先进入待审批状态。
-- Artifact Ledger 交付物账本，记录输出文件存在性、大小和 SHA-256。
-- 队列面板可在桌面端启动/停止本地 Python worker，并显示运行状态和 PID。
-- Worker Health 健康心跳和 Reviewer Gate 交付物/格式特征复核。
-- 待复核任务支持人工“通过复核/驳回”，并记录复核人、时间、结论和审计事件。
-- 默认樱花动态壁纸（已移除音轨和定位元数据），另有 Aurora、Blueprint、Studio、Mist；支持任意本地图片/GIF/视频导入与切换。
-- 本地优先专业知识库：自动检索 SolidWorks、制造和图纸规范；可添加企业标准目录。
-- 可选 HTTPS 云 RAG：仅在显式启用并通过外部网络审批后调用，令牌只从环境变量读取。
-- macOS 风格窗口栏、浅色 Dock 导航、项目工作台和右侧 Inspector 参数面板。
-- 项目入口支持搜索、归档/恢复、复制和删除；任务历史支持终态记录批量清理，所有操作只清理应用元数据，不删除 CAD 交付文件。
-- SQLite 迁移会保留旧快照并建立项目、对话、消息和任务索引；设置页显示索引数量一致性。
-- 按钮 hover、按压反馈和主按钮光泽扫过效果。
-- 桌面与移动端响应式预览截图。
+Release installers bundle the skill, Python worker source, and mechanical knowledge documents. Users still need Python, at least one Agent CLI, and SolidWorks/AutoCAD for real CAD operations.
 
-发布版安装包会内置 skill、Python worker 和机械知识文档。用户仍需安装 Python、至少一个 Agent CLI，以及真实操作所需的 SolidWorks/AutoCAD。
+See the [CAD Studio user manual](../../docs/CAD_STUDIO_USER_MANUAL.md).
 
-完整用户说明：[CAD Studio 用户说明书](../../docs/CAD_STUDIO_USER_MANUAL.md)。
+In browser preview mode, imported local images can only be previewed temporarily: a browser refresh loses access to the original file path. Tauri desktop mode uses a native file picker and can restore the saved local wallpaper path at the next launch.
 
-说明:
-
-- 浏览器预览模式只能临时预览用户导入的本地图片，因为浏览器刷新后无法重新访问原文件路径。
-- Tauri 桌面模式会使用原生文件选择器，能保存本地文件路径并在下次启动时恢复壁纸。
-
-## 安装
+## Install
 
 ```powershell
 cd apps\workbench-ui
 npm install
 ```
 
-## 开发预览
+## Development preview
 
 ```powershell
 npm run dev
 ```
 
-## 桌面开发
+## Desktop development
 
 ```powershell
 npm run desktop:dev
 ```
 
-## 构建
+## Build the frontend
 
 ```powershell
 npm run build
 ```
 
-## 生成桌面程序
+## Build the desktop application
 
 ```powershell
 npm run desktop:build
 ```
 
-该命令会生成可运行 `.exe`，暂不打安装包。
-
-如需生成安装包:
+This creates a runnable `.exe` without an installer. To build an installer:
 
 ```powershell
 npm run desktop:bundle
 ```
 
-输出程序:
+Executable path:
 
 ```text
 apps\workbench-ui\src-tauri\target\release\cad-studio.exe
 ```
 
-## 本地自动化队列
+## Local automation queue
 
-协议文档:
+See [the queue protocol](docs/automation-queue-protocol.md).
 
-```text
-apps\workbench-ui\docs\automation-queue-protocol.md
-```
-
-桌面端任务保存到 Tauri 应用数据目录的 `queue` 文件夹。Python worker 原型:
+The desktop client stores jobs in the `queue` folder under the Tauri application-data directory. Run the Python worker once:
 
 ```powershell
-python -m apps.desktop.cad_workbench.queue_worker --queue-dir "<队列目录>"
+python -m apps.desktop.cad_workbench.queue_worker --queue-dir "<queue-directory>"
 ```
 
-持续监听:
+Watch continuously:
 
 ```powershell
-python -m apps.desktop.cad_workbench.queue_worker --watch --queue-dir "<队列目录>"
+python -m apps.desktop.cad_workbench.queue_worker --watch --queue-dir "<queue-directory>"
 ```
 
-正式桌面启动启用统一 Agent handler，不加载 mock。`create_shell`、`import_model`、`delivery_package` 的 mock 仅能通过 `--enable-mock` 显式开启，用于队列协议开发测试，不能作为产品交付结果。
+Normal desktop startup enables the unified Agent handler and does not load mock handlers. The `create_shell`, `import_model`, and `delivery_package` mocks require explicit `--enable-mock`; they are intended for queue-protocol development tests and are not product deliverables.
 
-启用统一 Agent 执行器：
+Enable the unified Agent executor:
 
 ```powershell
-python -m apps.desktop.cad_workbench.queue_worker --watch --enable-codex --queue-dir "<队列目录>"
+python -m apps.desktop.cad_workbench.queue_worker --watch --enable-codex --queue-dir "<queue-directory>"
 ```
 
-桌面端可以直接在“设置 -> 本地执行”点击启动。开发版优先使用当前仓库，安装版使用内置 skill 资源。点击停止会终止软件托管的 worker 进程树，并把未完成任务重新排队；Alt+F4 和系统退出执行同样清理。
+The desktop application can start the worker from **Ayarlar (Settings) → Yerel yürütme (Local execution)**. Development builds prefer the current repository; installed builds use bundled skill resources. Stopping the worker terminates the application-managed worker process tree and requeues unfinished tasks. Alt+F4 and system exit perform the same cleanup.
 
-Agent Bridge 的职责边界:
+Agent Bridge responsibilities:
 
-- UI 负责收集点击配置、工程规则、目标输出和 prompt 预览。
-- 队列负责把任务持久化为 JSON，并通过 `.lock`、lease、stale 恢复、quarantine、Worker Health、Artifact Ledger 和 Reviewer Gate 保证本地可靠执行。
-- worker 负责校验任务、执行 Policy Gate、限制工作区、固定输出路径并调用 `codex exec`。
-- 所选 Agent 负责执行 skill、调用本机 CAD、运行验证并返回统一结构化结果。
+- The UI collects configuration, engineering rules, target outputs, and a prompt preview.
+- The queue persists JSON jobs and uses `.lock`, leases, stale recovery, quarantine, Worker Health, Artifact Ledger, and Reviewer Gate for reliable local execution.
+- The worker validates jobs, enforces Policy Gate and workspace boundaries, fixes output paths, and invokes `codex exec`.
+- The selected Agent executes the skill, calls local CAD applications, performs validation, and returns a unified structured result.
 
-危险能力会进入 `approval_required`，包括 Git push、`danger-full-access`、CAD 宏、外部网络、跨工作区写入和删除文件。桌面端点击“批准”后，任务才会回到 `queued`。
+Risky capabilities enter `approval_required`, including Git push, `danger-full-access`, CAD macros, external networking, writes outside the workspace, and file deletion. A job returns to `queued` only after approval in the desktop application.
 
-默认 Codex 沙箱为 `workspace-write`。如确需全权限，需要任务先通过审批，并在 worker 启动时显式增加:
+The default Codex sandbox is `workspace-write`. If full access is necessary, approve the job and explicitly start the worker with:
 
 ```powershell
-python -m apps.desktop.cad_workbench.queue_worker --watch --enable-codex --codex-full-access --queue-dir "<队列目录>"
+python -m apps.desktop.cad_workbench.queue_worker --watch --enable-codex --codex-full-access --queue-dir "<queue-directory>"
 ```
 
-企业控制平面说明:
-
-```text
-docs\agent-framework\enterprise-agent-control-plane.md
-```
+See [the enterprise Agent control plane](../../docs/agent-framework/enterprise-agent-control-plane.md).

@@ -1,9 +1,4 @@
-"""编译并运行保持线圆角的多语言桥接器。
-
-@brief 为 C# PIA、SWBasic 和进程内非托管 C++ 提供统一入口与证据。
-@details 已知 SolidWorks 2026 SP1.1 会在 ISetHoldLines 调用处产生服务器故障，因此默认只返回
-结构化阻断证据；仅显式启用不安全探测时才执行可能令 SolidWorks 退出的原生调用。
-"""
+'Compile and run multilingual hold-line bridges for C# PIA, SWBasic and in-process unmanaged C++. SolidWorks 2026 SP1.1 is known to fault at ISetHoldLines, so the default returns structured blocked evidence. Potentially terminating native calls require explicit unsafe probing.'
 
 from __future__ import annotations
 
@@ -33,7 +28,7 @@ CSC_CANDIDATES = (
 
 
 class HoldLineBridgeError(RuntimeError):
-    """@brief 表示保持线桥接器编译、附着或保持线创建失败。"""
+    'Hold-line bridge compilation, attachment or feature-creation failure.'
 
     def __init__(self, message: str, evidence: dict[str, Any] | None = None):
         super().__init__(message)
@@ -41,14 +36,14 @@ class HoldLineBridgeError(RuntimeError):
 
 
 def unsafe_hold_line_probe_enabled() -> bool:
-    """@brief 判断是否显式允许执行可能导致 SolidWorks 服务器故障的探测。"""
+    'Check explicit authorization for probes that may cause a SolidWorks server fault.'
     return os.environ.get(UNSAFE_HOLD_LINE_ENV, "").strip().lower() in {
         "1", "true", "yes", "on",
     }
 
 
 def known_hold_line_block_evidence(backend: str) -> dict[str, Any]:
-    """@brief 返回当前真机已复现的跨语言保持线阻断证据。"""
+    'Return cross-language hold-line blocking evidence reproduced on the native environment.'
     return {
         "status": "blocked",
         "reason": "known_server_fault",
@@ -70,20 +65,20 @@ def _require_unsafe_probe(
     allow_unsafe: bool,
     solidworks_revision: str | None = None,
 ) -> None:
-    """@brief 在已知故障构建上阻止未授权危险后端，其它构建允许首次验证。"""
+    'Block unauthorized dangerous backends on known-fault builds; allow first validation on other builds.'
     if allow_unsafe or unsafe_hold_line_probe_enabled():
         return
     if solidworks_revision and not solidworks_revision.startswith("34.1.1"):
         return
     raise HoldLineBridgeError(
-        "当前 SolidWorks 构建已在 Python、C#、SWBasic 和进程内 C++ 中复现保持线故障；"
-        "默认停止在安全阻断状态。若要在隔离实例中复测，请显式启用不安全探测。",
+        'Bu SolidWorks sürümünde Python, C#, SWBasic ve işlem içi C++ ile tutma çizgisi hatası tekrarlandı / Hold-line fault reproduced across all four backends; '
+        'varsayılan işlem engellendi. Yalıtılmış örnekte tekrar denemek için güvensiz probu açıkça etkinleştirin / blocked by default; explicitly enable unsafe probing only in an isolated instance.',
         known_hold_line_block_evidence(backend),
     )
 
 
 def _solidworks_revision(sw: Any) -> str | None:
-    """@brief 兼容 pywin32 方法/属性两种形态读取 SolidWorks 修订号。"""
+    'Read the SolidWorks revision through pywin32 method/property forms.'
     try:
         member = getattr(sw, "RevisionNumber")
         return str(member() if callable(member) else member)
@@ -92,21 +87,21 @@ def _solidworks_revision(sw: Any) -> str | None:
 
 
 def _long_path(path: str) -> Path:
-    """@brief 展开注册表中 SolidWorks 可执行文件的 8.3 短路径。"""
+    "Expand the SolidWorks executable's registry 8.3 short path."
     buffer = ctypes.create_unicode_buffer(32768)
     length = ctypes.windll.kernel32.GetLongPathNameW(path, buffer, len(buffer))
     return Path(buffer.value if length else path)
 
 
 def _short_path(path: Path) -> str:
-    """@brief 返回可安全交给 cmd 调用批处理文件的 8.3 路径。"""
+    'Return an 8.3 path safe for passing batch files to cmd.'
     buffer = ctypes.create_unicode_buffer(32768)
     length = ctypes.windll.kernel32.GetShortPathNameW(str(path), buffer, len(buffer))
     return buffer.value if length else str(path)
 
 
 def _solidworks_install_dir() -> Path:
-    """@brief 从默认 ProgID 注册信息定位当前 SolidWorks 安装目录。"""
+    'Locate the active SolidWorks installation using default ProgID registration.'
     with winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, r"SldWorks.Application\CLSID") as key:
         clsid, _ = winreg.QueryValueEx(key, "")
     with winreg.OpenKey(
@@ -119,10 +114,10 @@ def _solidworks_install_dir() -> Path:
 
 
 def discover_bridge_toolchain() -> dict[str, Path]:
-    """@brief 返回 C# 编译器和 SolidWorks PIA 路径，并严格检查存在性。"""
+    'Return the C# compiler and SolidWorks PIA paths, checking that both exist.'
     csc = next((candidate for candidate in CSC_CANDIDATES if candidate.is_file()), None)
     if csc is None:
-        raise HoldLineBridgeError("未找到 .NET Framework C# 编译器 csc.exe")
+        raise HoldLineBridgeError('.NET Framework C# derleyicisi csc.exe bulunamadı / C# compiler csc.exe not found')
     install_dir = _solidworks_install_dir()
     paths = {
         "csc": csc,
@@ -131,12 +126,12 @@ def discover_bridge_toolchain() -> dict[str, Path]:
     }
     missing = [str(path) for path in paths.values() if not path.is_file()]
     if missing:
-        raise HoldLineBridgeError(f"保持线桥接工具链缺少文件: {missing}")
+        raise HoldLineBridgeError(f"Tutma çizgisi araç zincirinde dosya eksik / Hold-line toolchain file missing: {missing}")
     return paths
 
 
 def discover_native_toolchain() -> dict[str, Path]:
-    """@brief 定位 MSVC x64 和 SolidWorks 原生类型库。"""
+    'Locate MSVC x64 and the native SolidWorks type library.'
     install_dir = _solidworks_install_dir()
     vcvars_candidates = (
         Path(r"C:\BuildTools\VC\Auxiliary\Build\vcvars64.bat"),
@@ -145,7 +140,7 @@ def discover_native_toolchain() -> dict[str, Path]:
     )
     vcvars = next((candidate for candidate in vcvars_candidates if candidate.is_file()), None)
     if vcvars is None:
-        raise HoldLineBridgeError("原生保持线 Add-in 需要 MSVC x64 Build Tools")
+        raise HoldLineBridgeError('Yerel tutma çizgisi Add-in için MSVC x64 Build Tools gerekir / Native hold-line add-in requires MSVC x64 Build Tools')
     paths = {
         "vcvars64": vcvars,
         "sldworks_tlb": install_dir / "sldworks.tlb",
@@ -153,12 +148,12 @@ def discover_native_toolchain() -> dict[str, Path]:
     }
     missing = [str(path) for path in paths.values() if not path.is_file()]
     if missing:
-        raise HoldLineBridgeError(f"原生保持线工具链缺少文件: {missing}")
+        raise HoldLineBridgeError(f"Yerel tutma çizgisi araç zincirinde dosya eksik / Native hold-line toolchain file missing: {missing}")
     return paths
 
 
 def build_native_hold_line_addin(build_dir: Path | None = None) -> tuple[Path, dict[str, str]]:
-    """@brief 使用 MSVC 编译 SolidWorks 进程内原生 C++ 桥接 DLL。"""
+    'Compile the in-process native C++ bridge DLL with MSVC.'
     toolchain = discover_native_toolchain()
     target_dir = (
         build_dir or Path(tempfile.gettempdir()) / "cad-studio-native-hold-line-addin"
@@ -185,7 +180,7 @@ def build_native_hold_line_addin(build_dir: Path | None = None) -> tuple[Path, d
     )
     if completed.returncode != 0 or not dll_path.is_file():
         raise HoldLineBridgeError(
-            "原生 C++ 保持线桥接 DLL 编译失败",
+            'Yerel C++ tutma çizgisi DLL derlemesi başarısız / Native C++ hold-line DLL compilation failed',
             {
                 "returncode": completed.returncode,
                 "stdout": completed.stdout,
@@ -208,7 +203,7 @@ def build_native_hold_line_addin(build_dir: Path | None = None) -> tuple[Path, d
 def build_native_hold_line_macro(
     build_dir: Path | None = None,
 ) -> tuple[Path, dict[str, str]]:
-    """@brief 生成 SWBasic 主线程调度宏和同目录原生 C++ 桥接 DLL。"""
+    'Generate a SWBasic main-thread dispatcher and adjacent native C++ bridge DLL.'
     native_path, native_evidence = build_native_hold_line_addin(build_dir)
     target_dir = native_path.parent
     macro_path = target_dir / "NativeHoldLineMacro.swb"
@@ -233,7 +228,7 @@ def create_hold_line_via_native_addin(
     build_dir: Path | None = None,
     allow_unsafe: bool = False,
 ) -> dict[str, Any]:
-    """@brief 通过 SWBasic 主线程调用原生 C++ ISetHoldLines 桥接器。"""
+    'Call native C++ ISetHoldLines through the SWBasic main thread.'
     _require_unsafe_probe(
         "native-cpp-swb",
         allow_unsafe,
@@ -282,7 +277,7 @@ def create_hold_line_via_native_addin(
                 except (json.JSONDecodeError, OSError):
                     stage = None
             raise HoldLineBridgeError(
-                "SolidWorks 已调用 RunMacro2，但 SWBasic/原生桥接未写出结果",
+                'RunMacro2 çağrıldı ancak SWBasic/yerel köprü sonuç yazmadı / RunMacro2 called but the SWBasic/native bridge produced no result',
                 {
                     "runMacroResult": run_macro_result,
                     "runMacroError": int(macro_error.value),
@@ -314,7 +309,7 @@ def create_hold_line_via_native_addin(
             or persisted_count != 1
         ):
             raise HoldLineBridgeError(
-                str(result.get("error") or "原生 C++/SWBasic 未创建可持久化回读的保持线圆角"),
+                str(result.get("error") or 'Yerel C++/SWBasic kalıcı tutma çizgisi radyüsü oluşturamadı / Native C++/SWBasic produced no persistently readable hold-line fillet'),
                 result,
             )
         return result
@@ -324,7 +319,7 @@ def create_hold_line_via_native_addin(
 
 
 def build_hold_line_bridge(build_dir: Path | None = None) -> tuple[Path, dict[str, str]]:
-    """@brief 编译 C# PIA 桥接器，返回可执行文件及工具链证据。"""
+    'Compile the C# PIA bridge and return executable/toolchain evidence.'
     toolchain = discover_bridge_toolchain()
     target_dir = (build_dir or Path(tempfile.gettempdir()) / "cad-studio-hold-line-bridge").resolve()
     target_dir.mkdir(parents=True, exist_ok=True)
@@ -352,7 +347,7 @@ def build_hold_line_bridge(build_dir: Path | None = None) -> tuple[Path, dict[st
     )
     if completed.returncode != 0 or not executable.is_file():
         raise HoldLineBridgeError(
-            "C# PIA 保持线桥接器编译失败",
+            'C# PIA tutma çizgisi köprüsü derlenemedi / C# PIA hold-line bridge compilation failed',
             {
                 "command": command,
                 "returncode": completed.returncode,
@@ -379,7 +374,7 @@ def create_hold_line_via_csharp(
     allow_unsafe: bool = False,
     solidworks_revision: str | None = None,
 ) -> dict[str, Any]:
-    """@brief 在当前活动零件中通过 C# PIA 创建保持线面圆角并返回结构化证据。"""
+    'Create a hold-line face fillet in the active part through C# PIA and return structured evidence.'
     _require_unsafe_probe("csharp-pia", allow_unsafe, solidworks_revision)
     executable, toolchain = build_hold_line_bridge(build_dir)
     completed = subprocess.run(
@@ -398,7 +393,7 @@ def create_hold_line_via_csharp(
         result = json.loads(lines[-1]) if lines else {}
     except json.JSONDecodeError as exc:
         raise HoldLineBridgeError(
-            "C# PIA 保持线桥接器没有返回有效 JSON",
+            'C# PIA tutma çizgisi köprüsü geçerli JSON döndürmedi / C# PIA hold-line bridge returned invalid JSON',
             {
                 "returncode": completed.returncode,
                 "stdout": completed.stdout,
@@ -411,7 +406,7 @@ def create_hold_line_via_csharp(
     result["stderr"] = completed.stderr
     if completed.returncode != 0 or result.get("status") != "verified":
         raise HoldLineBridgeError(
-            str(result.get("error") or "C# PIA 保持线圆角创建失败"),
+            str(result.get("error") or 'C# PIA tutma çizgisi radyüsü oluşturulamadı / C# PIA hold-line fillet creation failed'),
             result,
         )
     return result

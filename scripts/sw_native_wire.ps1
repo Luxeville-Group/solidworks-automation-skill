@@ -1,4 +1,4 @@
-<# @brief 通过 UTF-8 标准输入接收严格 JSON；保留短 Base64 调用的兼容入口。 #>
+<# @brief Receive strict JSON on UTF-8 stdin; preserve compatibility with short Base64 calls. #>
 param([string]$InputBase64,[Parameter(Mandatory=$true)][string]$InteropRoot)
 $ErrorActionPreference='Stop'
 [Console]::OutputEncoding=New-Object System.Text.UTF8Encoding($false)

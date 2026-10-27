@@ -1,10 +1,5 @@
 #!/usr/bin/env python
-"""
-从自然语言需求生成 SolidWorks 参数化设计计划。
-
-本脚本是 VibeCAD 工作台的最小可运行闭环：它不直接控制 SolidWorks，
-而是把需求收敛为可审查、可交给 SolidWorks API 封装执行的 JSON 计划。
-"""
+'Generate SolidWorks parametric plans from natural-language requirements. This minimal VibeCAD workflow creates reviewable JSON for API wrappers; it does not directly control SolidWorks.'
 from __future__ import annotations
 
 import argparse
@@ -25,7 +20,7 @@ THREAD_RULES = {
 
 
 def parse_triplet_mm(text: str) -> tuple[float, float, float] | None:
-    """解析 90x60x8mm 这类尺寸。"""
+    'Parse dimensions such as 90x60x8mm.'
     match = re.search(
         r"(\d+(?:\.\d+)?)\s*[xX×]\s*(\d+(?:\.\d+)?)\s*[xX×]\s*(\d+(?:\.\d+)?)\s*mm",
         text,
@@ -36,46 +31,52 @@ def parse_triplet_mm(text: str) -> tuple[float, float, float] | None:
 
 
 def parse_first_number_before(text: str, keywords: tuple[str, ...]) -> float | None:
-    """解析关键词附近的第一个 mm 数值。"""
-    pattern = r"(\d+(?:\.\d+)?)\s*mm\s*(?:" + "|".join(map(re.escape, keywords)) + r")"
-    match = re.search(pattern, text)
-    if match:
-        return float(match.group(1))
+    'Parse the first mm value near a keyword.'
+    aliases = "(?:" + "|".join(map(re.escape, keywords)) + ")"
+    number = r"(\d+(?:\.\d+)?)\s*mm"
+    # Both word orders occur naturally in Turkish and English requirements.
+    for pattern in (number + r"\s*" + aliases, aliases + r"\s*[:=]?\s*" + number):
+        match = re.search(pattern, text, re.IGNORECASE)
+        if match:
+            return float(match.group(1))
     return None
 
 
 def parse_radius_or_chamfer(text: str, prefix: str, default: float) -> float:
-    """解析 R6、C1 等简写。"""
+    'Parse shorthand such as R6 and C1.'
     match = re.search(rf"{re.escape(prefix)}\s*(\d+(?:\.\d+)?)", text, re.IGNORECASE)
     return float(match.group(1)) if match else default
 
 
 def detect_thread(text: str) -> str | None:
-    """识别 M3/M4/M5 等螺纹规格。"""
+    'Identify thread sizes such as M3/M4/M5.'
     match = re.search(r"\b(M(?:3|4|5|6|8|10|12))\b", text, re.IGNORECASE)
     return match.group(1).upper() if match else None
 
 
 def build_plan(brief: str) -> dict:
-    """构建设计计划。"""
+    'Build a design plan.'
     dims = parse_triplet_mm(brief) or (90.0, 60.0, 8.0)
     length, width, thickness = dims
     thread = detect_thread(brief) or "M5"
     thread_rule = THREAD_RULES[thread]
-    center_hole_diameter = parse_first_number_before(brief, ("通孔", "中心孔", "轴孔")) or 22.0
+    center_hole_diameter = parse_first_number_before(
+        brief, ('center hole', 'centre hole', 'shaft hole', 'merkez deliği', 'merkez delik',
+                'mil deliği', 'through hole', 'geçiş deliği')
+    ) or 22.0
     corner_fillet = parse_radius_or_chamfer(brief, "R", 6.0)
     edge_chamfer = parse_radius_or_chamfer(brief, "C", 1.0)
 
     assumptions = []
     if parse_triplet_mm(brief) is None:
-        assumptions.append("未识别到底板尺寸，采用 90x60x8 mm 默认安装座。")
+        assumptions.append('Taban boyutları algılanamadı; varsayılan 90x60x8 mm kullanıldı / Base dimensions missing; default 90x60x8 mm used.')
     if detect_thread(brief) is None:
-        assumptions.append("未识别固定孔规格，采用 M5 固定孔。")
+        assumptions.append('Montaj deliği ölçüsü algılanamadı; M5 kullanıldı / Mounting-hole size missing; M5 used.')
     assumptions.extend(
         [
-            "四角固定孔默认按矩形孔距布置，边距取 10 mm。",
-            "固定孔按通孔处理；若需要攻丝孔，应切换 threaded_hole 特征。",
-            "减重口袋保留至少 3 mm 壁厚和 2 mm 底厚。",
+            'Dört köşe deliği varsayılan 10 mm kenar paylı dikdörtgen düzende / Four corner holes use a rectangular layout with 10 mm edge margin.',
+            'Montaj delikleri geçiş deliğidir; kılavuz deliği için threaded_hole kullanın / Mounting holes are clearance holes; use threaded_hole for tapped holes.',
+            'Hafifletme cepleri en az 3 mm duvar ve 2 mm taban bırakır / Pockets preserve at least 3 mm walls and 2 mm bottoms.',
         ]
     )
 
@@ -99,14 +100,14 @@ def build_plan(brief: str) -> dict:
             "type": "fillet",
             "params": {"radius": corner_fillet, "target": "outer_vertical_edges"},
             "required": True,
-            "fallback": "若圆角求解失败，降级为 R4 或逐边添加。",
+            "fallback": 'Radyüs çözümü başarısızsa R4 veya tek tek kenarlar denenir / If fillet solving fails, reduce to R4 or add edges individually.',
         },
         {
             "name": "TopEdgeChamfer",
             "type": "chamfer",
             "params": {"distance": edge_chamfer, "target": "top_outer_edges"},
             "required": True,
-            "fallback": "若整圈倒角失败，按边对象分组选择后重试。",
+            "fallback": 'Tam çevre pahı başarısızsa kenar gruplarıyla yeniden denenir / If a full-loop chamfer fails, retry with grouped edge objects.',
         },
         {
             "name": "CornerMountingHoles",
@@ -134,7 +135,7 @@ def build_plan(brief: str) -> dict:
                 "placement": "left_and_right_of_center_hole",
             },
             "required": False,
-            "fallback": "若口袋与中心孔或固定孔冲突，缩小口袋或跳过并记录。",
+            "fallback": 'Cep deliklerle çakışırsa küçültün veya atlayıp kaydedin / If a pocket collides with holes, shrink or skip it and record the change.',
         },
         {
             "name": "HoleMouthChamfers",
@@ -160,7 +161,7 @@ def build_plan(brief: str) -> dict:
                 "thread": thread,
                 "tap_drill": thread_rule["tap_drill"],
                 "pitch": thread_rule["pitch"],
-                "note": "当前固定孔按 clearance through hole 处理，攻丝孔时使用该底孔参考。",
+                "note": 'Mevcut montaj delikleri geçiş deliğidir; kılavuz deliği için bu ön delik referansını kullanın / Current holes are clearance through holes; this tap-drill reference applies to tapped holes.',
             },
             "center_hole_diameter": center_hole_diameter,
             "corner_fillet": corner_fillet,
@@ -181,16 +182,16 @@ def build_plan(brief: str) -> dict:
         "assumptions": assumptions,
         "risk_register": [
             {
-                "risk": "圆角和倒角在复杂孔槽之后求解失败或耗时过长。",
-                "mitigation": "按 CNC 子技能顺序先处理外轮廓圆角/倒角，再切孔槽；失败时降低半径并逐边重试。",
+                "risk": 'Karmaşık delik/kanal işlemlerinden sonra radyüs/pah çözümü başarısız veya yavaş olabilir / Fillet/chamfer solving may fail or slow after complex cuts.',
+                "mitigation": 'Önce dış radyüs/pah, ardından delik/kanal; başarısızsa radyüsü azaltıp kenarları ayrı deneyin / Follow CNC ordering and bounded edge-by-edge fallback.',
             },
             {
-                "risk": "孔口边选择不稳定。",
-                "mitigation": "枚举 body.GetEdges()，按圆心、半径、顶面高度匹配边对象并用 edge.Select2()。",
+                "risk": 'Delik ağzı kenar seçimi kararsız / Hole-mouth edge selection is unstable.',
+                "mitigation": 'body.GetEdges() ile kenarları merkez, yarıçap ve üst yüz yüksekliğine göre eşleyip edge.Select2() kullanın / Match edges geometrically and select objects.',
             },
             {
-                "risk": "输出文件已在 SolidWorks 打开导致 SaveAs 失败。",
-                "mitigation": "执行前关闭同名旧文档，保存后检查文件存在和大小。",
+                "risk": "SolidWorks'te açık çıktı dosyası SaveAs hatasına neden olabilir / An open output document can cause SaveAs failure.",
+                "mitigation": 'Önce aynı adlı eski belgeyi kapatın; kayıttan sonra dosya varlığı ve boyutunu kontrol edin / Close the old same-name document and check saved file existence/size.',
             },
         ],
         "review_plan": {
@@ -208,43 +209,43 @@ def build_plan(brief: str) -> dict:
             {
                 "operation": "new_part",
                 "preferred_api": "sw_session.SolidWorksSession.new_part",
-                "notes": "统一通过 session 管理文档生命周期。",
+                "notes": 'Belge yaşam döngüsünü session ile yönetin / Manage document lifecycle through session.',
             },
             {
                 "operation": "base_plate",
                 "preferred_api": "sw_part.sketch_rectangle + sw_part.extrude_boss",
-                "notes": "基础体保持简单草图，避免一开始画复杂圆角轮廓。",
+                "notes": 'Taban eskizini basit tutun; başlangıçta karmaşık radyüslü kontur çizmeyin / Keep the base sketch simple.',
             },
             {
                 "operation": "outer_fillet_and_chamfer",
                 "preferred_api": "FeatureFillet + InsertFeatureChamfer with edge.Select2",
-                "notes": "按对象选边，不依赖 Edge1 或坐标点击。",
+                "notes": 'Kenar nesnelerini seçin; Edge1 veya ekran koordinatlarına güvenmeyin / Select edge objects, not temporary names or clicks.',
             },
             {
                 "operation": "save_export_review",
                 "preferred_api": "session.save + session.export + sw_review.run_review",
-                "notes": "必须生成多视角预览和 review report。",
+                "notes": 'Çoklu görünüş önizlemesi ve review report zorunludur / Multiview previews and review report are required.',
             },
         ],
     }
 
 
 def clearance_diameter(thread: str) -> float:
-    """返回常用螺钉通孔直径。"""
+    'Return common screw-clearance diameters.'
     table = {"M3": 3.4, "M4": 4.5, "M5": 5.5, "M6": 6.6, "M8": 9.0}
     return table.get(thread, THREAD_RULES[thread]["tap_drill"] + 0.5)
 
 
 def main() -> int:
-    """命令行入口。"""
-    parser = argparse.ArgumentParser(description="生成 SolidWorks 参数化设计计划")
-    parser.add_argument("--brief", help="自然语言需求")
-    parser.add_argument("--brief-file", type=Path, help="需求文本文件")
-    parser.add_argument("--out", type=Path, required=True, help="输出 JSON 路径")
+    'Command-line entry point.'
+    parser = argparse.ArgumentParser(description='SolidWorks parametrik tasarım planı oluştur / Generate a SolidWorks parametric design plan')
+    parser.add_argument("--brief", help='Doğal dilde gereksinim / Natural-language requirement')
+    parser.add_argument("--brief-file", type=Path, help='Gereksinim metin dosyası / Requirement text file')
+    parser.add_argument("--out", type=Path, required=True, help='Çıktı JSON yolu / Output JSON path')
     args = parser.parse_args()
 
     if not args.brief and not args.brief_file:
-        parser.error("必须提供 --brief 或 --brief-file")
+        parser.error('--brief veya --brief-file gereklidir / --brief or --brief-file is required')
 
     brief = args.brief if args.brief else args.brief_file.read_text(encoding="utf-8")
     plan = build_plan(brief)

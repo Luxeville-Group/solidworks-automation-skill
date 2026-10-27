@@ -1,4 +1,4 @@
-"""@brief 原生阵列的参数和选择适配，复用 B-Rep 选边，不增加用户入口。"""
+"""@brief Adapt native pattern parameters/selections using existing B-Rep edge selection; no new user entry point."""
 from __future__ import annotations
 
 import math
@@ -12,32 +12,32 @@ except ImportError:
 
 
 def _unit(vector):
-    """@brief 检查并归一化方向；方向不是长度参数。"""
+    """@brief Validate and normalize direction; direction is not a length."""
     values = tuple(float(value) for value in vector)
     if len(values) != 3:
-        raise ValueError("阵列方向必须有三个分量")
+        raise ValueError("Pattern yönü üç bileşen içermeli")
     length = math.sqrt(sum(value * value for value in values))
     if not all(math.isfinite(value) for value in values) or length < 1e-12:
-        raise ValueError("阵列方向必须是非零有限向量")
+        raise ValueError("Pattern yönü sıfır olmayan sonlu bir vektör olmalı")
     return tuple(value / length for value in values)
 
 
 def _seed(model, name):
-    """@brief 精确选择母特征，失败立即停止。"""
+    """@brief Select the exact seed feature; stop immediately on failure."""
     feature = get_com_member(model, "FeatureByName", str(name))
     if feature is None or not bool(get_com_member(feature, "Select2", False, 4)):
-        raise ValueError(f"无法选择阵列母特征: {name}")
+        raise ValueError(f"Pattern ana özelliği seçilemedi: {name}")
 
 
 def _select_entity(model, entity, mark, append=True):
-    """@brief 使用带 Mark 的 ISelectData 选择实体，保留失败事实。"""
+    """@brief Select entities with marked ISelectData and preserve failure evidence."""
     data = get_com_member(model.SelectionManager, "CreateSelectData")
     data.Mark = int(mark)
     return bool(get_com_member(entity, "Select4", append, data))
 
 
 def _direction(model, vector, mark):
-    """@brief 相同方向的平行直边语义等价，确定性选择其中一条。"""
+    """@brief Parallel straight edges in the same direction are semantically equivalent; choose one deterministically."""
     requested = _unit(vector)
     descriptors, _ = iter_model_edges(model)
     candidates = []
@@ -56,21 +56,21 @@ def _direction(model, vector, mark):
             selected = False
         if selected:
             return dot < 0
-    raise ValueError(f"找不到可选的阵列方向直边: {requested}")
+    raise ValueError(f"Pattern yönü için seçilebilir düz kenar yok: {requested}")
 
 
 def linear_pattern(model, feature_name, first, spacing, count, second=(0, 0, 0), second_spacing=0, second_count=1):
-    """@brief 创建 20 参数 FeatureLinearPattern4；旧版本仅在成员缺失时用 10 参数路径。
-    @param model 原生零件文档。
-    @param first 第一方向向量。
-    @param spacing 间距，单位米。
-    @param count 包括母特征的实例数量。
-    @return IFeature；空返回按执行失败抛出异常。
+    """@brief Create a 20-argument FeatureLinearPattern4; use the older 10-argument route only if the member is absent.
+    @param model Native part document.
+    @param first First direction vector.
+    @param spacing Spacing in meters.
+    @param count Instance count including the seed.
+    @return IFeature; raise execution failure on an empty result.
     """
     if int(count) < 2 or int(second_count) < 1 or not math.isfinite(float(spacing)) or spacing <= 0:
-        raise ValueError("阵列数量或间距无效")
+        raise ValueError("Pattern sayısı veya aralığı geçersiz")
     if second_count > 1 and (not math.isfinite(float(second_spacing)) or second_spacing <= 0):
-        raise ValueError("第二方向间距无效")
+        raise ValueError("İkinci yön aralığı geçersiz")
     model.ClearSelection2(True)
     try:
         _seed(model, feature_name)
@@ -84,16 +84,16 @@ def linear_pattern(model, feature_name, first, spacing, count, second=(0, 0, 0),
         else:
             feature = model.FeatureManager.FeatureLinearPattern3(*args)
         if feature is None:
-            raise RuntimeError("原生线性阵列创建失败")
+            raise RuntimeError("Yerel Linear Pattern oluşturulamadı")
         return feature
     finally:
         model.ClearSelection2(True)
 
 
 def circular_pattern(model, feature_name, axis, angle, count, equal_spacing=True):
-    """@brief 选择母特征与明确的轴实体，保留现有 7 参数原生接口。"""
+    """@brief Select the seed feature and explicit axis entity; preserve the existing seven-argument native interface."""
     if int(count) < 2 or not math.isfinite(float(angle)) or not 0 < angle <= 2 * math.pi + 1e-9:
-        raise ValueError("圆周阵列数量或角度无效")
+        raise ValueError("Circular Pattern sayısı veya açısı geçersiz")
     model.ClearSelection2(True)
     try:
         _seed(model, feature_name)
@@ -103,10 +103,10 @@ def circular_pattern(model, feature_name, axis, angle, count, equal_spacing=True
         else:
             selected = _select_entity(model, axis, 1)
         if not selected:
-            raise ValueError(f"无法选择圆周阵列轴: {axis}")
+            raise ValueError(f"Circular Pattern ekseni seçilemedi: {axis}")
         feature = model.FeatureManager.FeatureCircularPattern4(int(count), float(angle), False, "", False, bool(equal_spacing), False)
         if feature is None:
-            raise RuntimeError("原生圆周阵列创建失败")
+            raise RuntimeError("Yerel Circular Pattern oluşturulamadı")
         return feature
     finally:
         model.ClearSelection2(True)

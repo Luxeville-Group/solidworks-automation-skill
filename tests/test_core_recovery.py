@@ -1,4 +1,4 @@
-"""@brief Recovery Decision Layer 单元测试（确定性、无 SolidWorks / pywin32 依赖）。"""
+"""Deterministic Recovery Decision Layer unit tests without SolidWorks/pywin32."""
 from __future__ import annotations
 
 import sys
@@ -13,7 +13,7 @@ from core.trace import read_events  # noqa: E402
 
 
 class FakeCapability:
-    """可注入的 Capability Facade 替身。"""
+    """Injectable Capability Facade test double."""
 
     def __init__(self, candidates=None, capabilities=None):
         self.candidates = candidates or []
@@ -147,7 +147,7 @@ def test_retry_count_never_exceeds_max_retries():
     assert decide(error_kind=ErrorKind.TRANSIENT, retry_count=1, max_retries=2).decision == "retry"
     assert decide(error_kind=ErrorKind.TRANSIENT, retry_count=2, max_retries=2).decision == "fail"
     assert decide(error_kind=ErrorKind.TRANSIENT, retry_count=9, max_retries=2).decision == "fail"
-    # 默认预算
+    # Default budget
     assert DEFAULT_MAX_RETRIES == 2
     assert decide(error_kind=ErrorKind.TRANSIENT, retry_count=2).decision == "fail"
 
@@ -197,5 +197,5 @@ def test_classify_exception_types():
     assert classify_error(exception=TimeoutError("slow")) == ErrorKind.TRANSIENT
     assert classify_error(exception=ModuleNotFoundError("no ocp")) == ErrorKind.ENVIRONMENT_MISSING
     assert classify_error(exception=ValueError("bad spec")) == ErrorKind.INVALID_ARGUMENT
-    # 未知异常 → FATAL（绝不默认 transient）
+    # Unknown exceptions are FATAL, never transient by default.
     assert classify_error(exception=RuntimeError("boom")) == ErrorKind.FATAL

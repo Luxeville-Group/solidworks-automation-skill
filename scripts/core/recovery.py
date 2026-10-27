@@ -1,15 +1,14 @@
-"""@brief Recovery Decision Layer —— 失败后下一步该做什么的**纯确定性决策**。
+"""@brief Deterministic recovery decisions after failure.
 
-本模块只回答一个问题：发生这种失败后，下一步应该采取什么动作。它**不执行**任何
-动作：不自动 retry、不重跑 Tool、不切换 Backend、不重规划、不改模型、不调 Reviewer、
-不联网。真正的动作执行留给 Phase 5 的 Worker / Existing Handler。
+Answer which action to take next without performing it. Do not retry, rerun tools,
+switch backends, replan, modify models, call reviewers or access the network.
+Actual actions remain with the Phase 5 Worker/existing Handler.
 
-职责：
-- ``classify_error`` 把散落的失败语义统一为 10 类 ``ErrorKind``；
-- ``decide`` 把 ErrorKind + 上下文映射为 ``RecoveryDecision``（复用 Phase 2 模型）。
+classify_error normalizes failures into ten ErrorKind categories; decide maps
+ErrorKind and context to the Phase 2 RecoveryDecision model.
 
-安全默认：**不确定 → BLOCK / FAIL / REPLAN，绝不默认 retry**。
-未知错误保守归为 ``FATAL``；绝不把未知异常当 transient。
+Uncertainty defaults to BLOCK / FAIL / REPLAN, never retry. Classify unknown
+errors conservatively as FATAL, never transient.
 """
 from __future__ import annotations
 
@@ -21,12 +20,12 @@ from .state import RecoveryDecision, VerificationStatus
 from .trace import emit
 from .verification import check_status, normalize_status
 
-#: retry 预算的保守默认值（不允许 3/5/无限）。
+#: Conservative retry-budget default; do not permit 3, 5 or unlimited retries.
 DEFAULT_MAX_RETRIES = 2
 
 
 class ErrorKind(str, Enum):
-    """@brief 执行层错误类别（不是具体 CAD 错误码全集）。"""
+    """@brief Execution-layer error categories, not an exhaustive CAD error-code catalog."""
 
     TRANSIENT = "transient"
     INVALID_ARGUMENT = "invalid_argument"
@@ -40,8 +39,8 @@ class ErrorKind(str, Enum):
     FATAL = "fatal"
 
 
-# 已确认的历史 error_code → ErrorKind（全部来自仓库现有 Reviewer / Router / Worker
-# 的真实字段）。key 统一小写；未收录的 error_code 不在此猜测，继续走更低优先级层。
+# Confirmed historical error_code -> ErrorKind mappings from actual Reviewer/Router/Worker
+# fields. Keys are lowercase; unknown codes fall through rather than being guessed.
 _ERROR_CODE_KIND: dict[str, ErrorKind] = {
     "sw_file_not_found": ErrorKind.INVALID_ARGUMENT,
     "sw_file_requires_repair": ErrorKind.USER_ACTION_REQUIRED,
@@ -119,7 +118,7 @@ _ERROR_CODE_KIND: dict[str, ErrorKind] = {
     "drawing_view_create_failed": ErrorKind.FATAL,
 }
 
-# 明确异常类型 → ErrorKind（按类型名匹配，再按 isinstance 兜底）。
+# Explicit exception type -> ErrorKind; match type name before isinstance fallback.
 _EXCEPTION_KIND: dict[str, ErrorKind] = {
     "TimeoutError": ErrorKind.TRANSIENT,
     "SolidWorksNotInstalledError": ErrorKind.ENVIRONMENT_MISSING,
@@ -132,45 +131,45 @@ _EXCEPTION_KIND: dict[str, ErrorKind] = {
     "ImportError": ErrorKind.ENVIRONMENT_MISSING,
 }
 
-# 通用 message 关键词（最低优先级，仅针对仓库真实存在的措辞）。
+# General message keywords, lowest priority and restricted to actual repository wording.
 _MESSAGE_HINTS: tuple[tuple[str, ErrorKind], ...] = (
     ("timeout", ErrorKind.TRANSIENT),
-    ("超时", ErrorKind.TRANSIENT),
+    ("zaman aşımı", ErrorKind.TRANSIENT),
     ("unstable", ErrorKind.TRANSIENT),
-    ("不稳定", ErrorKind.TRANSIENT),
+    ("kararsız", ErrorKind.TRANSIENT),
     ("not installed", ErrorKind.ENVIRONMENT_MISSING),
-    ("未检测到", ErrorKind.ENVIRONMENT_MISSING),
+    ("bulunamadı", ErrorKind.ENVIRONMENT_MISSING),
     ("not found", ErrorKind.ENVIRONMENT_MISSING),
     ("license", ErrorKind.USER_ACTION_REQUIRED),
-    ("许可证", ErrorKind.USER_ACTION_REQUIRED),
+    ("lisans", ErrorKind.USER_ACTION_REQUIRED),
     ("approval", ErrorKind.POLICY_BLOCKED),
-    ("审批", ErrorKind.POLICY_BLOCKED),
+    ("onay", ErrorKind.POLICY_BLOCKED),
     ("not allowed", ErrorKind.POLICY_BLOCKED),
     ("unsupported", ErrorKind.CAPABILITY_GAP),
     ("not implemented", ErrorKind.CAPABILITY_GAP),
-    ("不支持", ErrorKind.CAPABILITY_GAP),
+    ("desteklenmiyor", ErrorKind.CAPABILITY_GAP),
 )
 
-# BLOCKED 细分关键词（不含 transient，避免把 blocked 误判成 transient）。
+# BLOCKED subcategories exclude transient to avoid misclassification.
 _BLOCKED_HINTS: tuple[tuple[str, ErrorKind], ...] = (
     ("license", ErrorKind.USER_ACTION_REQUIRED),
-    ("许可证", ErrorKind.USER_ACTION_REQUIRED),
+    ("lisans", ErrorKind.USER_ACTION_REQUIRED),
     ("approval", ErrorKind.POLICY_BLOCKED),
-    ("审批", ErrorKind.POLICY_BLOCKED),
+    ("onay", ErrorKind.POLICY_BLOCKED),
     ("not allowed", ErrorKind.POLICY_BLOCKED),
     ("not installed", ErrorKind.ENVIRONMENT_MISSING),
-    ("未检测到", ErrorKind.ENVIRONMENT_MISSING),
+    ("bulunamadı", ErrorKind.ENVIRONMENT_MISSING),
     ("missing", ErrorKind.ENVIRONMENT_MISSING),
-    ("缺少", ErrorKind.ENVIRONMENT_MISSING),
+    ("eksik", ErrorKind.ENVIRONMENT_MISSING),
     ("unsupported", ErrorKind.CAPABILITY_GAP),
     ("not implemented", ErrorKind.CAPABILITY_GAP),
-    ("不支持", ErrorKind.CAPABILITY_GAP),
+    ("desteklenmiyor", ErrorKind.CAPABILITY_GAP),
     ("unavailable", ErrorKind.BACKEND_UNAVAILABLE),
 )
 
 
 def _coerce_kind(value: Any) -> ErrorKind | None:
-    """@brief 把字符串/枚举归一化为 ErrorKind；未知返回 None（不盲目信任）。"""
+    """@brief Normalize a string/enum to ErrorKind; unknown values return None rather than being trusted."""
     if isinstance(value, ErrorKind):
         return value
     if value is None:
@@ -183,7 +182,7 @@ def _coerce_kind(value: Any) -> ErrorKind | None:
 
 
 def _hint_kind(text: str, hints: tuple[tuple[str, ErrorKind], ...]) -> ErrorKind | None:
-    """@brief 按关键词表返回首个命中的 ErrorKind，未命中返回 None。"""
+    """@brief Return the first keyword-table match or None."""
     lowered = text.lower()
     for keyword, kind in hints:
         if keyword in lowered:
@@ -192,7 +191,7 @@ def _hint_kind(text: str, hints: tuple[tuple[str, ErrorKind], ...]) -> ErrorKind
 
 
 def _classify_exception(exception: BaseException) -> ErrorKind:
-    """@brief 异常类型 → ErrorKind（名称优先，再 isinstance 兜底）。"""
+    """@brief Map exception types to ErrorKind, preferring names before isinstance fallback."""
     name = type(exception).__name__
     if name in _EXCEPTION_KIND:
         return _EXCEPTION_KIND[name]
@@ -206,7 +205,7 @@ def _classify_exception(exception: BaseException) -> ErrorKind:
 
 
 def _verification_fail_present(verification_result: Mapping[str, Any]) -> bool:
-    """@brief 检查是否存在 required/critical FAIL，防止被 aggregate BLOCKED 掩盖。"""
+    """@brief Check required/critical FAIL so aggregate BLOCKED cannot conceal it."""
     for check in verification_result.get("checks") or []:
         if isinstance(check, Mapping) and check_status(check) == VerificationStatus.FAIL:
             return True
@@ -214,7 +213,7 @@ def _verification_fail_present(verification_result: Mapping[str, Any]) -> bool:
 
 
 def _classify_blocked(result: Mapping[str, Any]) -> ErrorKind:
-    """@brief 细分 BLOCKED 的具体原因，默认 USER_ACTION_REQUIRED。"""
+    """@brief Classify a BLOCKED reason, defaulting to USER_ACTION_REQUIRED."""
     text = " ".join(
         filter(
             None,
@@ -229,20 +228,20 @@ def _classify_blocked(result: Mapping[str, Any]) -> ErrorKind:
 
 
 def _classify_verification(verification_result: Mapping[str, Any]) -> ErrorKind | None:
-    """@brief VerificationResult → ErrorKind；PASS/WARN 返回 None（不触发恢复）。"""
+    """@brief Map VerificationResult to ErrorKind; PASS/WARN return None without recovery."""
     status = normalize_status(verification_result.get("status"))
     if status in (VerificationStatus.PASS, VerificationStatus.WARN):
         return None
     if status == VerificationStatus.FAIL:
         return ErrorKind.VERIFICATION_FAILED
-    # BLOCKED：required FAIL 不被 BLOCKED 掩盖；否则按 reason 细分。
+    # Required FAIL overrides BLOCKED; otherwise classify the reason.
     if _verification_fail_present(verification_result):
         return ErrorKind.VERIFICATION_FAILED
     return _classify_blocked(verification_result)
 
 
 def _classify_capability(capability_result: Mapping[str, Any]) -> ErrorKind | None:
-    """@brief Capability Facade / Router 结果 → ErrorKind。"""
+    """@brief Map Capability Facade/Router results to ErrorKind."""
     status = str(capability_result.get("status") or "").strip().lower()
     if status == "capability_gap":
         return ErrorKind.CAPABILITY_GAP
@@ -257,7 +256,7 @@ def _classify_capability(capability_result: Mapping[str, Any]) -> ErrorKind | No
 
 
 def _classify_execution(execution_result: Mapping[str, Any]) -> ErrorKind | None:
-    """@brief ExecutionResult → ErrorKind；工具层成功返回 None（验证层负责）。"""
+    """@brief Map ExecutionResult to ErrorKind; tool success returns None for verification to assess."""
     if execution_result.get("success") is True:
         return None
     code = str(execution_result.get("error_code") or "").strip().lower()
@@ -280,11 +279,11 @@ def classify_error(
     policy_result: Mapping[str, Any] | None = None,
     message: str | None = None,
 ) -> ErrorKind | None:
-    """@brief 把失败事实统一分类为 ErrorKind；无失败（如 Verification PASS）返回 None。
+    """@brief Classify failure facts as ErrorKind; nonfailures such as PASS return None.
 
-    优先级（确定性）：显式 error_kind → 结构化 error_code → 既有 Result 状态
-    （policy > capability > verification > execution）→ 异常类型 → message 关键词 →
-    未知归 FATAL。
+    Deterministic precedence: explicit error_kind -> structured error_code ->
+    result state (policy > capability > verification > execution) -> exception
+    type -> message keywords -> FATAL for unknown failures.
     """
     if error_kind is not None:
         kind = _coerce_kind(error_kind)
@@ -306,7 +305,7 @@ def classify_error(
             return kind
 
     if verification_result is not None:
-        # PASS/WARN 是确定性「无需恢复」，直接返回 None；FAIL/BLOCKED 返回具体 kind。
+        # PASS/WARN deterministically require no recovery; FAIL/BLOCKED return their kind.
         return _classify_verification(verification_result)
 
     if execution_result is not None:
@@ -335,7 +334,7 @@ def _resolve_fallback(
     explicit_fallback: str | None,
     capability_facade: Any,
 ) -> str | None:
-    """@brief 通过 Capability Facade 查询可回退 backend（只推荐，不执行）。"""
+    """@brief Query fallback backends through the facade; recommend without executing."""
     if explicit_fallback:
         return str(explicit_fallback)
     if not operation_id or capability_facade is None:
@@ -354,7 +353,7 @@ def _resolve_fallback(
 
 
 def _trace_decision(decision: RecoveryDecision, trace_dir: Any, run_id: str | None, step_id: str | None) -> None:
-    """@brief 写 recovery 事件；观测失败绝不能影响决策结果。"""
+    """@brief Write recovery events without letting observation failures change decisions."""
     if trace_dir is None:
         return
     if decision.decision == "retry":
@@ -399,10 +398,10 @@ def decide(
     run_id: str | None = None,
     step_id: str | None = None,
 ) -> RecoveryDecision | None:
-    """@brief 决定失败后的下一步动作；PASS/WARN 或无需恢复时返回 None。
+    """@brief Choose the next failure action; return None for PASS/WARN or no recovery.
 
-    :param capability_facade: 可注入的 Capability Facade（含 get_backend_candidates /
-        get_capability）。缺省使用 core.capability 真源；测试注入 Fake。
+    :param capability_facade: Injectable facade with get_backend_candidates and
+        get_capability. Defaults to core.capability; tests may inject a fake.
     """
     kind = classify_error(
         error_kind=error_kind,
@@ -427,11 +426,11 @@ def decide(
 
     if kind == ErrorKind.TRANSIENT:
         if count < budget:
-            action, reason = "retry", "瞬时错误，允许有限重试"
+            action, reason = "retry", "Geçici hata; sınırlı retry yapılabilir"
         else:
-            action, reason = "fail", f"瞬时错误重试已达上限（max_retries={budget}）"
+            action, reason = "fail", f"Geçici hata yeniden deneme sınırına ulaşıldı (max_retries={budget})"
     elif kind == ErrorKind.INVALID_ARGUMENT:
-        action, reason = "replan_required", "参数无效，需上层 Agent 修正参数后重试"
+        action, reason = "replan_required", "Geçersiz parametreler; üst Agent düzeltip yeniden denemelidir"
     elif kind == ErrorKind.BACKEND_UNAVAILABLE:
         fallback = _resolve_fallback(
             operation_id=operation_id,
@@ -440,15 +439,15 @@ def decide(
             capability_facade=facade,
         )
         if fallback:
-            action, reason = "fallback_backend", f"主后端不可用，回退到 {fallback}"
+            action, reason = "fallback_backend", f"Ana backend kullanılamıyor; fallback: {fallback}"
         else:
-            action, reason = "block", "无可用后端且无合法 fallback"
+            action, reason = "block", "Kullanılabilir backend veya izinli fallback yok"
     elif kind == ErrorKind.TOOL_UNAVAILABLE:
-        # Capability 仍存在 → 交还上层 Agent 组合/换入口；Capability 本身缺失 → CAPABILITY_GAP。
+        # Existing capability returns to the agent for composition/alternate entry; absent capability produces CAPABILITY_GAP.
         if capability_id is not None and facade is not None:
             try:
                 if facade.get_capability(capability_id) is None:
-                    reason = "能力缺口（capability_gap），交还上层 Agent 查证（agent_resolution_required）"
+                    reason = "Capability gap; doğrulama için üst Agent gerekiyor (agent_resolution_required)"
                     decision = RecoveryDecision(
                         decision="replan_required",
                         reason=reason,
@@ -460,7 +459,7 @@ def decide(
                     return decision
             except Exception:
                 pass
-        action, reason = "replan_required", "Tool 不可用，交还上层 Agent 组合或换入口"
+        action, reason = "replan_required", "Tool kullanılamıyor; birleştirme veya alternatif giriş için üst Agent gerekiyor"
     elif kind == ErrorKind.ENVIRONMENT_MISSING:
         fallback = _resolve_fallback(
             operation_id=operation_id,
@@ -469,19 +468,19 @@ def decide(
             capability_facade=facade,
         )
         if fallback:
-            action, reason = "fallback_backend", f"环境缺失，回退到 {fallback}"
+            action, reason = "fallback_backend", f"Ortam eksik; fallback: {fallback}"
         else:
-            action, reason = "block", "环境缺失且无合法 fallback"
+            action, reason = "block", "Ortam eksik ve izinli fallback yok"
     elif kind == ErrorKind.VERIFICATION_FAILED:
-        action, reason = "replan_required", "执行成功但验证失败，需修复后重做（不允许报告成功）"
+        action, reason = "replan_required", "Yürütme başarılı ancak verification başarısız; düzeltip yineleyin, başarı bildirmeyin"
     elif kind == ErrorKind.USER_ACTION_REQUIRED:
-        action, reason = "user_action_required", "需要用户操作解除阻塞"
+        action, reason = "user_action_required", "Engeli kaldırmak için kullanıcı işlemi gerekli"
     elif kind == ErrorKind.POLICY_BLOCKED:
-        action, reason = "block", "Policy Gate 阻止，禁止 Recovery 绕过"
+        action, reason = "block", "Policy Gate engelledi; Recovery ile aşılamaz"
     elif kind == ErrorKind.CAPABILITY_GAP:
-        action, reason = "replan_required", "能力缺口，交还上层 Agent 查证（agent_resolution_required）"
-    else:  # FATAL 或未预期
-        action, reason = "fail", "致命错误，不允许自动重试"
+        action, reason = "replan_required", "Capability gap; doğrulama için üst Agent gerekiyor (agent_resolution_required)"
+    else:  # FATAL or unexpected
+        action, reason = "fail", "Kritik hata; otomatik retry yapılamaz"
 
     decision = RecoveryDecision(
         decision=action,

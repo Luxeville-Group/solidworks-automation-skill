@@ -1,4 +1,4 @@
-"""@brief Execution Core 单元测试 + Worker 最小接入 regression（Fake handler/reviewer）。"""
+"""Execution Core unit tests and minimal worker integration regressions using fake handlers/reviewers."""
 from __future__ import annotations
 
 import json
@@ -75,7 +75,7 @@ def test_requires_review_with_existing_result_does_not_call_reviewer():
         reviewer=reviewer,
         reviewer_result={"status": "pass"},
     )
-    assert called == []  # 已有 result 优先，不重复调 reviewer
+    assert called == []  # Prefer the existing result without calling the reviewer again.
     assert assessment.verification_result.status == VerificationStatus.PASS
     assert assessment.run_context.status == RunStatus.COMPLETED
 
@@ -189,7 +189,7 @@ def test_backend_unavailable_fallback_decision_not_executed():
         operation_id="solidworks_standard_automation",
         capability_facade=FakeCapability(),
     )
-    assert calls == [1]  # handler 只执行一次，未自动 fallback
+    assert calls == [1]  # The handler executes once without automatic fallback.
     assert assessment.recovery_decision.decision == "fallback_backend"
     assert assessment.recovery_decision.fallback_backend == "solidworks-com-pywin32"
 
@@ -249,12 +249,12 @@ def test_assessment_json_serializable():
     payload = assessment.to_dict()
     assert payload["run_id"] == "r1"
     assert payload["execution"]["success"] is True
-    # 不复制 raw_result / 完整异常
+    # Do not copy raw_result or the full exception.
     assert "raw_result" not in payload
     assert payload["exception"] is None
 
 
-# ---- Worker 最小接入 regression ----
+# Minimal worker integration regression
 
 
 def _make_job(**overrides):
@@ -292,11 +292,11 @@ def test_worker_wraps_handler_preserves_result(tmp_path):
         return {"message": "ok", "outputs": []}
 
     result = process_job(path, handlers={"create_shell": handler})
-    assert calls == ["job-exec-1"]  # handler 只调用一次
-    assert result["result"]["message"] == "ok"  # 原结果保持
+    assert calls == ["job-exec-1"]  # Call the handler once.
+    assert result["result"]["message"] == "ok"  # Preserve the original result.
     stored = read_job(path)
     assert stored["executionAssessment"]["execution"]["success"] is True
-    assert "verificationAssessment" in stored  # 既有 Reviewer Gate 被统一标准化（sidecar）
+    assert "verificationAssessment" in stored  # Normalize the existing Reviewer Gate as a sidecar.
 
 
 def test_worker_handler_exception_still_fails(tmp_path):
@@ -309,7 +309,7 @@ def test_worker_handler_exception_still_fails(tmp_path):
         raise ValueError("boom")
 
     result = process_job(path, handlers={"create_shell": handler})
-    assert result["status"] == "failed"  # 原失败语义不变
+    assert result["status"] == "failed"  # Preserve original failure semantics.
     assert "boom" in str(result.get("error") or result.get("lastMessage") or "")
 
 

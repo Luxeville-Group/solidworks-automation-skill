@@ -13,15 +13,15 @@ const queue = path.join(repo, "release-output", "e2e-queue");
 const webviewData = path.join(repo, "release-output", "e2e-webview2");
 const releaseOutput = path.resolve(repo, "release-output");
 
-/** @brief 限制端到端测试清理范围，避免误删工作区外目录。 */
+/** @brief Restrict end-to-end cleanup scope to avoid removing directories outside the workspace. */
 function assertSafeTestPath(target) {
   const resolved = path.resolve(target);
-  if (path.dirname(resolved) !== releaseOutput) throw new Error(`拒绝清理测试目录: ${resolved}`);
+  if (path.dirname(resolved) !== releaseOutput) throw new Error(`Refusing to clean test directory: ${resolved}`);
 }
 
 const sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
-/** @brief 有界等待就绪；程序退出或无法启动时立即报告，保留最后的连接错误。 */
+/** @brief Wait for readiness with a deadline; report process exit/start failure immediately and retain the last connection error. */
 async function waitUntil(check, label, timeout = 90_000, health = () => null) {
   const deadline = Date.now() + timeout;
   let lastError;
@@ -37,8 +37,21 @@ async function waitUntil(check, label, timeout = 90_000, health = () => null) {
   throw new Error(`timeout: ${label}${lastError ? `; last error: ${lastError.message}` : ""}`);
 }
 
+/** @brief CDP can connect before WebView2 creates a page or injects the Tauri bridge. */
+async function waitForTauriPage(browser, health = () => null, timeout = 90_000) {
+  return waitUntil(async () => {
+    for (const context of browser.contexts()) {
+      for (const page of context.pages()) {
+        const ready = await page.evaluate(() => typeof window.__TAURI_INTERNALS__?.invoke === "function");
+        if (ready) return page;
+      }
+    }
+    return null;
+  }, "portable Tauri page and IPC readiness", timeout, health);
+}
+
 async function main() {
-  if (!fs.existsSync(executable)) throw new Error(`便携版程序不存在: ${executable}`);
+  if (!fs.existsSync(executable)) throw new Error(`Portable executable does not exist: ${executable}`);
   [isolatedHome, queue, webviewData].forEach(assertSafeTestPath);
   fs.rmSync(isolatedHome, { recursive: true, force: true });
   fs.rmSync(queue, { recursive: true, force: true });
@@ -72,8 +85,7 @@ async function main() {
       return (await fetch("http://127.0.0.1:9227/json/version", { signal: AbortSignal.timeout(1_000) })).ok;
     }, "portable Tauri CDP start", 90_000, health);
     browser = await chromium.connectOverCDP("http://127.0.0.1:9227");
-    const page = browser.contexts()[0].pages()[0];
-    await page.waitForTimeout(2_000);
+    const page = await waitForTauriPage(browser, health);
     const invoke = (command, args = {}) => page.evaluate(
       ([activeCommand, activeArgs]) => window.__TAURI_INTERNALS__.invoke(activeCommand, activeArgs),
       [command, args],
@@ -82,7 +94,7 @@ async function main() {
     const normalizedRoot = String(runtime.skillRoot || "").replace(/^\\\\\?\\/, "").replace(/\\/g, "/").toLowerCase();
     const expectedRoot = path.join(portableRoot, "skill").replace(/\\/g, "/").toLowerCase();
     if (normalizedRoot !== expectedRoot) {
-      throw new Error(`便携版没有使用同目录 skill: actual=${runtime.skillRoot}, expected=${expectedRoot}`);
+      throw new Error(`Portable release did not use the adjacent skill: actual=${runtime.skillRoot}, expected=${expectedRoot}`);
     }
     for (const required of [
       "SKILL.md",
@@ -94,16 +106,16 @@ async function main() {
       "subskills/autocad-automation/SKILL.md",
     ]) {
       if (!fs.existsSync(path.join(portableRoot, "skill", ...required.split("/")))) {
-        throw new Error(`便携版缺少资源: ${required}`);
+        throw new Error(`Portable release resource missing: ${required}`);
       }
     }
     const started = await invoke("start_worker", { repoPath: "", enableCodex: false, codexFullAccess: false });
-    if (!started.running || !started.pid) throw new Error(`内置 worker 启动失败: ${JSON.stringify(started)}`);
+    if (!started.running || !started.pid) throw new Error(`Bundled worker failed to start: ${JSON.stringify(started)}`);
     const stopped = await invoke("stop_worker");
-    if (stopped.running) throw new Error(`worker 未停止: ${JSON.stringify(stopped)}`);
+    if (stopped.running) throw new Error(`Worker did not stop: ${JSON.stringify(stopped)}`);
     console.log(JSON.stringify({ skillRoot: runtime.skillRoot, python: runtime.python, workerStarted: started, workerStopped: stopped }, null, 2));
   } catch (error) {
-    // @brief 只记录启动状态和自身输出，不转储含签名密钥的进程环境。
+    // @brief Record only startup status and own outputs; never dump a process environment containing signing keys.
     fs.writeFileSync(path.join(releaseOutput, "e2e-diagnostics.json"), JSON.stringify({
       executable, pid: app.pid, exitCode: app.exitCode, signalCode: app.signalCode,
       error: error.message, launchError: launchError?.message,
@@ -116,7 +128,7 @@ async function main() {
   }
 }
 
-module.exports = { waitUntil };
+module.exports = { waitUntil, waitForTauriPage };
 if (require.main === module) {
   main().catch((error) => {
     console.error(error);

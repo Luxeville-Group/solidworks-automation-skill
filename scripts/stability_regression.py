@@ -1,7 +1,6 @@
-"""CAD Studio 连接生命周期稳定性模拟回归。
+"""CAD Studio connection lifecycle simulation regression.
 
-不启动真实 CAD；用于 CI 验证 20 次连接、取消、退出的所有权和状态机约束。
-真实 CAD 回归仍由 Windows 自托管机执行专项脚本。
+Does not launch real CAD. CI checks ownership and state-machine constraints across 20 connection, cancellation, and exit cycles. Real CAD regression requires dedicated scripts on a Windows self-hosted runner.
 """
 from __future__ import annotations
 
@@ -10,7 +9,7 @@ from dataclasses import dataclass
 
 @dataclass
 class FakeCadProcess:
-    """@brief 可观测的模拟 CAD 进程。"""
+    """@brief Observable simulated CAD process."""
 
     process_id: int
     running: bool = True
@@ -20,7 +19,7 @@ class FakeCadProcess:
 
 
 class LifecycleHarness:
-    """@brief 模拟单实例所有权、取消和退出清理。"""
+    """@brief Simulate single-instance ownership, cancellation, and exit cleanup."""
 
     def __init__(self) -> None:
         self._next_id = 1
@@ -53,9 +52,9 @@ class LifecycleHarness:
 
 
 def run_regression(iterations: int = 20) -> dict[str, object]:
-    """@brief 执行生命周期回归并返回可审计结果。"""
+    """@brief Run lifecycle regression and return auditable results."""
     if iterations < 1:
-        raise ValueError("iterations 必须大于 0")
+        raise ValueError("iterations sıfırdan büyük olmalı")
     harness = LifecycleHarness()
     process_ids: list[int] = []
     for _ in range(iterations):

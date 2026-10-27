@@ -1,4 +1,4 @@
-"""@brief Verification Adapter 单元测试（Fake Reviewer，不依赖 SolidWorks / pywin32）。"""
+"""Verification Adapter unit tests with a fake Reviewer and no SolidWorks/pywin32."""
 from __future__ import annotations
 
 import sys
@@ -85,7 +85,7 @@ def test_aggregate_blocked_wins():
 
 
 def test_informational_fail_does_not_upgrade_to_fail():
-    # severity=low/info 且 status=fail，只降级为 WARN，不升级为 FAIL
+    # A low/info severity with fail status yields WARN rather than FAIL.
     assert check_status({"status": "fail", "severity": "low"}) == VerificationStatus.WARN
     assert check_status({"status": "fail", "severity": "info"}) == VerificationStatus.WARN
     assert check_status({"status": "fail", "optional": True}) == VerificationStatus.WARN
@@ -110,7 +110,7 @@ def test_verify_preserves_artifacts_and_evidence():
     )
     assert result.status == VerificationStatus.PASS
     assert result.checks == [{"id": "c1", "status": "pass"}]
-    # 去重：同一 path 只保留一次
+    # Deduplicate each path.
     assert result.artifacts == [{"kind": "step", "path": "a.step"}]
     assert result.evidence == [{"kind": "geometry_evidence"}]
 

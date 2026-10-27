@@ -1,4 +1,4 @@
-"""@brief SolidWorks B-Rep 机器测量证据回归测试。"""
+'SolidWorks B-Rep measurement-evidence regressions.'
 
 import math
 from pathlib import Path
@@ -7,7 +7,7 @@ from scripts.sw_review import collect_geometry_measurements, inspect_bmp_preview
 
 
 class FakeSurface:
-    """@brief 模拟圆柱曲面。"""
+    'Simulate a cylindrical surface.'
 
     IsCylinder = True
 
@@ -16,7 +16,7 @@ class FakeSurface:
 
 
 class FakeFace:
-    """@brief 模拟内部或外部圆柱面。"""
+    'Simulate an internal/external cylindrical face.'
 
     def __init__(self, radius_m: float, internal: bool, length_m: float, edge_count=2, origin=(0.0, 0.0, 0.0)):
         self._surface = FakeSurface(radius_m, origin)
@@ -38,14 +38,14 @@ class FakeFace:
 
 
 class FakeBody:
-    """@brief 模拟包含一个孔壁和一个外圆角面的实体。"""
+    'Simulate a body with one hole wall and one outer fillet face.'
 
     def GetFaces(self):
         return [FakeFace(0.005, True, 0.012), FakeFace(0.002, False, 0.003)]
 
 
 class FakeModel:
-    """@brief 模拟 60 x 12 x 40 mm 零件。"""
+    'Simulate a 60x12x40 mm part.'
 
     def GetPartBox(self, no_conversion):
         assert no_conversion is True
@@ -74,7 +74,7 @@ def test_geometry_measurements_distinguish_holes_from_external_fillets() -> None
 
 
 class FakeSlotBody:
-    """@brief 模拟一个圆孔和长圆槽端部半圆柱面。"""
+    'Simulate a circular hole and a slot-end semicylinder.'
 
     def GetFaces(self):
         return [
@@ -84,7 +84,7 @@ class FakeSlotBody:
 
 
 class FakeSlotModel(FakeModel):
-    """@brief 返回同时包含孔和槽端圆弧的测试实体。"""
+    'Return a test body containing both hole and slot-end arcs.'
 
     def GetBodies2(self, body_type, visible_only):
         return [FakeSlotBody()]
@@ -124,8 +124,8 @@ def test_hole_position_acceptance_fails_outside_tolerance() -> None:
 
 
 def test_bmp_preview_samples_geometry_away_from_file_header(tmp_path: Path) -> None:
-    """@brief 图框/几何在 BMP 中后段时不能误判为空白。"""
-    # 2x2、24 位、底部一行黑像素的最小 BI_RGB BMP。
+    'BMP geometry appearing late in the file must not be classified as blank.'
+    # Minimal 2x2 24-bit BI_RGB BMP with a black bottom row.
     pixels = b"\xff\xff\xff" * 2 + b"\x00\x00" + b"\x00\x00\x00" * 2 + b"\x00\x00"
     header = bytearray(b"BM")
     header.extend((54 + len(pixels)).to_bytes(4, "little"))

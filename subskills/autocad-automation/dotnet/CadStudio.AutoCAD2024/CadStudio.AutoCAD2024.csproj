@@ -26,9 +26,9 @@
   </ItemGroup>
 
   <Target Name="ValidateAutoCADReferences" BeforeTargets="ResolveReferences">
-    <Error Condition="'$(AutoCADInstallDir)' == ''" Text="必须通过 AutoCADInstallDir 指定本机 AutoCAD 安装目录。" />
-    <Error Condition="!Exists('$(AutoCADInstallDir)\accoremgd.dll')" Text="本机 AutoCAD 安装目录缺少 accoremgd.dll。" />
-    <Error Condition="!Exists('$(AutoCADInstallDir)\acdbmgd.dll')" Text="本机 AutoCAD 安装目录缺少 acdbmgd.dll。" />
-    <Error Condition="!Exists('$(AutoCADInstallDir)\acmgd.dll')" Text="本机 AutoCAD 安装目录缺少 acmgd.dll。" />
+    <Error Condition="'$(AutoCADInstallDir)' == ''" Text="Specify the local AutoCAD installation directory through AutoCADInstallDir." />
+    <Error Condition="!Exists('$(AutoCADInstallDir)\accoremgd.dll')" Text="The local AutoCAD installation directory lacks accoremgd.dll." />
+    <Error Condition="!Exists('$(AutoCADInstallDir)\acdbmgd.dll')" Text="The local AutoCAD installation directory lacks acdbmgd.dll." />
+    <Error Condition="!Exists('$(AutoCADInstallDir)\acmgd.dll')" Text="The local AutoCAD installation directory lacks acmgd.dll." />
   </Target>
 </Project>

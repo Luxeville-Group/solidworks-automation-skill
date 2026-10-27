@@ -1,4 +1,4 @@
-"""@brief Capability Facade 单元测试（读取真实 capabilities.yaml，不依赖 SolidWorks）。"""
+"""Capability Facade unit tests using actual capabilities.yaml without SolidWorks."""
 from __future__ import annotations
 
 import sys

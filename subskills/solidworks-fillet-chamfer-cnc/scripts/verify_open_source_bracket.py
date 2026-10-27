@@ -1,8 +1,4 @@
-"""在开源加强筋支架上执行高级圆角/倒角真机回归。
-
-@brief 导入 MIT 许可的 CadQuery l_gusset STEP，在复杂单实体上创建四控制点可变半径
-圆角和宽度-宽度倒角，并完成保存、STEP、重开、FeatureData 回读与四视图审查。
-"""
+'Native advanced fillet/chamfer regression on an open-source gusset bracket. Import MIT-licensed CadQuery l_gusset STEP, create a four-point variable-radius fillet and distance-distance chamfer on one complex body, then save, export STEP, reopen, read FeatureData and review four views.'
 
 from __future__ import annotations
 
@@ -52,7 +48,7 @@ CHAMFER_FEATURE = "OSS_Gusset_Width_Width_C0p8_C1p4"
 
 
 def _advanced_evidence_passes(evidence: dict[str, Any]) -> bool:
-    """@brief 严格校验本复杂样例的四控制点和不等宽倒角读回值。"""
+    'Strictly validate four control-point readbacks and unequal chamfer distances.'
     variable = evidence["variable"]
     chamfer = evidence["width_width_chamfer"]
     controls = variable.get("control_points") or []
@@ -70,7 +66,7 @@ def _advanced_evidence_passes(evidence: dict[str, Any]) -> bool:
 
 
 def _sha256(path: Path) -> str:
-    """@brief 计算输入 STEP 的 SHA-256，保证测试来源可追溯。"""
+    'Compute the input STEP SHA-256 for traceable test provenance.'
     digest = hashlib.sha256()
     with path.open("rb") as stream:
         for chunk in iter(lambda: stream.read(1024 * 1024), b""):
@@ -79,10 +75,10 @@ def _sha256(path: Path) -> str:
 
 
 def _body_stats(model: Any) -> dict[str, Any]:
-    """@brief 回读单实体复杂度，拒绝把空导入或多实体误判为有效样例。"""
+    'Read single-body complexity; reject empty imports or ambiguous multiple bodies.'
     bodies = tuple(get_com_member(model, "GetBodies2", 0, False) or ())
     if len(bodies) != 1:
-        raise RuntimeError(f"开源支架应为单实体，实际 {len(bodies)}")
+        raise RuntimeError(f"Açık kaynak braket tek katı olmalı; gerçek / Open-source bracket must be one body; actual: {len(bodies)}")
     faces = tuple(get_com_member(bodies[0], "GetFaces") or ())
     edges = tuple(get_com_member(bodies[0], "GetEdges") or ())
     analytic_faces = {"plane": 0, "cylinder": 0, "other": 0}
@@ -103,7 +99,7 @@ def _body_stats(model: Any) -> dict[str, Any]:
 
 
 def _add_variable_fillet(model: Any):
-    """@brief 在竖直板 80 mm 外边创建四中间控制点可变半径圆角。"""
+    "Create a four-point variable-radius fillet on the upright plate's 80 mm outer edge."
     edge = _find_edge(
         model,
         lambda a, b: _near(a[0], 0.0) and _near(b[0], 0.0)
@@ -113,7 +109,7 @@ def _add_variable_fillet(model: Any):
     controls = ((0.20, 1.2), (0.40, 1.8), (0.60, 0.9), (0.80, 1.5))
     model.ClearSelection2(True)
     if not edge.Select2(False, 1):
-        raise RuntimeError("开源支架可变半径目标边选择失败")
+        raise RuntimeError('Açık kaynak braketin değişken radyüs kenarı seçilemedi / Open-source bracket variable-radius edge selection failed')
     start, end = _edge_points(edge)
     for location, _radius in controls:
         xyz = tuple(
@@ -123,7 +119,7 @@ def _add_variable_fillet(model: Any):
         if not model.Extension.SelectByID2(
             "", "POINTREF", *xyz, True, 256, create_empty_dispatch_variant(), 0
         ):
-            raise RuntimeError(f"开源支架控制点选择失败: {location:.2f}")
+            raise RuntimeError(f"Açık kaynak braket kontrol noktası seçilemedi / Open-source bracket control-point selection failed: {location:.2f}")
     feature = model.FeatureManager.FeatureFillet3(
         SW_FILLET_PROPAGATE + SW_FILLET_UNIFORM_RADIUS + SW_FILLET_VARIABLE_TYPE,
         0.0, 0.0, 0.0, SW_FEATURE_VARIABLE,
@@ -137,7 +133,7 @@ def _add_variable_fillet(model: Any):
 
 
 def _add_width_width_chamfer(model: Any):
-    """@brief 在水平板 40 mm 外边创建 0.8/1.4 mm 宽度-宽度倒角。"""
+    "Create a 0.8/1.4 mm distance-distance chamfer on the horizontal plate's 40 mm outer edge."
     edge = _find_edge(
         model,
         lambda a, b: _near(a[0], mm(80.0)) and _near(b[0], mm(80.0))
@@ -146,7 +142,7 @@ def _add_width_width_chamfer(model: Any):
     )
     model.ClearSelection2(True)
     if not edge.Select2(False, 0):
-        raise RuntimeError("开源支架宽度-宽度倒角目标边选择失败")
+        raise RuntimeError('Açık kaynak braketin mesafe-mesafe pah kenarı seçilemedi / Open-source bracket distance-distance chamfer edge selection failed')
     feature = model.FeatureManager.InsertFeatureChamfer(
         0,
         SW_CHAMFER_DISTANCE_DISTANCE,
@@ -161,18 +157,18 @@ def _add_width_width_chamfer(model: Any):
 
 
 def run_regression(args: argparse.Namespace) -> dict[str, Any]:
-    """@brief 执行完整真机闭环并返回可机读证据。"""
+    'Run the complete native workflow and return machine-readable evidence.'
     source = args.source.resolve()
     if not source.is_file():
-        raise FileNotFoundError(f"开源支架 STEP 不存在: {source}")
+        raise FileNotFoundError(f"Açık kaynak braket STEP bulunamadı / Open-source bracket STEP missing: {source}")
     source_sha256 = _sha256(source)
     if args.source_commit != SOURCE_COMMIT:
         raise RuntimeError(
-            f"源提交不匹配: expected={SOURCE_COMMIT}, actual={args.source_commit}"
+            f"Kaynak commit uyuşmuyor / Source commit mismatch: expected={SOURCE_COMMIT}, actual={args.source_commit}"
         )
     if source_sha256 != SOURCE_SHA256:
         raise RuntimeError(
-            f"输入 STEP 哈希不匹配: expected={SOURCE_SHA256}, actual={source_sha256}"
+            f"Girdi STEP özeti uyuşmuyor / Input STEP hash mismatch: expected={SOURCE_SHA256}, actual={source_sha256}"
         )
     output_dir = args.output_dir.resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -185,18 +181,18 @@ def run_regression(args: argparse.Namespace) -> dict[str, Any]:
         model = session.open(str(source), read_only=False, silent=True)
         baseline = _body_stats(model)
         if baseline["face_count"] < 12 or baseline["edge_count"] < 30:
-            raise RuntimeError(f"输入支架拓扑复杂度不足: {baseline}")
+            raise RuntimeError(f"Braket topoloji karmaşıklığı yetersiz / Bracket topology complexity insufficient: {baseline}")
         if not session.save(model, str(part_path)):
-            raise RuntimeError("开源支架另存为 SLDPRT 失败")
+            raise RuntimeError('Açık kaynak braket SLDPRT olarak kaydedilemedi / Could not save open-source bracket as SLDPRT')
         variable = _add_variable_fillet(model)
         chamfer = _add_width_width_chamfer(model)
         set_document_appearance(model, "silver")
         _hide_review_helpers(model)
         model.ViewZoomtofit2()
         if not session.save(model):
-            raise RuntimeError("增强支架保存失败")
+            raise RuntimeError('İşlenen braket kaydedilemedi / Enhanced bracket save failed')
         if not export_to_step(model, str(step_path)):
-            raise RuntimeError("增强支架 STEP 导出失败")
+            raise RuntimeError('İşlenen braket STEP olarak aktarılamadı / Enhanced bracket STEP export failed')
         review, review_path = run_review(
             model,
             output_dir,
@@ -263,22 +259,22 @@ def run_regression(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def parse_args() -> argparse.Namespace:
-    """@brief 解析命令行参数。"""
-    parser = argparse.ArgumentParser(description="验证开源复杂加强筋支架的高级圆角/倒角。")
-    parser.add_argument("--source", type=Path, required=True, help="CadQuery 生成的 l_gusset STEP。")
-    parser.add_argument("--source-commit", default=SOURCE_COMMIT, help="源仓库提交哈希。")
-    parser.add_argument("--version", type=int, default=2026, help="SolidWorks 年份。")
+    'Parse CLI arguments.'
+    parser = argparse.ArgumentParser(description='Açık kaynak karmaşık güçlendirme braketinde gelişmiş radyüs/pah doğrulaması / Verify advanced fillets/chamfers on a complex open-source gusset bracket.')
+    parser.add_argument("--source", type=Path, required=True, help='CadQuery ile oluşturulan l_gusset STEP / CadQuery-generated l_gusset STEP.')
+    parser.add_argument("--source-commit", default=SOURCE_COMMIT, help='Kaynak depo commit özeti / Source repository commit hash.')
+    parser.add_argument("--version", type=int, default=2026, help='SolidWorks yılı / SolidWorks year.')
     parser.add_argument(
         "--output-dir",
         type=Path,
         default=Path.cwd() / "open_source_bracket_regression",
-        help="回归产物目录。",
+        help='Regresyon çıktılarının dizini / Regression artifact directory.',
     )
     return parser.parse_args()
 
 
 def main() -> int:
-    """@brief 命令行入口。"""
+    'Command-line entry point.'
     args = parse_args()
     report = run_regression(args)
     report_path = args.output_dir.resolve() / "open_source_bracket_report.json"

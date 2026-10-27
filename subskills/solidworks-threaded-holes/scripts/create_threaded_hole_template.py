@@ -1,10 +1,4 @@
-"""
-@file create_threaded_hole_template.py
-@brief 生成带内螺纹孔表达的 SolidWorks 样件。
-
-默认创建 M6x1 内螺纹盲孔：真实攻丝底孔 + 孔口倒角 + 属性 + 可见螺旋线。
-真实 Thread / CosmeticThread 特征会先尝试，失败时自动降级，不阻断可审查模型交付。
-"""
+'Generate a SolidWorks internal-thread sample. Default: M6x1 blind hole with real tap-drill geometry, mouth chamfer, properties and optional evidence helix. Attempt real Thread/CosmeticThread first; fallback delivery remains subject to feature persistence and review gates.'
 from __future__ import annotations
 
 import argparse
@@ -73,7 +67,7 @@ FACE_CONFIGS = {
 
 @dataclass
 class ThreadedHoleParams:
-    """@brief 螺纹孔样件参数，单位均为 mm。"""
+    'Threaded-hole sample parameters, all in millimeters.'
 
     thread_label: str
     block_length_mm: float
@@ -95,27 +89,27 @@ class ThreadedHoleParams:
 
 
 def normalize_thread_key(value: str) -> str:
-    """@brief 将 M6、M6x1、M6x1.0 等写法归一到表键。"""
+    'Normalize forms such as M6, M6x1 and M6x1.0 to table keys.'
     raw = value.strip().upper().replace(" ", "").replace("*", "X")
     if raw in THREAD_ALIASES:
         return THREAD_ALIASES[raw]
     if "X" not in raw:
-        raise ValueError(f"暂不支持的螺纹规格: {value}")
+        raise ValueError(f"Desteklenmeyen diş ölçüsü / Unsupported thread size: {value}")
     major, pitch = raw.split("X", 1)
     try:
         pitch_value = float(pitch)
     except ValueError as exc:
-        raise ValueError(f"螺距格式错误: {value}") from exc
+        raise ValueError(f"Geçersiz diş adımı / Invalid pitch format: {value}") from exc
     key = f"{major}X{pitch_value:g}"
     for known in THREAD_TABLE:
         known_major, known_pitch = known.split("X", 1)
         if known_major == major and abs(float(known_pitch) - pitch_value) < 1e-9:
             return known
-    raise ValueError(f"暂不支持的螺纹规格: {value}，可选: {', '.join(sorted(THREAD_ALIASES))}")
+    raise ValueError(f"Desteklenmeyen diş ölçüsü / Unsupported thread size: {value}; seçenekler / options: {', '.join(sorted(THREAD_ALIASES))}")
 
 
 def resolve_thread_spec(value: str, tap_drill_override: float | None = None) -> dict:
-    """@brief 解析 ISO 公制螺纹；表外规格必须显式提供攻丝底孔。"""
+    'Parse ISO metric threads; out-of-table sizes require an explicit tap-drill diameter.'
     try:
         key = normalize_thread_key(value)
     except ValueError:
@@ -142,63 +136,63 @@ def resolve_thread_spec(value: str, tap_drill_override: float | None = None) -> 
 
 
 def finite_number(name: str, value: float) -> float:
-    """@brief 校验有限数值。"""
+    'Validate a finite number.'
     number = float(value)
     if not math.isfinite(number):
-        raise ValueError(f"{name} 必须是有限数值")
+        raise ValueError(f"{name} sonlu sayı olmalıdır / must be finite")
     return number
 
 
 def positive_number(name: str, value: float) -> float:
-    """@brief 校验正有限数值。"""
+    'Validate a finite positive number.'
     number = finite_number(name, value)
     if number <= 0.0:
-        raise ValueError(f"{name} 必须大于 0")
+        raise ValueError(f"{name} 0'dan büyük olmalıdır / must be above 0")
     return number
 
 
 def validate_basename(value: str) -> str:
-    """@brief 防止输出文件名逃离指定目录。"""
+    'Prevent output filenames from escaping the requested directory.'
     name = str(value).strip()
     if not name or name in {".", ".."} or Path(name).name != name or any(char in name for char in '<>:"/\\|?*'):
-        raise ValueError("basename 必须是不含路径或 Windows 非法字符的文件名")
+        raise ValueError('basename yol veya geçersiz Windows karakteri içeremez / basename must be a filename without paths or invalid Windows characters')
     return name
 
 
 def face_config(face_name: str) -> dict:
-    """@brief 获取打孔面的坐标配置。"""
+    'Get coordinate configuration for the drilling face.'
     key = face_name.strip().lower()
     if key not in FACE_CONFIGS:
-        raise ValueError(f"暂不支持的打孔面: {face_name}，可选: top/front/right")
+        raise ValueError(f"Desteklenmeyen delme yüzeyi / Unsupported drilling face: {face_name}; seçenekler / options: top/front/right")
     return FACE_CONFIGS[key]
 
 
 def assert_feature(feature, label: str):
-    """@brief 检查 SolidWorks 特征对象。"""
+    'Check a SolidWorks feature object.'
     if feature is None:
-        raise RuntimeError(f"{label} 创建失败")
-    print(f"OK {label}: {getattr(feature, 'Name', '<未命名>')}")
+        raise RuntimeError(f"{label} oluşturulamadı / creation failed")
+    print(f"OK {label}: {getattr(feature, 'Name', '<Adsız / Unnamed>')}")
     return feature
 
 
 def clear(model) -> None:
-    """@brief 清空选择集。"""
+    'Clear the selection set.'
     model.ClearSelection2(True)
 
 
 def hide_reference_planes(model) -> None:
-    """@brief 导出预览前隐藏参考平面，避免构造几何污染交付图。"""
+    'Hide reference planes before preview export to keep construction geometry out of delivery images.'
     clear(model)
     try:
         if bool(get_com_member(model, "GetVisibilityOfConstructPlanes")):
             get_com_member(model, "ViewDispRefplanes")
     except Exception as exc:
-        print(f"WARN 隐藏参考平面失败: {exc}")
+        print(f"WARN Referans düzlemleri gizlenemedi / Could not hide reference planes: {exc}")
     clear(model)
 
 
 def hide_visible_thread_sketch(model, params: ThreadedHoleParams) -> bool:
-    """@brief 隐藏可见螺旋线草图，避免透过实体显示的虚线污染标准预览。"""
+    'Hide the evidence helix sketch so lines through solids do not obscure standard previews.'
     name = f"Sketch_{params.thread_label}_Visible_Internal_Thread_Helix"
     clear(model)
     feature = model.FeatureByName(name)
@@ -211,12 +205,12 @@ def hide_visible_thread_sketch(model, params: ThreadedHoleParams) -> bool:
 
 
 def select_plane(model, plane_name: str) -> str:
-    """@brief 兼容中英文基准面名称并选择。"""
+    'Select reference planes using localized aliases.'
     clear(model)
     aliases = {
-        "Front Plane": ("Front Plane", "前视基准面"),
-        "Top Plane": ("Top Plane", "上视基准面"),
-        "Right Plane": ("Right Plane", "右视基准面"),
+        "Front Plane": ("Front Plane", "Ön Düzlem", "\u524d\u89c6\u57fa\u51c6\u9762"),
+        "Top Plane": ("Top Plane", "Üst Düzlem", "\u4e0a\u89c6\u57fa\u51c6\u9762"),
+        "Right Plane": ("Right Plane", "Sağ Düzlem", "\u53f3\u89c6\u57fa\u51c6\u9762"),
     }[plane_name]
     for name in aliases:
         selected = model.Extension.SelectByID2(
@@ -232,17 +226,17 @@ def select_plane(model, plane_name: str) -> str:
         )
         if selected:
             return name
-    raise RuntimeError(f"无法选择基准面: {plane_name}")
+    raise RuntimeError(f"Referans düzlemi seçilemiyor / Cannot select reference plane: {plane_name}")
 
 
 def current_sketch_name(model, fallback: str) -> str:
-    """@brief 获取当前草图名称。"""
+    'Get the current sketch name.'
     active = model.SketchManager.ActiveSketch
     return active.Name if active else fallback
 
 
 def create_offset_plane(model, name: str, base_plane: str, offset_mm: float) -> str:
-    """@brief 从指定基准面偏移创建打孔起始参考平面。"""
+    'Create an offset reference plane for the drilling start.'
     if model.FeatureByName(name):
         return name
     select_plane(model, base_plane)
@@ -252,7 +246,7 @@ def create_offset_plane(model, name: str, base_plane: str, offset_mm: float) -> 
 
 
 def select_sketch(model, name: str) -> None:
-    """@brief 选择指定草图。"""
+    'Select the specified sketch.'
     clear(model)
     selected = model.Extension.SelectByID2(
         name,
@@ -266,11 +260,11 @@ def select_sketch(model, name: str) -> None:
         0,
     )
     if not selected:
-        raise RuntimeError(f"无法选择草图: {name}")
+        raise RuntimeError(f"Eskiz seçilemiyor / Cannot select sketch: {name}")
 
 
 def cut_hole_from_sketch(model, sketch_name: str, depth_mm: float, label: str, through: bool = False):
-    """@brief 按草图创建定深或完全贯穿的切除。"""
+    'Create a blind-depth or Through All cut from the sketch.'
     select_sketch(model, sketch_name)
     end_condition = SW_END_COND_THROUGH_ALL if through else SW_END_COND_BLIND
     feature = model.FeatureManager.FeatureCut4(
@@ -284,7 +278,7 @@ def cut_hole_from_sketch(model, sketch_name: str, depth_mm: float, label: str, t
 
 
 def circle_center_radius(edge):
-    """@brief 读取圆边圆心和半径。"""
+    'Read circular-edge center and radius.'
     try:
         curve = get_com_member(edge, "GetCurve")
         if not curve or not get_com_member(curve, "IsCircle"):
@@ -296,7 +290,7 @@ def circle_center_radius(edge):
 
 
 def all_edges(model):
-    """@brief 枚举实体所有边线。"""
+    'Enumerate all body edges.'
     model.ForceRebuild3(False)
     edges = []
     for body in get_com_member(model, "GetBodies2", SW_SOLID_BODY, False) or []:
@@ -305,7 +299,7 @@ def all_edges(model):
 
 
 def model_point_from_local(params: ThreadedHoleParams, u_m: float, v_m: float, axis_m: float) -> tuple[float, float, float]:
-    """@brief 将打孔面局部坐标转换为模型 XYZ 坐标。"""
+    'Convert local drilling-face coordinates into model XYZ.'
     config = face_config(params.hole_face)
     coords = [0.0, 0.0, 0.0]
     coords[config["plane_axes"][0]] = u_m
@@ -315,7 +309,7 @@ def model_point_from_local(params: ThreadedHoleParams, u_m: float, v_m: float, a
 
 
 def locate_hole_mouth_edge(model, params: ThreadedHoleParams, select: bool = True):
-    """@brief 定位打孔起始面的孔口圆边和圆心。"""
+    'Locate the hole-mouth circular edge and center on the drilling start face.'
     config = face_config(params.hole_face)
     axis_index = config["axis"]
     u_index, v_index = config["plane_axes"]
@@ -337,41 +331,41 @@ def locate_hole_mouth_edge(model, params: ThreadedHoleParams, select: bool = Tru
         if center_matches and radius_matches:
             if not select or edge.Select2(False, 0):
                 return edge, center
-    raise RuntimeError("未找到打孔起始面的孔口圆边")
+    raise RuntimeError('Delme başlangıç yüzeyinde delik ağzı dairesel kenarı bulunamadı / Hole-mouth circular edge not found on drilling start face')
 
 
 def select_hole_mouth_edge(model, params: ThreadedHoleParams):
-    """@brief 选择打孔起始面的孔口圆边。"""
+    'Select the hole-mouth circular edge on the drilling start face.'
     edge, _center = locate_hole_mouth_edge(model, params, select=True)
     return edge
 
 
 def add_hole_mouth_chamfer(model, params: ThreadedHoleParams):
-    """@brief 给孔口添加 45 度小倒角。"""
+    'Add a small 45-degree mouth chamfer.'
     select_hole_mouth_edge(model, params)
     feature = model.FeatureManager.InsertFeatureChamfer(
         4, 1, mm(params.mouth_chamfer_mm), math.pi / 4.0, 0, 0, 0, 0
     )
-    assert_feature(feature, "孔口倒角").Name = "Chamfer_Thread_Mouth"
+    assert_feature(feature, 'Delik ağzı pahı / Mouth chamfer').Name = "Chamfer_Thread_Mouth"
     clear(model)
     return feature
 
 
 def add_real_thread_feature(model, params: ThreadedHoleParams):
-    """@brief 尝试添加 SolidWorks 真实 Thread 特征。"""
+    'Attempt a real SolidWorks Thread feature.'
     edge, _center = locate_hole_mouth_edge(model, params, select=False)
     thread_data = model.FeatureManager.CreateDefinition(SW_FM_SWEEP_THREAD)
     if thread_data is None:
-        raise RuntimeError("CreateDefinition(swFmSweepThread) 返回 None")
+        raise RuntimeError('CreateDefinition(swFmSweepThread) None döndürdü / returned None')
 
     try:
         thread_data.InitializeThreadData()
     except Exception as exc:
-        print(f"WARN InitializeThreadData 跳过: {exc}")
+        print(f"WARN InitializeThreadData atlandı / skipped: {exc}")
 
     clear(model)
     if not edge.Select2(False, 1):
-        raise RuntimeError("选择孔口圆边失败，ThreadFeatureData 要求该引用的选择标记为 1")
+        raise RuntimeError('Delik ağzı kenarı seçilemedi; ThreadFeatureData seçim işareti 1 gerektirir / Hole-mouth edge selection failed; mark 1 is required')
 
     end_condition = SW_THREAD_END_REVOLUTIONS if params.through_hole else SW_THREAD_END_BLIND
     end_value = (
@@ -395,23 +389,23 @@ def add_real_thread_feature(model, params: ThreadedHoleParams):
             setattr(thread_data, attr, value)
             print(f"  {attr}={value}")
         except Exception as exc:
-            print(f"WARN 设置 {attr} 失败: {exc}")
+            print(f"WARN Ayarlanamadı / Could not set {attr}; hata / failed: {exc}")
 
     feature = model.FeatureManager.CreateFeature(thread_data)
     if feature is None:
-        raise RuntimeError("CreateFeature(ThreadFeatureData) 返回 None")
+        raise RuntimeError('CreateFeature(ThreadFeatureData) None döndürdü / returned None')
     end_label = "Through" if params.through_hole else "Blind"
     hand_label = "RH" if params.right_handed else "LH"
     feature.Name = f"Thread_{params.thread_label}_Internal_{end_label}_{hand_label}"
-    return assert_feature(feature, f"{params.thread_label} 真实内螺纹")
+    return assert_feature(feature, f"{params.thread_label} gerçek iç diş / real internal thread")
 
 
 def add_cosmetic_thread_feature(model, params: ThreadedHoleParams):
-    """@brief 添加 SolidWorks Cosmetic Thread 螺纹表达。"""
+    'Add a SolidWorks Cosmetic Thread representation.'
     edge = select_hole_mouth_edge(model, params)
     clear(model)
     if not edge.Select2(False, 0):
-        raise RuntimeError("选择孔口圆边失败，无法创建 Cosmetic Thread")
+        raise RuntimeError('Delik ağzı kenarı seçilemedi; Cosmetic Thread oluşturulamıyor / Hole-mouth edge selection failed; cannot create Cosmetic Thread')
     end_condition = SW_COSMETIC_END_THROUGH if params.through_hole else SW_COSMETIC_END_BLIND
     hand_note = "RH" if params.right_handed else "LH"
     feature = model.FeatureManager.InsertCosmeticThread3(
@@ -424,21 +418,21 @@ def add_cosmetic_thread_feature(model, params: ThreadedHoleParams):
         f"{params.thread_label} - {params.thread_class} {hand_note}",
     )
     if feature is None:
-        raise RuntimeError("InsertCosmeticThread3 返回 None")
+        raise RuntimeError('InsertCosmeticThread3 None döndürdü / returned None')
     end_label = "Through" if params.through_hole else "Blind"
     feature.Name = f"CosmeticThread_{params.thread_label}_Internal_{end_label}_{hand_note}"
     clear(model)
-    return assert_feature(feature, f"{params.thread_label} 装饰螺纹")
+    return assert_feature(feature, f"{params.thread_label} kozmetik diş / cosmetic thread")
 
 
 def visible_helix_plan(params: ThreadedHoleParams) -> dict:
-    """@brief 返回保持真实螺距且不越过孔底/出口的螺旋线采样计划。"""
+    'Return a helix sampling plan preserving pitch within the hole bottom/exit.'
     start_offset_mm = min(0.3, params.thread_depth_mm * 0.1)
     maximum_depth_mm = params.block_thickness_mm if params.through_hole else params.pilot_depth_mm
     end_depth_mm = min(params.thread_depth_mm, maximum_depth_mm)
     axial_depth_mm = end_depth_mm - start_offset_mm
     if axial_depth_mm <= 0.0:
-        raise ValueError("可见螺旋线的有效轴向深度必须大于 0")
+        raise ValueError('Görünür helisin etkin eksenel derinliği pozitif olmalıdır / Visible helix effective axial depth must be positive')
     turns = axial_depth_mm / params.pitch_mm
     segment_count = max(32, int(math.ceil(turns * 32.0)))
     return {
@@ -450,7 +444,7 @@ def visible_helix_plan(params: ThreadedHoleParams) -> dict:
 
 
 def add_visible_thread_helix(model, params: ThreadedHoleParams) -> int:
-    """@brief 用 3D 草图短线段生成可见内螺纹螺旋线。"""
+    'Create a visible internal-thread helix using short 3D sketch segments.'
     _edge, mouth_center = locate_hole_mouth_edge(model, params, select=False)
     config = face_config(params.hole_face)
     axis_index = config["axis"]
@@ -495,27 +489,27 @@ def add_visible_thread_helix(model, params: ThreadedHoleParams) -> int:
     feature = model.FeatureByName(sketch_name)
     if feature:
         feature.Name = f"Sketch_{params.thread_label}_Visible_Internal_Thread_Helix"
-    print(f"OK 可见螺纹螺旋线: {created} 段, {turns:.3f} 圈")
+    print(f"OK Görünür diş helisi / Visible thread helix: {created} segment, {turns:.3f} tur / turns")
     return created
 
 
 def write_thread_properties(model, params: ThreadedHoleParams, thread_status: str, visible_segments: int) -> None:
-    """@brief 写入模型自定义属性。"""
+    'Write model custom properties.'
     manager = model.Extension.CustomPropertyManager("")
-    manager.Add3("螺纹规格", 30, f"{params.thread_label} internal thread", 2)
-    manager.Add3("攻丝底孔", 30, f"{params.tap_drill_diameter_mm} mm", 2)
-    manager.Add3("螺纹深度", 30, f"{params.thread_depth_mm} mm", 2)
-    manager.Add3("底孔深度", 30, f"{params.pilot_depth_mm} mm", 2)
-    manager.Add3("螺纹公差等级", 30, params.thread_class, 2)
-    manager.Add3("螺纹旋向", 30, "RH" if params.right_handed else "LH", 2)
-    manager.Add3("孔终止条件", 30, "through" if params.through_hole else "blind", 2)
-    manager.Add3("螺纹状态", 30, thread_status, 2)
-    manager.Add3("可见螺纹螺旋线", 30, f"{visible_segments} segments", 2)
-    manager.Add3("螺纹建模说明", 30, "底孔和孔口倒角为真实几何；Thread/CosmeticThread 失败时以属性和 3D 螺旋线表达。", 2)
+    manager.Add3('Diş ölçüsü / Thread size', 30, f"{params.thread_label} internal thread", 2)
+    manager.Add3('Kılavuz ön deliği / Tap-drill diameter', 30, f"{params.tap_drill_diameter_mm} mm", 2)
+    manager.Add3('Diş derinliği / Thread depth', 30, f"{params.thread_depth_mm} mm", 2)
+    manager.Add3('Ön delik derinliği / Tap-drill depth', 30, f"{params.pilot_depth_mm} mm", 2)
+    manager.Add3('Diş tolerans sınıfı / Thread tolerance class', 30, params.thread_class, 2)
+    manager.Add3('Diş yönü / Thread hand', 30, "RH" if params.right_handed else "LH", 2)
+    manager.Add3('Delik bitiş koşulu / Hole end condition', 30, "through" if params.through_hole else "blind", 2)
+    manager.Add3('Diş durumu / Thread status', 30, thread_status, 2)
+    manager.Add3('Görünür diş helisi / Visible thread helix', 30, f"{visible_segments} segments", 2)
+    manager.Add3('Diş modelleme notu / Thread modeling note', 30, 'Ön delik ve ağız pahı gerçek geometridir; Thread/CosmeticThread başarısız olursa özellikler ve 3D helis kullanılır / Tap-drill and mouth chamfer are real geometry; failed Thread/CosmeticThread uses properties and a 3D helix.', 2)
 
 
 def build_params(args) -> ThreadedHoleParams:
-    """@brief 从命令行参数生成螺纹孔参数。"""
+    'Build threaded-hole parameters from CLI arguments.'
     block_length = positive_number("block_length", args.block_length)
     block_width = positive_number("block_width", args.block_width)
     block_thickness = positive_number("block_thickness", args.block_thickness)
@@ -528,7 +522,7 @@ def build_params(args) -> ThreadedHoleParams:
     pitch = positive_number("pitch", spec["pitch_mm"])
     tap_drill = positive_number("tap_drill", spec["tap_drill_mm"])
     if tap_drill >= nominal:
-        raise ValueError("攻丝底孔直径必须小于螺纹公称直径")
+        raise ValueError('Kılavuz ön deliği diş anma çapından küçük olmalıdır / Tap-drill diameter must be below nominal thread diameter')
 
     thread_depth = args.thread_depth
     if thread_depth is None:
@@ -537,36 +531,36 @@ def build_params(args) -> ThreadedHoleParams:
     pilot_depth = args.pilot_depth
     if args.through:
         if pilot_depth is not None and not math.isclose(float(pilot_depth), block_thickness, rel_tol=0.0, abs_tol=1e-9):
-            raise ValueError("贯穿孔的 pilot_depth 由零件厚度决定，请删除 --pilot-depth")
+            raise ValueError('Geçiş deliği pilot_depth değeri parça kalınlığıdır; --pilot-depth seçeneğini kaldırın / Through-hole pilot_depth follows part thickness; remove --pilot-depth')
         pilot_depth = block_thickness
         if thread_depth > block_thickness:
-            raise ValueError("贯穿孔的螺纹深度不能大于零件厚度")
+            raise ValueError('Geçiş deliği diş derinliği parça kalınlığını aşamaz / Through-thread depth cannot exceed part thickness')
     else:
         if pilot_depth is None:
             pilot_depth = min(thread_depth + max(pitch, 1.0), block_thickness - 1.0)
         pilot_depth = positive_number("pilot_depth", pilot_depth)
         if pilot_depth >= block_thickness:
-            raise ValueError("盲孔底孔深度不能大于等于零件厚度；需要贯穿孔请传 --through")
+            raise ValueError('Kör ön delik derinliği parça kalınlığından küçük olmalıdır; geçiş için --through kullanın / Blind pilot depth must be below thickness; use --through for a through hole')
         if thread_depth > pilot_depth:
-            raise ValueError("螺纹深度不能大于底孔深度")
+            raise ValueError('Diş derinliği ön delik derinliğini aşamaz / Thread depth cannot exceed tap-drill depth')
 
     required_radius = max(nominal / 2.0, tap_drill / 2.0 + mouth_chamfer)
     if abs(hole_x) + required_radius >= block_length / 2.0:
-        raise ValueError("孔位 X 超出基体可用范围，未保留螺纹大径/倒角边界")
+        raise ValueError('Delik X konumu kullanılabilir sınır dışında; anma çapı/pah payı yok / Hole X exceeds usable bounds without major-diameter/chamfer allowance')
     if abs(hole_y) + required_radius >= block_width / 2.0:
-        raise ValueError("孔位 Y 超出基体可用范围，未保留螺纹大径/倒角边界")
+        raise ValueError('Delik Y konumu kullanılabilir sınır dışında; anma çapı/pah payı yok / Hole Y exceeds usable bounds without major-diameter/chamfer allowance')
 
     hole_face = args.hole_face.strip().lower()
     face_config(hole_face)
     thread_class = str(getattr(args, "thread_class", "6H")).strip()
     if not thread_class:
-        raise ValueError("thread_class 不能为空")
+        raise ValueError('thread_class boş olamaz / thread_class cannot be empty')
     handedness = str(getattr(args, "handedness", "right")).strip().lower()
     if handedness not in {"right", "left"}:
-        raise ValueError("handedness 必须为 right 或 left")
+        raise ValueError('handedness right veya left olmalıdır / handedness must be right or left')
     visible_thread_mode = str(getattr(args, "visible_thread", "fallback")).strip().lower()
     if visible_thread_mode not in {"fallback", "always", "never"}:
-        raise ValueError("visible_thread 必须为 fallback、always 或 never")
+        raise ValueError('visible_thread fallback, always veya never olmalıdır / visible_thread must be fallback, always or never')
     return ThreadedHoleParams(
         thread_label=spec["label"],
         block_length_mm=block_length,
@@ -589,12 +583,12 @@ def build_params(args) -> ThreadedHoleParams:
 
 
 def collect_thread_feature_evidence(model, params: ThreadedHoleParams, visible_segments: int) -> dict:
-    """@brief 重建后回读特征树，不把 COM 返回对象等同于持久化成功。"""
+    'Read the feature tree after rebuild; a COM object is not persistence evidence.'
     features = []
     guard = 0
 
     def traverse(feature, next_member: str, parent: str | None = None) -> None:
-        """@brief 遍历同级特征及其子特征；CosmeticThread 通常挂在切除特征下。"""
+        'Traverse sibling features and subfeatures; CosmeticThread usually belongs to the cut.'
         nonlocal guard
         while feature is not None and guard < 10000:
             name = str(get_com_member(feature, "Name") or "")
@@ -629,18 +623,18 @@ def collect_thread_feature_evidence(model, params: ThreadedHoleParams, visible_s
 
 
 def require_thread_representation(evidence: dict) -> str:
-    """@brief 要求重建后存在真实、装饰或证据螺旋线之一。"""
+    'Require a real thread, cosmetic thread or evidence helix after rebuild.'
     representation = str(evidence.get("representation") or "metadata-only")
     if representation == "metadata-only":
         raise RuntimeError(
-            "重建后未找到 Thread、CosmeticThread 或可见螺旋线；"
-            "只有自定义属性不得标记为已验证交付"
+            'Yeniden oluşturmadan sonra Thread, CosmeticThread veya görünür helis bulunamadı / No Thread, CosmeticThread or visible helix after rebuild; '
+            'yalnızca özel özellikler doğrulanmış teslim sayılamaz / custom properties alone cannot establish verified delivery'
         )
     return f"{representation}-verified"
 
 
 def create_threaded_hole_block(params: ThreadedHoleParams, output_dir: Path, basename: str):
-    """@brief 创建螺纹孔样件并保存导出审查。"""
+    'Create the threaded-hole sample, save, export and review.'
     basename = validate_basename(basename)
     output_dir.mkdir(parents=True, exist_ok=True)
     part_path = output_dir / f"{basename}.SLDPRT"
@@ -658,7 +652,7 @@ def create_threaded_hole_block(params: ThreadedHoleParams, output_dir: Path, bas
     with sketch(model, config["base_plane"]) as base_sketch:
         sketch_rectangle(model, 0, 0, mm(params.block_length_mm), mm(params.block_width_mm))
     base_feature = extrude_boss(model, base_sketch, mm(params.block_thickness_mm), direction=False)
-    assert_feature(base_feature, "基体").Name = "Boss_Thread_Test_Block"
+    assert_feature(base_feature, 'Taban / Base').Name = "Boss_Thread_Test_Block"
 
     top_plane = create_offset_plane(model, "Plane_Hole_Start", config["base_plane"], params.block_thickness_mm)
     clear(model)
@@ -676,7 +670,7 @@ def create_threaded_hole_block(params: ThreadedHoleParams, output_dir: Path, bas
         model,
         hole_sketch,
         params.pilot_depth_mm,
-        f"{params.thread_label} 攻丝底孔 {params.tap_drill_diameter_mm}mm",
+        f"{params.thread_label} kılavuz ön deliği / tap-drill {params.tap_drill_diameter_mm}mm",
         through=params.through_hole,
     )
     cut_feature.Name = f"Cut_{params.thread_label}_Tap_Drill"
@@ -687,13 +681,13 @@ def create_threaded_hole_block(params: ThreadedHoleParams, output_dir: Path, bas
         thread_attempts.append({"method": "ThreadFeatureData", "result": "created"})
     except Exception as exc:
         thread_attempts.append({"method": "ThreadFeatureData", "result": "failed", "error": str(exc)})
-        print(f"WARN 真实 Thread 特征失败，尝试 Cosmetic Thread: {exc}")
+        print(f"WARN Gerçek Thread başarısız; Cosmetic Thread deneniyor / Real Thread failed; trying Cosmetic Thread: {exc}")
         try:
             add_cosmetic_thread_feature(model, params)
             thread_attempts.append({"method": "CosmeticThread", "result": "created"})
         except Exception as cosmetic_exc:
             thread_attempts.append({"method": "CosmeticThread", "result": "failed", "error": str(cosmetic_exc)})
-            print(f"WARN Cosmetic Thread 也失败，降级为属性和可见螺旋线: {cosmetic_exc}")
+            print(f"WARN Cosmetic Thread başarısız; özellik ve görünür helis kullanılıyor / Cosmetic Thread failed; falling back to properties and visible helix: {cosmetic_exc}")
 
     model.ForceRebuild3(False)
     preliminary_evidence = collect_thread_feature_evidence(model, params, visible_segments=0)
@@ -708,7 +702,7 @@ def create_threaded_hole_block(params: ThreadedHoleParams, output_dir: Path, bas
     model.ForceRebuild3(False)
     thread_evidence = collect_thread_feature_evidence(model, params, visible_segments)
     if not thread_evidence["has_tap_drill_cut"] or not thread_evidence["has_mouth_chamfer"]:
-        raise RuntimeError("重建后未找到攻丝底孔切除或孔口倒角，停止交付")
+        raise RuntimeError('Rebuild sonrasında ön delik kesimi veya ağız pahı yok; teslim durduruldu / Tap-drill cut or mouth chamfer missing after rebuild; delivery stopped')
     thread_status = require_thread_representation(thread_evidence)
     write_thread_properties(model, params, thread_status, visible_segments)
     hide_reference_planes(model)
@@ -719,7 +713,7 @@ def create_threaded_hole_block(params: ThreadedHoleParams, output_dir: Path, bas
         thread_evidence_preview_path = output_dir / f"{basename}_thread_evidence.bmp"
         save_preview(model, thread_evidence_preview_path, "isometric")
         if not hide_visible_thread_sketch(model, params):
-            print("WARN 可见螺旋线草图隐藏失败，标准预览可能出现穿透实体的草图线")
+            print('WARN Görünür helis gizlenemedi; standart önizlemede katı içinden eskiz çizgileri görünebilir / Helix hiding failed; sketch lines may show through solids')
 
     param_path.write_text(
         json.dumps(
@@ -738,9 +732,9 @@ def create_threaded_hole_block(params: ThreadedHoleParams, output_dir: Path, bas
         encoding="utf-8",
     )
     if not session.save(model, str(part_path)):
-        raise RuntimeError(f"保存失败: {part_path}")
+        raise RuntimeError(f"Kaydetme başarısız / Save failed: {part_path}")
     if not export_to_step(model, str(step_path)):
-        raise RuntimeError(f"STEP 导出失败: {step_path}")
+        raise RuntimeError(f"STEP dışa aktarma başarısız / STEP export failed: {step_path}")
 
     expected_outputs = [str(part_path), str(step_path), str(param_path)]
     if thread_evidence_preview_path is not None:
@@ -751,9 +745,9 @@ def create_threaded_hole_block(params: ThreadedHoleParams, output_dir: Path, bas
         basename=basename,
         expected_outputs=expected_outputs,
     )
-    print(f"审查报告: {report_path}")
-    print(f"审查状态: {report['evaluation']['status']} / {report['evaluation']['score']}")
-    print(f"螺纹状态: {thread_status}")
+    print(f"İnceleme raporu / Review report: {report_path}")
+    print(f"İnceleme durumu / Review status: {report['evaluation']['status']} / {report['evaluation']['score']}")
+    print(f"Diş durumu / Thread status: {thread_status}")
     return {
         "part_path": str(part_path),
         "step_path": str(step_path),
@@ -766,40 +760,40 @@ def create_threaded_hole_block(params: ThreadedHoleParams, output_dir: Path, bas
 
 
 def parse_args():
-    """@brief 解析命令行参数。"""
-    parser = argparse.ArgumentParser(description="生成 SolidWorks 内螺纹孔样件。")
-    parser.add_argument("--thread", default="M6", help="螺纹规格，默认 M6；支持 M3/M4/M5/M6/M8/M10/M12 或 M6x1.0。")
-    parser.add_argument("--block-length", type=float, default=40.0, help="基体长度 mm。")
-    parser.add_argument("--block-width", type=float, default=30.0, help="基体宽度 mm。")
-    parser.add_argument("--block-thickness", type=float, default=16.0, help="基体厚度 mm。")
-    parser.add_argument("--hole-x", type=float, default=0.0, help="孔中心 X 坐标 mm。")
-    parser.add_argument("--hole-y", type=float, default=0.0, help="孔中心 Y 坐标 mm。")
-    parser.add_argument("--tap-drill", type=float, help="覆盖默认攻丝底孔直径 mm。")
-    parser.add_argument("--pilot-depth", type=float, help="底孔深度 mm；不传则按螺纹深度和厚度估算。")
-    parser.add_argument("--thread-depth", type=float, help="螺纹深度 mm；不传默认约 2D。")
-    parser.add_argument("--mouth-chamfer", type=float, default=0.6, help="孔口 45 度倒角距离 mm。")
-    parser.add_argument("--through", action="store_true", help="使用 Through All 生成贯穿底孔并使用贯穿装饰螺纹。")
-    parser.add_argument("--hole-face", choices=sorted(FACE_CONFIGS), default="top", help="打孔面，默认 top；也可选 front/right。")
-    parser.add_argument("--thread-class", default="6H", help="内螺纹公差等级，默认 6H。")
-    parser.add_argument("--handedness", choices=("right", "left"), default="right", help="螺纹旋向，默认右旋。")
+    'Parse CLI arguments.'
+    parser = argparse.ArgumentParser(description='SolidWorks iç dişli delik örneği oluşturur / Generate a SolidWorks internal-thread hole sample.')
+    parser.add_argument("--thread", default="M6", help='Diş ölçüsü, varsayılan M6; M3/M4/M5/M6/M8/M10/M12 veya M6x1.0 / Thread size.')
+    parser.add_argument("--block-length", type=float, default=40.0, help='Taban uzunluğu mm / Base length mm.')
+    parser.add_argument("--block-width", type=float, default=30.0, help='Taban genişliği mm / Base width mm.')
+    parser.add_argument("--block-thickness", type=float, default=16.0, help='Taban kalınlığı mm / Base thickness mm.')
+    parser.add_argument("--hole-x", type=float, default=0.0, help='Delik merkezi X, mm / Hole-center X, mm.')
+    parser.add_argument("--hole-y", type=float, default=0.0, help='Delik merkezi Y, mm / Hole-center Y, mm.')
+    parser.add_argument("--tap-drill", type=float, help='Varsayılan kılavuz ön delik çapını değiştir, mm / Override tap-drill diameter, mm.')
+    parser.add_argument("--pilot-depth", type=float, help='Ön delik derinliği mm; belirtilmezse diş derinliği ve kalınlıktan tahmin edilir / Pilot depth, estimated if omitted.')
+    parser.add_argument("--thread-depth", type=float, help='Diş derinliği mm; varsayılan yaklaşık 2D / Thread depth, default approximately 2D.')
+    parser.add_argument("--mouth-chamfer", type=float, default=0.6, help='45 derece ağız pahı mesafesi, mm / 45-degree mouth chamfer distance, mm.')
+    parser.add_argument("--through", action="store_true", help='Ön delik ve kozmetik diş için tam geçiş kullan / Use Through All tap-drill and through cosmetic thread.')
+    parser.add_argument("--hole-face", choices=sorted(FACE_CONFIGS), default="top", help='Delme yüzeyi: top (varsayılan), front veya right / Drilling face.')
+    parser.add_argument("--thread-class", default="6H", help='İç diş tolerans sınıfı, varsayılan 6H / Internal-thread tolerance class.')
+    parser.add_argument("--handedness", choices=("right", "left"), default="right", help='Diş yönü, varsayılan sağ / Thread hand, default right.')
     parser.add_argument(
         "--visible-thread",
         choices=("fallback", "always", "never"),
         default="fallback",
-        help="3D 草图螺旋线策略：fallback 仅在 Thread/CosmeticThread 未持久化时创建。",
+        help='3D helis politikası: fallback yalnızca Thread/CosmeticThread kalıcı değilse oluşturur / Helix fallback requires missing persistent thread features.',
     )
-    parser.add_argument("--basename", help="输出文件名前缀；不传则按螺纹规格生成。")
+    parser.add_argument("--basename", help='Çıktı dosya öneki; yoksa diş ölçüsünden üretilir / Output prefix, generated from thread size if omitted.')
     parser.add_argument(
         "--output-dir",
         type=Path,
         default=Path.cwd() / "solidworks_threaded_hole_output",
-        help="输出目录。",
+        help='Çıktı dizini / Output directory.',
     )
     return parser.parse_args()
 
 
 def main() -> int:
-    """@brief 命令行入口。"""
+    'Command-line entry point.'
     args = parse_args()
     params = build_params(args)
     basename = validate_basename(args.basename or f"{params.thread_label.replace('.', '_')}_Internal_Threaded_Hole_Block")

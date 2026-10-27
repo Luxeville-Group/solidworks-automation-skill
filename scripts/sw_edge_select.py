@@ -1,21 +1,17 @@
 """
-SolidWorks 语义选边工具。
+SOLIDWORKS semantic edge selection.
 
-背景：SolidWorks 传统的选边方式 ``SelectByID2("Edge1", "EDGE", x, y, z, ...)``
-依赖实体的"坐标魔法值"，这些坐标在模型稍作修改后就会失效，是自动化脚本最脆弱
-的一环。本模块改为遍历 B-Rep 拓扑，按**几何条件**（方向、长度、位置、是否属于
-某个圆柱面）挑选边线，然后通过对象自身 ``Select4`` 建立选择集——不依赖名称和
-坐标字符串，模型重建后依然可用。
+Traditional SelectByID2("Edge1", "EDGE", x, y, z, ...) selection depends on fragile coordinate constants that break after model edits. This module traverses B-Rep topology and selects by geometry (direction, length, position, or cylindrical-face membership), then uses object Select4 to create the selection set. It avoids name/coordinate strings and remains usable after rebuilds.
 
-支持的边线筛选条件：
-    axis        边线方向（"x" | "y" | "z" | "vertical" | "all"）
-    min_length_mm / max_length_mm
-    along_z     是否为平行于 Z 轴的竖直边
-    circular    是否为圆边（配合 hole/min_diameter 用来选孔的入口边）
-    diameter_mm 圆边直径（与 tolerance_mm 配合）
-    position_mm 边中点必须靠近的坐标（配合 position_tolerance_mm）
-    convex_only 只保留凸边（外轮廓），用于外圆角
-    concave_only 只保留凹边（内角），用于内圆角
+Filters:
+    axis: Edge direction ("x", "y", "z", "vertical", or "all").
+    min_length_mm / max_length_mm: Length bounds.
+    along_z: Whether the edge is parallel to Z.
+    circular: Circle edges; use hole/min_diameter for hole entrance edges.
+    diameter_mm: Circle diameter with tolerance_mm.
+    position_mm: Required midpoint proximity with position_tolerance_mm.
+    convex_only: Outer/convex edges for external fillets.
+    concave_only: Inner/concave edges for internal fillets.
 """
 from __future__ import annotations
 
@@ -29,7 +25,7 @@ except ImportError:
 
 _MM_PER_M = 1000.0
 
-# swSelectType_e 中的边线类型
+# Edge type in swSelectType_e.
 SW_SEL_EDGE = "EDGE"
 
 _AXIS_VECTORS = {
@@ -40,7 +36,7 @@ _AXIS_VECTORS = {
 
 
 def _safe(obj, name, *args, default=None):
-    """@brief 安全读取 COM 成员。"""
+    """@brief Safely read a COM member."""
     try:
         member = getattr(obj, name)
         value = member(*args) if args or callable(member) else member
@@ -50,12 +46,12 @@ def _safe(obj, name, *args, default=None):
 
 
 def _to_mm(values):
-    """@brief 把长度序列从米换算为毫米。"""
+    """@brief Convert a length sequence from meters to millimeters."""
     return [float(value) * _MM_PER_M for value in values]
 
 
 def _normalize(vector):
-    """@brief 归一化向量，零向量返回 None。"""
+    """@brief Normalize a vector; return None for a zero vector."""
     length = math.sqrt(sum(component * component for component in vector))
     if length < 1e-12:
         return None
@@ -63,7 +59,7 @@ def _normalize(vector):
 
 
 def _is_parallel(first, second, angle_tolerance_deg=1.0):
-    """@brief 判断两个单位向量是否（反）平行。"""
+    """@brief Check whether two unit vectors are parallel or antiparallel."""
     if first is None or second is None:
         return False
     dot = abs(sum(a * b for a, b in zip(first, second)))
@@ -73,15 +69,14 @@ def _is_parallel(first, second, angle_tolerance_deg=1.0):
 
 def describe_edge(edge, index=0):
     """
-    读取一条边的几何描述。
+    Read an edge geometry descriptor.
 
-    参数:
-        edge: IEdge 对象。
-        index: 该边在遍历顺序中的序号，仅用于标识。
+    Args:
+        edge: IEdge object.
+        index: Traversal index, used only for identification.
 
-    返回:
-        dict，包含 length_mm / mid_point_mm / direction / is_line / is_circle /
-        diameter_mm / convexity 等字段；读取失败时 errors 非空。
+    Returns:
+        dict with length_mm, mid_point_mm, direction, is_line, is_circle, diameter_mm, and convexity; errors is nonempty when readback fails.
     """
     descriptor = {
         "index": index,
@@ -103,21 +98,21 @@ def describe_edge(edge, index=0):
         descriptor["is_line"] = bool(_safe(curve, "IsLine"))
         descriptor["is_circle"] = bool(_safe(curve, "IsCircle"))
     except Exception as exc:
-        descriptor["errors"].append(f"读取曲线类型失败: {exc}")
+        descriptor["errors"].append(f"Eğri türü okunamadı: {exc}")
 
     try:
         descriptor["length_mm"] = round(float(_safe(edge, "GetLength")) * _MM_PER_M, 6)
     except Exception as exc:
-        descriptor["errors"].append(f"读取边长失败: {exc}")
+        descriptor["errors"].append(f"Kenar uzunluğu okunamadı: {exc}")
 
-    # 中点优先用边的起止顶点（IEdge::GetStartVertex/GetEndVertex），
-    # 这是不受曲线参数排列差异影响的方式。
+    # Prefer start/end vertices (IEdge::GetStartVertex/GetEndVertex) for the midpoint;
+    # this avoids differences in curve-parameter ordering.
     start_mm = end_mm = None
     try:
         start_mm = _to_mm(list(get_com_member(get_com_member(edge, "GetStartVertex"), "GetPoint") or []))
         end_mm = _to_mm(list(get_com_member(get_com_member(edge, "GetEndVertex"), "GetPoint") or []))
     except Exception as exc:
-        descriptor["errors"].append(f"读取端点失败: {exc}")
+        descriptor["errors"].append(f"Uç nokta okunamadı: {exc}")
 
     if start_mm and end_mm and len(start_mm) >= 3 and len(end_mm) >= 3:
         descriptor["mid_point_mm"] = [
@@ -128,13 +123,13 @@ def describe_edge(edge, index=0):
                 [end_mm[axis] - start_mm[axis] for axis in range(3)]
             )
 
-    # 曲线参数仅用于圆边直径/直线方向兜底；不同版本排列不同，因此做长度合法性校验：
-    # 换算后的直径必须为正且与边长同量级，否则视为解析失败而不写脏数据。
+    # Curve parameters are fallback evidence for circle diameter/line direction; validate lengths because ordering differs across versions.
+    # Diameter must be positive and comparable to edge length; otherwise report parsing failure rather than write invalid data.
     if curve_params and len(curve_params) >= 7:
         if descriptor["is_circle"]:
             candidate = abs(float(curve_params[6])) * 2.0 * _MM_PER_M
             length = descriptor.get("length_mm") or 0.0
-            # 整圆时周长 = π*d；圆弧时直径仍应不大于边长。
+            # For full circles circumference = pi*d; the implementation also bounds arc diameter by edge length.
             if 0.0 < candidate <= max(length, 1e-6) * 4.0 + 1e-6:
                 descriptor["diameter_mm"] = round(candidate, 6)
         elif descriptor["direction"] is None:
@@ -147,10 +142,9 @@ def describe_edge(edge, index=0):
 
 def describe_convexity(edge):
     """
-    判断边是凸边还是凹边。
+    Classify an edge as convex or concave.
 
-    通过边两侧面的法向与边切向的关系判断——这是凸凹的几何定义，不依赖
-    SolidWorks 的显示选项。读取失败时返回 None，调用方应放行而不是误判。
+    Use adjacent-face normals and edge tangent geometry, independent of SOLIDWORKS display settings. Return None on read failure; callers should permit unknowns rather than misclassify them.
     """
     try:
         faces = list(get_com_member(edge, "GetTwoAdjacentFaces2") or [])
@@ -175,29 +169,29 @@ def describe_convexity(edge):
     if any(normal is None for normal in normals):
         return None
 
-    # 取边两端点所在面的中点法向更严谨；此处用面参数法向的夹角近似，
-    # 对常见的平面-平面直边是准确的，对混合曲面返回 None 由调用方决定。
+    # Midpoint normals at edge endpoints would be more rigorous; approximate using the angle between face-parameter normals.
+    # This is accurate for common planar straight edges; return None for mixed surfaces and let callers decide.
     dot = sum(a * b for a, b in zip(normals[0], normals[1]))
     return "concave" if dot > 0 else "convex"
 
 
 def iter_model_edges(model, body_index=None):
     """
-    遍历模型所有实体边线。
+    Traverse solid-body edges.
 
-    参数:
-        model: IModelDoc2 对象。
-        body_index: 只遍历指定实体；None 表示全部实体。
+    Args:
+        model: IModelDoc2 object.
+        body_index: Restrict to one body; None means all bodies.
 
-    返回:
-        (descriptors, errors)：边上描述列表与读取过程中的错误列表。
+    Returns:
+        (descriptors, errors): Edge descriptors and readback errors.
     """
     descriptors = []
     errors = []
     try:
         bodies = list(get_com_member(model, "GetBodies2", 0, False) or [])
     except Exception as exc:
-        return descriptors, [f"读取实体列表失败: {exc}"]
+        return descriptors, [f"Gövde listesi okunamadı: {exc}"]
 
     for index, body in enumerate(bodies):
         if body_index is not None and index != body_index:
@@ -205,7 +199,7 @@ def iter_model_edges(model, body_index=None):
         try:
             edges = list(get_com_member(body, "GetEdges") or [])
         except Exception as exc:
-            errors.append(f"实体 {index} 读取边线失败: {exc}")
+            errors.append(f"Gövde {index} kenarları okunamadı: {exc}")
             continue
         for edge_index, edge in enumerate(edges):
             descriptor = describe_edge(edge, index=len(descriptors))
@@ -221,19 +215,18 @@ def filter_edges(descriptors, axis="all", min_length_mm=None, max_length_mm=None
                  position_mm=None, position_tolerance_mm=0.1,
                  convex_only=False, concave_only=False, angle_tolerance_deg=1.0):
     """
-    按几何条件筛选边线。
+    Filter edges by geometric conditions.
 
-    参数:
-        axis: "x" | "y" | "z" | "vertical"（等价 z）| "all"。仅对直边生效。
-        min_length_mm / max_length_mm: 长度范围筛选。
-        circular: True 只保留圆边，False 只保留非圆边，None 不筛选。
-        diameter_mm: 圆边直径筛选（需 circular=True）。
-        position_mm: 边中点必须靠近的坐标 [x, y, z]（mm）。
-        convex_only / concave_only: 按凸凹筛选；凸凹判定失败时不做排除，
-            避免因读取失败而漏选用户明确要求的边。
+    Args:
+        axis: "x", "y", "z", "vertical" (same as z), or "all"; straight edges only.
+        min_length_mm / max_length_mm: Length bounds.
+        circular: True keeps circles, False keeps noncircles, None does not filter.
+        diameter_mm: Circle diameter filter; requires circular=True.
+        position_mm: Required midpoint proximity to [x, y, z] in mm.
+        convex_only / concave_only: Convexity filter; unknown convexity does not exclude an edge, avoiding omissions caused by readback failures.
 
-    返回:
-        (selected, rejected_reasons)：选中的描述列表与每条边被排除的原因。
+    Returns:
+        (selected, rejected_reasons): Selected descriptors and per-edge rejection reasons.
     """
     selected = []
     rejected = []
@@ -247,37 +240,37 @@ def filter_edges(descriptors, axis="all", min_length_mm=None, max_length_mm=None
         if min_length_mm is not None:
             length = descriptor.get("length_mm")
             if length is None or length < min_length_mm:
-                reasons.append(f"长度 {length} < {min_length_mm}")
+                reasons.append(f"Uzunluk {length} < {min_length_mm}")
 
         if max_length_mm is not None:
             length = descriptor.get("length_mm")
             if length is None or length > max_length_mm:
-                reasons.append(f"长度 {length} > {max_length_mm}")
+                reasons.append(f"Uzunluk {length} > {max_length_mm}")
 
         if circular is not None and bool(descriptor.get("is_circle")) != bool(circular):
-            reasons.append(f"圆边判定不符（要求 circular={circular}）")
+            reasons.append(f"Dairesel kenar koşulu eşleşmiyor (gereken circular={circular})")
 
         if diameter_mm is not None:
             actual = descriptor.get("diameter_mm")
             if actual is None:
-                reasons.append("直径未知")
+                reasons.append("Çap bilinmiyor")
             elif abs(actual - diameter_mm) > diameter_tolerance_mm:
-                reasons.append(f"直径 {actual} 偏离 {diameter_mm}±{diameter_tolerance_mm}")
+                reasons.append(f"Çap {actual} şu değerden sapıyor: {diameter_mm}±{diameter_tolerance_mm}")
 
         if position_mm is not None:
             midpoint = descriptor.get("mid_point_mm")
             if midpoint is None:
-                reasons.append("中点未知")
+                reasons.append("Orta nokta bilinmiyor")
             else:
                 distance = max(abs(midpoint[axis] - position_mm[axis]) for axis in range(3))
                 if distance > position_tolerance_mm:
-                    reasons.append(f"中点偏离 {distance:.3f}mm > {position_tolerance_mm}mm")
+                    reasons.append(f"Orta nokta sapması: {distance:.3f}mm > {position_tolerance_mm}mm")
 
         if target_vector is not None:
             if descriptor.get("is_circle"):
-                reasons.append("圆边无轴向概念")
+                reasons.append("Dairesel kenar için doğrusal eksen tanımlı değil")
             elif not _is_parallel(descriptor.get("direction"), target_vector, angle_tolerance_deg):
-                reasons.append(f"方向不平行于 {normalized_axis} 轴")
+                reasons.append(f"Yön şu eksene paralel değil: {normalized_axis} ekseni")
 
         if convex_only or concave_only:
             convexity = descriptor.get("convexity")
@@ -286,9 +279,9 @@ def filter_edges(descriptors, axis="all", min_length_mm=None, max_length_mm=None
                 descriptor["convexity"] = convexity
             if convexity is not None:
                 if convex_only and convexity != "convex":
-                    reasons.append(f"非凸边（{convexity}）")
+                    reasons.append(f"Dışbükey kenar değil ({convexity})")
                 if concave_only and convexity != "concave":
-                    reasons.append(f"非凹边（{convexity}）")
+                    reasons.append(f"İçbükey kenar değil ({convexity})")
 
         if reasons:
             rejected.append({"index": descriptor.get("index"), "reasons": reasons})
@@ -300,21 +293,18 @@ def filter_edges(descriptors, axis="all", min_length_mm=None, max_length_mm=None
 
 def select_edges(model, edge_spec, clear_first=True, mark=0):
     """
-    按语义条件选择边线，供后续特征（圆角/倒角）使用。
+    Select edges by semantic criteria for later fillet/chamfer features.
 
-    参数:
-        model: IModelDoc2 对象。
-        edge_spec: 筛选条件字典，键与 ``filter_edges`` 参数一致。
-        clear_first: 选择前是否清空当前选择集。
-        mark: 选择标记。SolidWorks 的特征 API 通过标记区分"要倒角的边"等语义；
-            默认 0 适用于 FeatureFillet / InsertFeatureChamfer。
+    Args:
+        model: IModelDoc2 object.
+        edge_spec: Criteria dictionary using filter_edges parameter names.
+        clear_first: Clear the current selection first.
+        mark: SOLIDWORKS selection mark; feature APIs use it to distinguish edge roles. Default 0 suits FeatureFillet / InsertFeatureChamfer.
 
-    返回:
-        dict：status / selected_count / selected / rejected / errors。
+    Returns:
+        dict with status, selected_count, selected, rejected, and errors.
 
-    说明:
-        必须至少选中一条边，否则返回 status="error" 而不是静默继续——空选择会让
-        SolidWorks 对"当前轮廓"执行操作，产生难以排查的错误特征。
+    At least one edge must be selected. Otherwise return status="error" instead of continuing: an empty selection may apply operations to the current profile and create an unintended feature.
     """
     if clear_first:
         try:
@@ -329,7 +319,7 @@ def select_edges(model, edge_spec, clear_first=True, mark=0):
             "selected_count": 0,
             "selected": [],
             "rejected": [],
-            "errors": errors + ["模型中未找到任何边线；请确认活动文档是零件且已创建实体。"],
+            "errors": errors + ["Modelde kenar bulunamadı; etkin belgenin bir parça olduğunu ve katı oluşturulduğunu doğrulayın."],
         }
 
     selected, rejected = filter_edges(descriptors, **(edge_spec or {}))
@@ -341,8 +331,8 @@ def select_edges(model, edge_spec, clear_first=True, mark=0):
             "rejected_count": len(rejected),
             "rejected_sample": rejected[:50],
             "errors": errors + [
-                f"没有边线满足条件 {edge_spec}。已检查 {len(descriptors)} 条边，"
-                "请放宽筛选条件或先用 solidworks_list_edges 查看可用边线。"
+                f"Koşulları sağlayan kenar yok: {edge_spec}. Denetlenen {len(descriptors)} kenar, "
+                "Filtreleri genişletin veya kullanılabilir kenarlar için önce solidworks_list_edges kullanın."
             ],
         }
 
@@ -355,7 +345,7 @@ def select_edges(model, edge_spec, clear_first=True, mark=0):
         if _select_edge(edge, append=True, mark=mark):
             applied.append(descriptor)
         else:
-            selection_failures.append(f"边 {descriptor['index']}: Select 返回 False")
+            selection_failures.append(f"Kenar {descriptor['index']}: Select False döndü")
 
     if not applied:
         return {
@@ -363,7 +353,7 @@ def select_edges(model, edge_spec, clear_first=True, mark=0):
             "selected_count": 0,
             "selected": [],
             "rejected": rejected[:50],
-            "errors": errors + selection_failures + ["所有候选边线均选择失败。"],
+            "errors": errors + selection_failures + ["Tüm aday kenarların seçimi başarısız."],
         }
 
     return {
@@ -388,11 +378,9 @@ def select_edges(model, edge_spec, clear_first=True, mark=0):
 
 def _select_edge(edge, append=True, mark=0):
     """
-    选择一条边线。
+    Select an edge.
 
-    Select4 的第二个参数是 Callout，必须是 Dispatch VARIANT；传 Python 的 None 会
-    得到 "类型不匹配"（0x80020005）。这与 sw_part._select_com_object 的处理保持一致：
-    先用 Select2(append, mark)，失败再退到 Select4(append, callout)。
+    Select4 takes a Dispatch VARIANT Callout as its second argument; Python None causes type mismatch (0x80020005). Match sw_part._select_com_object: try Select2(append, mark), then Select4(append, callout).
     """
     for method_name in ("Select2", "Select4"):
         method = getattr(edge, method_name, None)

@@ -1,4 +1,4 @@
-"""多语言后端路由 MCP 工具测试。"""
+"""Language-backend routing MCP tool tests."""
 
 from __future__ import annotations
 
@@ -16,13 +16,13 @@ from scripts.validate_mcp import REQUIRED_TOOLS  # noqa: E402
 
 
 def test_backend_router_mcp_tool_is_registered_and_release_gated() -> None:
-    """@brief 路由工具必须出现在服务和发布门禁中。"""
+    """@brief The routing tool must appear in the service and release gate."""
     assert "cadstudio_resolve_backend" in server.mcp._tool_manager._tools
     assert "cadstudio_resolve_backend" in REQUIRED_TOOLS
 
 
 def test_backend_router_mcp_selects_native_cpp_for_exact_pointer_api() -> None:
-    """@brief MCP 调用也必须保持原始接口语义门禁。"""
+    """@brief MCP calls preserve raw-interface semantics gates."""
     raw = server.cadstudio_resolve_backend(
         server.CadStudioBackendRouteInput(
             operation_id="solidworks_pointer_array_api",

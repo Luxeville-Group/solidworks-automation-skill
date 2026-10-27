@@ -1,4 +1,4 @@
-"""AutoCAD 会话薄封装的无 COM 回归测试。"""
+"""Offline regression for thin AutoCAD session wrappers without COM."""
 from __future__ import annotations
 
 import math
@@ -13,7 +13,7 @@ import acad_session  # noqa: E402
 
 
 class FakeEntity:
-    """@brief 记录尺寸实体的图层和颜色。"""
+    """@brief Record dimension-entity layers and colors."""
 
     def __init__(self, kind, args):
         self.kind = kind
@@ -23,7 +23,7 @@ class FakeEntity:
 
 
 class FakeModelSpace:
-    """@brief 模拟只支持 Count/Item 的 AutoCAD ModelSpace。"""
+    """@brief Simulate AutoCAD ModelSpace supporting only Count/Item."""
 
     def __init__(self):
         self.entities = []
@@ -74,7 +74,7 @@ class FakeDocument:
 
 
 class FakeDocumentsWithoutCount:
-    """@brief 模拟 AutoCAD 动态代理只暴露 Add、不暴露 Count。"""
+    """@brief Simulate an AutoCAD dynamic proxy exposing Add but not Count."""
 
     def Add(self):
         return FakeDocument()
@@ -88,7 +88,7 @@ def test_connect_autocad_uses_dispatchex_for_owned_instance(monkeypatch):
             raise RuntimeError("not running")
 
         def Dispatch(self, _progid):
-            raise AssertionError("不得用 Dispatch 声称新实例所有权")
+            raise AssertionError("Dispatch must not be used to claim new-instance ownership")
 
         def DispatchEx(self, progid):
             assert progid == "AutoCAD.Application"
@@ -232,7 +232,7 @@ def test_retry_com_busy_retries_only_transient_hresult(monkeypatch):
             raise BusyError("AutoCAD busy")
         return "ok"
 
-    assert acad_session._retry_com_busy(operation, "测试操作") == "ok"
+    assert acad_session._retry_com_busy(operation, "Test operation") == "ok"
     assert calls == 3
 
 
@@ -257,7 +257,7 @@ def test_quit_owned_instance_force_terminates_only_recorded_pid(monkeypatch):
 
 
 def test_quit_owned_instance_waits_for_delayed_exit_after_termination(monkeypatch):
-    """@brief 强制终止后系统状态短暂滞后时，不应误报清理失败。"""
+    """@brief Brief system-state lag after forced termination must not falsely report cleanup failure."""
     application = type("App", (), {"Quit": lambda self: None})()
     session = acad_session.AutoCADSession()
     session.app = application

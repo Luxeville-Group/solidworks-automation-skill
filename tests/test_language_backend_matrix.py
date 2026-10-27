@@ -1,4 +1,4 @@
-"""CAD Studio 多语言执行后端矩阵与确定性路由测试。"""
+"""CAD Studio language-backend matrix and deterministic routing tests."""
 
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ from capabilities import (  # noqa: E402
 
 
 def test_backend_matrix_is_valid_and_covers_multiple_languages() -> None:
-    """@brief 真源必须包含 Python、C#、C++ 与无头开放格式路径。"""
+    """@brief The registry must include Python, C#, C++, and headless open-format routes."""
     snapshot = backend_route_snapshot(load_capabilities())
 
     assert snapshot["backend_count"] >= 10
@@ -30,7 +30,7 @@ def test_backend_matrix_is_valid_and_covers_multiple_languages() -> None:
 
 
 def test_addin_ui_route_prefers_in_process_csharp_host() -> None:
-    """@brief 长期 UI/事件生命周期应优先托管进程内 Add-in。"""
+    """@brief Prefer managed in-process Add-ins for long-lived UI/event lifecycles."""
     result = resolve_operation_backend(
         "solidworks_addin_ui_events",
         available_backends=["solidworks-csharp-addin", "solidworks-native-cpp"],
@@ -42,7 +42,7 @@ def test_addin_ui_route_prefers_in_process_csharp_host() -> None:
 
 
 def test_pointer_array_route_prefers_automation_equivalent_for_normal_workflow() -> None:
-    """@brief 常规任务应优先非 I 方法，避免无理由升级到高风险 C++。"""
+    """@brief Prefer non-I methods for ordinary tasks; avoid unjustified high-risk C++ escalation."""
     result = resolve_operation_backend(
         "solidworks_pointer_array_api",
         available_backends=["solidworks-com-pywin32", "solidworks-native-cpp"],
@@ -54,7 +54,7 @@ def test_pointer_array_route_prefers_automation_equivalent_for_normal_workflow()
 
 
 def test_pointer_array_route_uses_native_cpp_for_exact_i_method_semantics() -> None:
-    """@brief 明确要求原始指针接口时必须跳过 Python 和 C# PIA。"""
+    """@brief Raw-pointer interface requirements must bypass Python and C# PIA."""
     result = resolve_operation_backend(
         "solidworks_pointer_array_api",
         available_backends=["solidworks-com-pywin32", "solidworks-csharp-pia", "solidworks-native-cpp"],
@@ -68,7 +68,7 @@ def test_pointer_array_route_uses_native_cpp_for_exact_i_method_semantics() -> N
 
 
 def test_known_hold_line_host_revision_is_blocked_before_backend_selection() -> None:
-    """@brief 已知宿主故障不能通过换语言伪装成可执行。"""
+    """@brief Language switching cannot disguise a known host failure as executable."""
     result = resolve_operation_backend(
         "fillet_hold_lines_exact",
         available_backends=["solidworks-native-cpp"],
@@ -82,7 +82,7 @@ def test_known_hold_line_host_revision_is_blocked_before_backend_selection() -> 
 
 
 def test_language_switch_cannot_replace_missing_license_or_addin() -> None:
-    """@brief Routing 缺失加载项/许可证必须保持 blocked。"""
+    """@brief Missing Routing add-ins/licenses must remain blocked."""
     result = resolve_operation_backend(
         "solidworks_routing_native_authoring",
         available_backends=["solidworks-com-pywin32", "solidworks-csharp-pia"],
@@ -90,33 +90,33 @@ def test_language_switch_cannot_replace_missing_license_or_addin() -> None:
 
     assert result["status"] == "blocked"
     assert result["error_code"] == "MISSING_RUNTIME_REQUIREMENT"
-    assert result["missing_requirements"] == ["SolidWorks Routing 加载项", "有效许可证"]
+    assert result["missing_requirements"] == ["SolidWorks Routing add-in", "Valid license"]
 
 
 def test_missing_api_data_has_no_fake_language_fallback() -> None:
-    """@brief API 不提供精确包围盒时不能假造 C# 或 C++ 后端。"""
+    """@brief Missing exact API bounds cannot be fabricated through C# or C++."""
     result = resolve_operation_backend("drawing_exact_text_bounds")
 
     assert result["status"] == "blocked"
     assert result["error_code"] == "NO_LANGUAGE_SUBSTITUTION"
-    assert "换语言不能" in result["reason"]
+    assert "changing languages cannot" in result["reason"]
 
 
 def test_router_does_not_assume_catalog_backends_are_installed() -> None:
-    """@brief 未提供本机探测结果时不能把清单里的候选误当作可用。"""
+    """@brief Catalog candidates are not available without local probe evidence."""
     result = resolve_operation_backend("solidworks_standard_automation")
 
     assert result["status"] == "unavailable"
     assert result["error_code"] == "NO_COMPATIBLE_BACKEND_AVAILABLE"
-    assert all(item["reason"] == "运行时不可用" for item in result["considered"])
+    assert all(item["reason"] == "Runtime kullanılamıyor" for item in result["considered"])
 
 
 def test_invalid_backend_reference_is_rejected(tmp_path: Path) -> None:
-    """@brief 清单校验必须阻止拼写错误的后端悄悄进入路由。"""
+    """@brief Registry validation rejects misspelled backend routes."""
     payload = json.loads((ROOT / "capabilities.yaml").read_text(encoding="utf-8"))
     payload["operation_routes"][0]["candidates"][0]["backend"] = "missing-backend"
     manifest = tmp_path / "capabilities.yaml"
     manifest.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
 
-    with pytest.raises(ValueError, match="未知后端"):
+    with pytest.raises(ValueError, match="bilinmeyen backend"):
         load_capabilities(manifest)

@@ -1,4 +1,4 @@
-"""开源复杂 CNC 支架的来源锁定与 SolidWorks 往返回归。"""
+'Source pinning and SolidWorks round-trip regression for an open-source complex CNC bracket.'
 
 from __future__ import annotations
 
@@ -36,47 +36,47 @@ SW_CHAMFER_TANGENT_PROPAGATION = 4
 
 
 def _validate_download_url(url: str) -> None:
-    """@brief 下载源仅允许 https 且主机在白名单内，阻断案例清单被篡改后的任意源请求。"""
+    'Allow only HTTPS downloads from allowlisted hosts to prevent arbitrary requests from modified manifests.'
     validate_https_url(url, "raw.githubusercontent.com")
 
 
 def load_case(path: Path) -> dict[str, Any]:
-    """@brief 读取并校验固定来源案例清单。"""
+    'Read and validate a source-pinned case manifest.'
     payload = json.loads(path.read_text(encoding="utf-8"))
     return _validate_case_payload(payload)
 
 
 def _validate_case_payload(payload):
-    """@brief 固定提交必须位于 URL 的 revision 段，查询字符串不能充当提交锁定。"""
+    'Require the pinned commit in the URL revision segment; query strings do not pin revisions.'
     required = ("download_url", "sha256", "commit", "license", "attribution")
     missing = [name for name in required if not payload.get(name)]
     if missing:
-        raise ValueError(f"案例清单缺少字段: {missing}")
+        raise ValueError(f"Vaka manifestinde alan eksik / Case manifest field missing: {missing}")
     digest = str(payload["sha256"]).lower()
     if len(digest) != 64 or any(character not in "0123456789abcdef" for character in digest):
-        raise ValueError("案例 sha256 必须为 64 位十六进制")
+        raise ValueError('Vaka sha256 değeri 64 onaltılık karakter olmalıdır / Case sha256 must be 64 hexadecimal characters')
     _validate_download_url(str(payload["download_url"]))
     parts = validate_https_url(str(payload["download_url"]), "raw.githubusercontent.com")
     segments = unquote(parts.path).split("/")
     commit = str(payload["commit"])
     if not re.fullmatch(r"[0-9a-fA-F]{40}", commit) or len(segments) < 5 or segments[3].lower() != commit.lower():
-        raise ValueError("案例下载 URL 的 revision 段必须是声明的完整 commit SHA")
+        raise ValueError("İndirme URL'sinin revision bölümü tam commit SHA olmalıdır / Download URL revision must equal the declared full commit SHA")
     if any(segment in {"", ".", ".."} or "\\" in segment for segment in segments[1:]):
-        raise ValueError("案例路径包含不允许的分段")
+        raise ValueError('Vaka yolu izin verilmeyen bölümler içeriyor / Case path contains disallowed segments')
     if payload.get("source_path") and "/".join(segments[4:]) != payload["source_path"]:
-        raise ValueError("案例下载路径与 source_path 声明不一致")
+        raise ValueError('İndirme yolu source_path ile uyuşmuyor / Download path does not match source_path')
     return payload
 
 
 def fetch_pinned_source(case: dict[str, Any], destination: Path) -> dict[str, Any]:
-    """@brief 固定来源有界读取，验证 SHA-256 后才写入新缓存。"""
+    'Read pinned sources with bounds and verify SHA-256 before writing a new cache.'
     _validate_case_payload(case)
     destination.parent.mkdir(parents=True, exist_ok=True)
     if destination.exists():
         with destination.open("rb") as stream:
             content = stream.read(MAX_SOURCE_BYTES + 1)
         if len(content) > MAX_SOURCE_BYTES:
-            raise ValueError("缓存案例超过读取上限")
+            raise ValueError('Önbellekteki vaka okuma sınırını aşıyor / Cached case exceeds the read limit')
         source = "cache"
     else:
         request = urllib.request.Request(
@@ -88,16 +88,16 @@ def fetch_pinned_source(case: dict[str, Any], destination: Path) -> dict[str, An
     digest = hashlib.sha256(content).hexdigest()
     expected = str(case["sha256"]).lower()
     if digest != expected:
-        raise RuntimeError(f"开源案例哈希不匹配: expected={expected}, actual={digest}")
+        raise RuntimeError(f"Açık kaynak vaka özeti uyuşmuyor / Open-source case hash mismatch: expected={expected}, actual={digest}")
     if source == "network":
-        # 核对后才落盘，且不能覆盖并发出现的已有文件。
+        # Write only after verification; never overwrite a concurrently created file.
         with destination.open("xb") as stream:
             stream.write(content)
     return {"path": str(destination.resolve()), "bytes": len(content), "sha256": digest, "source": source}
 
 
 def topology_counts(model) -> dict[str, int]:
-    """@brief 从 SolidWorks 实体回读面、边和唯一顶点数量。"""
+    'Read face, edge and unique-vertex counts from a SolidWorks body.'
     bodies = tuple(get_com_member(model, "GetBodies2", SW_SOLID_BODY, False) or ())
     faces = []
     edges = []
@@ -122,7 +122,7 @@ def topology_counts(model) -> dict[str, int]:
 
 
 def topology_is_complex(counts: dict[str, int]) -> bool:
-    """@brief 拒绝被错误导入为空件或过度简化件的案例。"""
+    'Reject cases imported as empty or excessively simplified parts.'
     return (
         counts.get("solids") == 1
         and counts.get("faces", 0) >= 35
@@ -132,7 +132,7 @@ def topology_is_complex(counts: dict[str, int]) -> bool:
 
 
 def assert_expected_source_topology(case: dict[str, Any], counts: dict[str, int]) -> None:
-    """@brief 固定案例必须匹配清单中的精确源拓扑。"""
+    "Require pinned cases to match the manifest's exact source topology."
     expected = case.get("expected_source_topology") or {}
     mismatches = {
         name: {"expected": int(value), "actual": int(counts.get(name, -1))}
@@ -140,11 +140,11 @@ def assert_expected_source_topology(case: dict[str, Any], counts: dict[str, int]
         if int(counts.get(name, -1)) != int(value)
     }
     if mismatches:
-        raise RuntimeError(f"固定开源案例源拓扑漂移: {mismatches}")
+        raise RuntimeError(f"Sabit açık kaynak vakanın topolojisi değişmiş / Pinned source topology drift: {mismatches}")
 
 
 def edge_signature(edge) -> dict[str, Any] | None:
-    """@brief 返回复杂件直边的端点、长度和可锁定签名。"""
+    "Return endpoints, length and a stable signature for a complex part's straight edge."
     curve = get_com_member(edge, "GetCurve")
     if curve is None or not bool(get_com_member(curve, "IsLine")):
         return None
@@ -171,29 +171,29 @@ def edge_signature(edge) -> dict[str, Any] | None:
 
 
 def apply_complex_width_width_chamfer(model, case: dict[str, Any]) -> dict[str, Any]:
-    """@brief 按清单中的唯一边签名创建并验证距离-距离倒角。"""
+    "Create and verify a distance-distance chamfer using the manifest's unique edge signature."
     bodies = tuple(get_com_member(model, "GetBodies2", SW_SOLID_BODY, False) or ())
     if len(bodies) != 1:
-        raise RuntimeError("复杂倒角回归要求唯一实体")
+        raise RuntimeError('Karmaşık pah regresyonu tek katı gerektirir / Complex chamfer regression requires one body')
     operation = case.get("advanced_operation") or {}
     expected_signature = operation.get("edge_signature")
     widths = operation.get("widths_mm") or []
     if operation.get("kind") != "width_width_chamfer" or len(widths) != 2 or not expected_signature:
-        raise ValueError("复杂案例清单缺少完整 width_width_chamfer 操作定义")
+        raise ValueError('Vaka manifestinde width_width_chamfer tanımı eksik / Missing complete width_width_chamfer operation')
     width1, width2 = (float(value) for value in widths)
     if width1 <= 0.0 or width2 <= 0.0:
-        raise ValueError("复杂案例倒角宽度必须为正数")
+        raise ValueError('Karmaşık vaka pah genişlikleri pozitif olmalıdır / Complex-case chamfer widths must be positive')
     matches = []
     for edge in tuple(get_com_member(bodies[0], "GetEdges") or ()):
         signature = edge_signature(edge)
         if signature == expected_signature:
             matches.append((edge, signature))
     if len(matches) != 1:
-        raise RuntimeError(f"复杂案例倒角边签名匹配不唯一: expected=1, actual={len(matches)}")
+        raise RuntimeError(f"Karmaşık vaka pah kenarı benzersiz değil / Complex-case chamfer edge match not unique: expected=1, actual={len(matches)}")
     edge, signature = matches[0]
     model.ClearSelection2(True)
     if not edge.Select2(False, 0):
-        raise RuntimeError("复杂案例倒角边选择失败")
+        raise RuntimeError('Karmaşık vaka pah kenarı seçilemedi / Complex-case chamfer edge selection failed')
     feature = model.FeatureManager.InsertFeatureChamfer(
         SW_CHAMFER_TANGENT_PROPAGATION,
         SW_CHAMFER_DISTANCE_DISTANCE,
@@ -205,10 +205,10 @@ def apply_complex_width_width_chamfer(model, case: dict[str, Any]) -> dict[str, 
         0.0,
     )
     if feature is None:
-        raise RuntimeError("固定复杂案例宽度-宽度倒角创建失败")
+        raise RuntimeError('Sabit vaka mesafe-mesafe pahı oluşturulamadı / Pinned-case distance-distance chamfer creation failed')
     feature.Name = "OpenSource_WidthWidth_C0p2_C0p4"
     if not model.ForceRebuild3(False):
-        raise RuntimeError("开源复杂件宽度-宽度倒角重建失败")
+        raise RuntimeError('Karmaşık parça pahı yeniden oluşturulamadı / Complex-part distance-distance chamfer rebuild failed')
     data = get_com_member(feature, "GetDefinition")
     feature_type = int(get_com_member(data, "Type")) if data is not None else -1
     distances = (
@@ -218,7 +218,7 @@ def apply_complex_width_width_chamfer(model, case: dict[str, Any]) -> dict[str, 
     )
     if feature_type != SW_CHAMFER_DISTANCE_DISTANCE or sorted(distances) != sorted([width1, width2]):
         raise RuntimeError(
-            f"复杂件倒角 FeatureData 不匹配: type={feature_type}, distances={distances}"
+            f"Karmaşık parça pah FeatureData uyuşmuyor / Complex-part chamfer FeatureData mismatch: type={feature_type}, distances={distances}"
         )
     return {
         "status": "verified",
@@ -230,7 +230,7 @@ def apply_complex_width_width_chamfer(model, case: dict[str, Any]) -> dict[str, 
 
 
 def hide_review_helpers(model) -> None:
-    """@brief 隐藏原点和参考三轴，保持复杂案例预览干净。"""
+    'Hide origin and reference axes for clean complex-case previews.'
     for preference in (SW_DISPLAY_ORIGINS, SW_DISPLAY_REFERENCE_TRIAD):
         try:
             model.SetUserPreferenceToggle(preference, False)
@@ -240,7 +240,7 @@ def hide_review_helpers(model) -> None:
 
 
 def run_solidworks_case(case: dict[str, Any], source: Path, output_dir: Path, version: int) -> dict[str, Any]:
-    """@brief 执行 STEP 导入、另存、导出、审查和重开拓扑闭环。"""
+    'Run the STEP import, save-as, export, review and reopened-topology evidence chain.'
     output_dir.mkdir(parents=True, exist_ok=True)
     part_path = output_dir / "OpenSource_2020_Corner_Bracket.SLDPRT"
     step_path = output_dir / "OpenSource_2020_Corner_Bracket_roundtrip.step"
@@ -251,14 +251,14 @@ def run_solidworks_case(case: dict[str, Any], source: Path, output_dir: Path, ve
         model = session.open(source, silent=True)
         imported = topology_counts(model)
         if not topology_is_complex(imported):
-            raise RuntimeError(f"导入拓扑未达到复杂案例门槛: {imported}")
+            raise RuntimeError(f"İçe aktarılan topoloji karmaşık vaka eşiğini karşılamıyor / Imported topology below complex-case threshold: {imported}")
         assert_expected_source_topology(case, imported)
         advanced_feature = apply_complex_width_width_chamfer(model, case)
         processed = topology_counts(model)
         if not session.save(model, part_path):
-            raise RuntimeError(f"原生另存失败: {part_path}")
+            raise RuntimeError(f"Yerel farklı kaydetme başarısız / Native save-as failed: {part_path}")
         if not export_to_step(model, step_path):
-            raise RuntimeError(f"STEP 往返导出失败: {step_path}")
+            raise RuntimeError(f"STEP gidiş-dönüş dışa aktarımı başarısız / STEP round-trip export failed: {step_path}")
         hide_review_helpers(model)
         review, review_path = run_review(
             model,
@@ -267,7 +267,7 @@ def run_solidworks_case(case: dict[str, Any], source: Path, output_dir: Path, ve
             expected_outputs=[str(part_path), str(step_path)],
         )
         if review["evaluation"]["status"] != "pass":
-            raise RuntimeError(f"复杂件多视角审查未通过: {review['evaluation']}")
+            raise RuntimeError(f"Karmaşık parça çoklu görünüş incelemesi başarısız / Complex-part multiview review failed: {review['evaluation']}")
         session.close(model=model)
         model = None
         reopened = session.open(part_path, read_only=True, silent=True)
@@ -275,11 +275,11 @@ def run_solidworks_case(case: dict[str, Any], source: Path, output_dir: Path, ve
         rebuild = bool(reopened.ForceRebuild3(False))
         if not rebuild or reopened_counts != processed:
             raise RuntimeError(
-                f"重开拓扑或重建不一致: processed={processed}, reopened={reopened_counts}, rebuild={rebuild}"
+                f"Yeniden açılan topoloji veya rebuild uyuşmuyor / Reopened topology or rebuild mismatch: processed={processed}, reopened={reopened_counts}, rebuild={rebuild}"
             )
         reopened_feature = reopened.FeatureByName(advanced_feature["feature_name"])
         if reopened_feature is None or str(get_com_member(reopened_feature, "GetTypeName2")) != "Chamfer":
-            raise RuntimeError("重开后复杂件宽度-宽度倒角未持久化")
+            raise RuntimeError('Yeniden açıldıktan sonra mesafe-mesafe pah kalmadı / Distance-distance chamfer did not persist after reopen')
         return {
             "status": "verified",
             "solidworks_revision": str(session.sw.RevisionNumber()),
@@ -312,8 +312,8 @@ def run_solidworks_case(case: dict[str, Any], source: Path, output_dir: Path, ve
 
 
 def parse_args() -> argparse.Namespace:
-    """@brief 解析命令行参数。"""
-    parser = argparse.ArgumentParser(description="验证固定开源复杂支架的 SolidWorks 往返质量")
+    'Parse CLI arguments.'
+    parser = argparse.ArgumentParser(description='Sabit açık kaynak braketin SolidWorks gidiş-dönüş kalitesini doğrular / Verify pinned open-source bracket round-trip quality')
     parser.add_argument("--case", type=Path, default=DEFAULT_CASE)
     parser.add_argument("--output-dir", type=Path, default=SKILL_ROOT / "output" / "opensource_corner_bracket")
     parser.add_argument("--version", type=int, default=2026)
@@ -322,7 +322,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> int:
-    """@brief 固定来源、执行回归并输出机器可读报告。"""
+    'Pin the source, run regression and output a machine-readable report.'
     args = parse_args()
     output_dir = args.output_dir.resolve()
     case = load_case(args.case.resolve())

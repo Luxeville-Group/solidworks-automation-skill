@@ -1,15 +1,12 @@
 """
-设计规格（design spec）解析与校验。
+Parse and validate design specifications.
 
-面向机械工程师的核心工作流：用一份**可版本控制的设计规格文件**描述零件，
-再由执行器幂等地重建模型。相比让 AI 每次重新生成一套祈使式建模调用，规格
-文件带来三个关键能力：
+Mechanical engineers describe parts in version-controlled specifications; the
+executor rebuilds them idempotently. Specifications can be diffed/committed, capture
+design intent, produce repeatable feature-tree structures and use verify to compare
+read-back geometry against expected values.
 
-1. **可 diff / 可 commit**：工程师提交的是设计意图，而不是一次性的脚本。
-2. **幂等可重建**：同一份规格任何时候构建出的特征树结构一致。
-3. **内建验证**：``verify`` 段让构建后自动回读几何并与期望比对。
-
-规格格式（单位默认 mm）：
+Example specification, default units mm:
 
 .. code-block:: json
 
@@ -37,7 +34,7 @@ SCHEMA_VERSION = "1.0"
 
 SUPPORTED_UNITS = {"mm", "cm", "m", "in"}
 
-# 单位换算到毫米
+# Convert units to millimeters
 _UNIT_TO_MM = {
     "mm": 1.0,
     "cm": 10.0,
@@ -54,55 +51,55 @@ MAX_FILLETS = 50
 
 
 class DesignSpecError(ValueError):
-    """设计规格校验失败。"""
+    """Design spec doğrulanamadı."""
 
     def __init__(self, code, message, field=None):
         self.code = code
         self.field = field
-        super().__init__(f"[{code}] {message}" + (f"（字段: {field}）" if field else ""))
+        super().__init__(f"[{code}] {message}" + (f" (alan: {field})" if field else ""))
 
 
 def unit_scale(units: str) -> float:
-    """返回该单位制到毫米的换算系数。"""
+    """Return the unit-to-millimeter conversion factor."""
     key = str(units or "mm").strip().lower()
     if key not in _UNIT_TO_MM:
         raise DesignSpecError(
             "SPEC_UNIT_UNSUPPORTED",
-            f"不支持的单位 {units!r}；可选 {sorted(_UNIT_TO_MM)}",
+            f"Desteklenmeyen birim {units!r}; seçenekler {sorted(_UNIT_TO_MM)}",
             "units",
         )
     return _UNIT_TO_MM[key]
 
 
 def to_mm(value, units: str) -> float:
-    """把规格中的长度值换算为毫米。"""
+    """Convert specification lengths to millimeters."""
     try:
         return float(value) * unit_scale(units)
     except (TypeError, ValueError) as exc:
-        raise DesignSpecError("SPEC_NUMBER_INVALID", f"期望数值，收到 {value!r}") from exc
+        raise DesignSpecError("SPEC_NUMBER_INVALID", f"Sayısal değer bekleniyordu; alınan {value!r}") from exc
 
 
 def _positive(value, field, where=""):
-    """校验正数。"""
+    """Validate a positive number."""
     try:
         number = float(value)
     except (TypeError, ValueError) as exc:
-        raise DesignSpecError("SPEC_NUMBER_INVALID", f"期望数值，收到 {value!r}", field) from exc
+        raise DesignSpecError("SPEC_NUMBER_INVALID", f"Sayısal değer bekleniyordu; alınan {value!r}", field) from exc
     if number <= 0:
-        raise DesignSpecError("SPEC_NOT_POSITIVE", f"必须为正数，收到 {number}", field)
+        raise DesignSpecError("SPEC_NOT_POSITIVE", f"Pozitif sayı gerekli; alınan {number}", field)
     return number
 
 
 def _position(value, field):
-    """校验二维/三维坐标。"""
+    """Validate 2D/3D coordinates."""
     if not isinstance(value, (list, tuple)) or len(value) < 2:
-        raise DesignSpecError("SPEC_POSITION_INVALID", f"期望 [x, y] 或 [x, y, z]，收到 {value!r}", field)
+        raise DesignSpecError("SPEC_POSITION_INVALID", f"[x, y] veya [x, y, z] bekleniyordu; alınan {value!r}", field)
     result = []
     for item in value[:3]:
         try:
             result.append(float(item))
         except (TypeError, ValueError) as exc:
-            raise DesignSpecError("SPEC_POSITION_INVALID", f"坐标含非数值 {item!r}", field) from exc
+            raise DesignSpecError("SPEC_POSITION_INVALID", f"Koordinat sayısal olmayan değer içeriyor: {item!r}", field) from exc
     while len(result) < 3:
         result.append(0.0)
     return result
@@ -110,14 +107,14 @@ def _position(value, field):
 
 def validate_design_spec(spec: Dict[str, Any]) -> Dict[str, Any]:
     """
-    校验设计规格并归一化为毫米制。
+    Validate a design specification and normalize lengths to millimeters.
 
-    参数:
-        spec: 解析后的规格字典（单位由 spec["units"] 决定，默认 mm）。
+    Args:
+        spec: Parsed dictionary; units comes from spec[units], default mm.
 
-    返回:
-        dict：status="ok" 时附带归一化后的 "normalized" 规格；否则 "errors"
-        列出全部问题（一次性返回所有错误，而不是遇到第一个就停，方便用户一次改完）。
+    Returns:
+        Dictionary with status=ok and normalized specification on success;
+        otherwise errors contains all problems so users can fix them together.
     """
     errors: List[Dict[str, Any]] = []
     warnings: List[str] = []
@@ -125,20 +122,20 @@ def validate_design_spec(spec: Dict[str, Any]) -> Dict[str, Any]:
     if not isinstance(spec, dict):
         return {
             "status": "error",
-            "errors": [{"code": "SPEC_NOT_OBJECT", "message": "规格必须是 JSON 对象"}],
+            "errors": [{"code": "SPEC_NOT_OBJECT", "message": "Spec bir JSON object olmalıdır"}],
             "warnings": [],
         }
 
     version = str(spec.get("schema_version", SCHEMA_VERSION))
     if version != SCHEMA_VERSION:
         warnings.append(
-            f"规格 schema_version={version}，当前执行器版本为 {SCHEMA_VERSION}；"
-            "将按当前版本解析，字段差异可能被忽略。"
+            f"Spesifikasyon schema_version={version}; mevcut yürütücü sürümü {SCHEMA_VERSION}; "
+            "Geçerli sürüme göre ayrıştırılacak; alan farklılıkları göz ardı edilebilir."
         )
 
     part_name = spec.get("part_name")
     if part_name is not None and not str(part_name).strip():
-        errors.append({"code": "SPEC_PART_NAME_EMPTY", "message": "part_name 不能为空字符串", "field": "part_name"})
+        errors.append({"code": "SPEC_PART_NAME_EMPTY", "message": "part_name boş olamaz", "field": "part_name"})
 
     units = str(spec.get("units", "mm"))
     try:
@@ -158,25 +155,25 @@ def validate_design_spec(spec: Dict[str, Any]) -> Dict[str, Any]:
     base_declared = "base" in spec and spec.get("base") is not None
     base = spec.get("base") or {}
     if not isinstance(base, dict):
-        errors.append({"code": "SPEC_BASE_INVALID", "message": "base 必须是对象", "field": "base"})
+        errors.append({"code": "SPEC_BASE_INVALID", "message": "base bir object olmalıdır", "field": "base"})
         base = {}
         base_declared = False
-    # 缺省 base 与显式 base.type="none" 含义不同：前者多半是用户漏写，
-    # 会建出一个空文档；后者是"只要后续特征"的明确意图。
+    # Missing base usually indicates an omission and would produce an empty document;
+    # explicit base.type=none instead expresses an intentional features-only request.
     base_type = str(base.get("type", "none")).strip().lower()
     if not base_declared and base_type == "none":
         errors.append({
             "code": "SPEC_EMPTY",
             "message": (
-                "规格未定义基础实体。请提供 base（rect_plate 或 cylinder）；"
-                "若确实只需后续特征，请显式写 base.type=\"none\"。"
+                "Spec temel katıyı tanımlamıyor. base (rect_plate veya cylinder) belirtin; "
+                "yalnızca sonraki feature işlemleri gerekiyorsa base.type=none değerini açıkça belirtin."
             ),
             "field": "base",
         })
     if base_type not in BASE_TYPES:
         errors.append({
             "code": "SPEC_BASE_TYPE",
-            "message": f"不支持的 base.type={base_type!r}；可选 {sorted(BASE_TYPES)}",
+            "message": f"Desteklenmeyen base.type={base_type!r}; seçenekler {sorted(BASE_TYPES)}",
             "field": "base.type",
         })
     else:
@@ -184,7 +181,7 @@ def validate_design_spec(spec: Dict[str, Any]) -> Dict[str, Any]:
         if base_type == "rect_plate":
             for key, mm_key in (("width", "width_mm"), ("height", "height_mm"), ("thickness", "thickness_mm")):
                 if key not in base:
-                    errors.append({"code": "SPEC_FIELD_MISSING", "message": f"rect_plate 缺少 {key}", "field": f"base.{key}"})
+                    errors.append({"code": "SPEC_FIELD_MISSING", "message": f"rect_plate eksik alan: {key}", "field": f"base.{key}"})
                     continue
                 try:
                     entry[mm_key] = round(_positive(base[key], f"base.{key}") * scale, 6)
@@ -193,7 +190,7 @@ def validate_design_spec(spec: Dict[str, Any]) -> Dict[str, Any]:
         elif base_type == "cylinder":
             for key, mm_key in (("diameter", "diameter_mm"), ("height", "height_mm")):
                 if key not in base:
-                    errors.append({"code": "SPEC_FIELD_MISSING", "message": f"cylinder 缺少 {key}", "field": f"base.{key}"})
+                    errors.append({"code": "SPEC_FIELD_MISSING", "message": f"cylinder eksik alan: {key}", "field": f"base.{key}"})
                     continue
                 try:
                     entry[mm_key] = round(_positive(base[key], f"base.{key}") * scale, 6)
@@ -204,12 +201,12 @@ def validate_design_spec(spec: Dict[str, Any]) -> Dict[str, Any]:
     # ---- holes ----
     holes = spec.get("holes") or []
     if not isinstance(holes, list):
-        errors.append({"code": "SPEC_HOLES_INVALID", "message": "holes 必须是数组", "field": "holes"})
+        errors.append({"code": "SPEC_HOLES_INVALID", "message": "holes bir array olmalıdır", "field": "holes"})
         holes = []
     elif len(holes) > MAX_HOLES:
         errors.append({
             "code": "SPEC_HOLES_TOO_MANY",
-            "message": f"holes 数量 {len(holes)} 超过上限 {MAX_HOLES}",
+            "message": f"holes sayısı {len(holes)} sınırı aşıyor: {MAX_HOLES}",
             "field": "holes",
         })
         holes = holes[:MAX_HOLES]
@@ -218,13 +215,13 @@ def validate_design_spec(spec: Dict[str, Any]) -> Dict[str, Any]:
     for index, hole in enumerate(holes):
         where = f"holes[{index}]"
         if not isinstance(hole, dict):
-            errors.append({"code": "SPEC_HOLE_INVALID", "message": "孔必须是对象", "field": where})
+            errors.append({"code": "SPEC_HOLE_INVALID", "message": "Delik bir object olmalıdır", "field": where})
             continue
         hole_type = str(hole.get("type", "through")).strip().lower()
         if hole_type not in HOLE_TYPES:
             errors.append({
                 "code": "SPEC_HOLE_TYPE",
-                "message": f"不支持的孔类型 {hole_type!r}；可选 {sorted(HOLE_TYPES)}",
+                "message": f"Desteklenmeyen delik türü {hole_type!r}; seçenekler {sorted(HOLE_TYPES)}",
                 "field": f"{where}.type",
             })
             continue
@@ -234,11 +231,11 @@ def validate_design_spec(spec: Dict[str, Any]) -> Dict[str, Any]:
         if hole_id is not None:
             hole_id = str(hole_id)
             if hole_id in seen_ids:
-                errors.append({"code": "SPEC_HOLE_ID_DUPLICATE", "message": f"孔 id 重复: {hole_id}", "field": f"{where}.id"})
+                errors.append({"code": "SPEC_HOLE_ID_DUPLICATE", "message": f"Yinelenen delik id: {hole_id}", "field": f"{where}.id"})
             seen_ids.add(hole_id)
             entry["id"] = hole_id
         else:
-            warnings.append(f"{where} 未提供 id；建议为每个孔命名以便追溯检验记录。")
+            warnings.append(f"{where} için id verilmedi; inceleme izlenebilirliği için her deliği adlandırın.")
             entry["id"] = f"H{index + 1}"
 
         try:
@@ -252,7 +249,7 @@ def validate_design_spec(spec: Dict[str, Any]) -> Dict[str, Any]:
 
         if hole_type == "blind":
             if hole.get("depth") is None:
-                errors.append({"code": "SPEC_FIELD_MISSING", "message": "盲孔必须给出 depth", "field": f"{where}.depth"})
+                errors.append({"code": "SPEC_FIELD_MISSING", "message": "Blind hole için depth belirtilmelidir", "field": f"{where}.depth"})
             else:
                 try:
                     entry["depth_mm"] = round(_positive(hole["depth"], f"{where}.depth") * scale, 6)
@@ -261,7 +258,7 @@ def validate_design_spec(spec: Dict[str, Any]) -> Dict[str, Any]:
         elif hole_type == "counterbore":
             for key, mm_key in (("counterbore_diameter", "counterbore_diameter_mm"), ("counterbore_depth", "counterbore_depth_mm")):
                 if hole.get(key) is None:
-                    errors.append({"code": "SPEC_FIELD_MISSING", "message": f"沉头孔必须给出 {key}", "field": f"{where}.{key}"})
+                    errors.append({"code": "SPEC_FIELD_MISSING", "message": f"Counterbore için gerekli: {key}", "field": f"{where}.{key}"})
                     continue
                 try:
                     entry[mm_key] = round(_positive(hole[key], f"{where}.{key}") * scale, 6)
@@ -270,7 +267,7 @@ def validate_design_spec(spec: Dict[str, Any]) -> Dict[str, Any]:
         elif hole_type == "countersink":
             for key, mm_key in (("countersink_diameter", "countersink_diameter_mm"), ("angle", "angle_deg")):
                 if hole.get(key) is None:
-                    errors.append({"code": "SPEC_FIELD_MISSING", "message": f"锥沉孔必须给出 {key}", "field": f"{where}.{key}"})
+                    errors.append({"code": "SPEC_FIELD_MISSING", "message": f"Countersink için gerekli: {key}", "field": f"{where}.{key}"})
                     continue
                 if key == "angle":
                     entry[mm_key] = float(hole[key])
@@ -285,12 +282,12 @@ def validate_design_spec(spec: Dict[str, Any]) -> Dict[str, Any]:
     # ---- fillets ----
     fillets = spec.get("fillets") or []
     if not isinstance(fillets, list):
-        errors.append({"code": "SPEC_FILLETS_INVALID", "message": "fillets 必须是数组", "field": "fillets"})
+        errors.append({"code": "SPEC_FILLETS_INVALID", "message": "fillets bir array olmalıdır", "field": "fillets"})
         fillets = []
     elif len(fillets) > MAX_FILLETS:
         errors.append({
             "code": "SPEC_FILLETS_TOO_MANY",
-            "message": f"fillets 数量 {len(fillets)} 超过上限 {MAX_FILLETS}",
+            "message": f"fillets sayısı {len(fillets)} sınırı aşıyor: {MAX_FILLETS}",
             "field": "fillets",
         })
         fillets = fillets[:MAX_FILLETS]
@@ -298,7 +295,7 @@ def validate_design_spec(spec: Dict[str, Any]) -> Dict[str, Any]:
     for index, fillet in enumerate(fillets):
         where = f"fillets[{index}]"
         if not isinstance(fillet, dict):
-            errors.append({"code": "SPEC_FILLET_INVALID", "message": "圆角必须是对象", "field": where})
+            errors.append({"code": "SPEC_FILLET_INVALID", "message": "Fillet bir object olmalıdır", "field": where})
             continue
         entry = {}
         try:
@@ -307,17 +304,17 @@ def validate_design_spec(spec: Dict[str, Any]) -> Dict[str, Any]:
             errors.append({"code": exc.code, "message": str(exc), "field": exc.field})
         axis = str(fillet.get("axis", "z")).strip().lower()
         if axis not in {"x", "y", "z", "vertical", "all"}:
-            errors.append({"code": "SPEC_FILLET_AXIS", "message": f"不支持的 axis={axis!r}", "field": f"{where}.axis"})
+            errors.append({"code": "SPEC_FILLET_AXIS", "message": f"Desteklenmeyen axis={axis!r}", "field": f"{where}.axis"})
         else:
             entry["axis"] = axis
         for flag in ("convex_only", "concave_only"):
             if flag in fillet:
                 entry[flag] = bool(fillet[flag])
         if entry.get("convex_only") and entry.get("concave_only"):
-            errors.append({"code": "SPEC_FILLET_FLAGS", "message": "convex_only 与 concave_only 不能同时为真", "field": where})
+            errors.append({"code": "SPEC_FILLET_FLAGS", "message": "convex_only ve concave_only aynı anda true olamaz", "field": where})
         normalized["fillets"].append(entry)
 
-    # ---- fillet 半径可行性 ----
+    # ---- Fillet-radius feasibility ----
     thickness = (normalized.get("base") or {}).get("thickness_mm")
     for index, fillet in enumerate(normalized["fillets"]):
         radius = fillet.get("radius_mm")
@@ -325,14 +322,14 @@ def validate_design_spec(spec: Dict[str, Any]) -> Dict[str, Any]:
             continue
         if radius * 2 > thickness:
             warnings.append(
-                f"fillets[{index}] 半径 {radius}mm 超过板厚 {thickness}mm 的一半，"
-                "SolidWorks 可能无法生成或产生自交，请确认设计意图。"
+                f"fillets[{index}] yarıçapı {radius} mm; levha kalınlığının yarısını aşıyor (kalınlık {thickness} mm), "
+                "SolidWorks oluşturamayabilir veya kendiyle kesişme oluşabilir; tasarım amacını doğrulayın."
             )
 
     # ---- verify ----
     verify = spec.get("verify") or {}
     if verify and not isinstance(verify, dict):
-        errors.append({"code": "SPEC_VERIFY_INVALID", "message": "verify 必须是对象", "field": "verify"})
+        errors.append({"code": "SPEC_VERIFY_INVALID", "message": "verify bir object olmalıdır", "field": "verify"})
         verify = {}
     if verify:
         normalized_verify: Dict[str, Any] = {}
@@ -345,22 +342,22 @@ def validate_design_spec(spec: Dict[str, Any]) -> Dict[str, Any]:
             try:
                 normalized_verify["hole_count"] = int(verify["hole_count"])
             except (TypeError, ValueError) as exc:
-                errors.append({"code": "SPEC_NUMBER_INVALID", "message": "verify.hole_count 必须是整数", "field": "verify.hole_count"})
+                errors.append({"code": "SPEC_NUMBER_INVALID", "message": "verify.hole_count bir tamsayı olmalıdır", "field": "verify.hole_count"})
         if verify.get("tolerance_mm") is not None:
             try:
                 normalized_verify["tolerance_mm"] = abs(float(verify["tolerance_mm"]))
             except (TypeError, ValueError) as exc:
-                errors.append({"code": "SPEC_NUMBER_INVALID", "message": "verify.tolerance_mm 必须是数值", "field": "verify.tolerance_mm"})
+                errors.append({"code": "SPEC_NUMBER_INVALID", "message": "verify.tolerance_mm sayısal olmalıdır", "field": "verify.tolerance_mm"})
         if verify.get("min_mass_g") is not None:
             try:
                 normalized_verify["min_mass_g"] = float(verify["min_mass_g"])
             except (TypeError, ValueError) as exc:
-                errors.append({"code": "SPEC_NUMBER_INVALID", "message": "verify.min_mass_g 必须是数值", "field": "verify.min_mass_g"})
+                errors.append({"code": "SPEC_NUMBER_INVALID", "message": "verify.min_mass_g sayısal olmalıdır", "field": "verify.min_mass_g"})
         if verify.get("max_mass_g") is not None:
             try:
                 normalized_verify["max_mass_g"] = float(verify["max_mass_g"])
             except (TypeError, ValueError) as exc:
-                errors.append({"code": "SPEC_NUMBER_INVALID", "message": "verify.max_mass_g 必须是数值", "field": "verify.max_mass_g"})
+                errors.append({"code": "SPEC_NUMBER_INVALID", "message": "verify.max_mass_g sayısal olmalıdır", "field": "verify.max_mass_g"})
         normalized["verify"] = normalized_verify
     else:
         normalized["verify"] = {}
@@ -375,19 +372,19 @@ def validate_design_spec(spec: Dict[str, Any]) -> Dict[str, Any]:
 
 def load_design_spec(path) -> Dict[str, Any]:
     """
-    读取并校验设计规格文件（.json）。
+    Read and validate a .json design specification.
 
-    参数:
-        path: 规格文件路径。
+    Args:
+        path: Specification path.
 
-    返回:
-        validate_design_spec 的结果，额外附带 "source_path"。
+    Returns:
+        validate_design_spec result with source_path added.
     """
     resolved = Path(str(path)).expanduser().resolve()
     if not resolved.is_file():
         return {
             "status": "error",
-            "errors": [{"code": "SPEC_FILE_MISSING", "message": f"规格文件不存在: {resolved}"}],
+            "errors": [{"code": "SPEC_FILE_MISSING", "message": f"Spesifikasyon dosyası yok: {resolved}"}],
             "warnings": [],
             "source_path": str(resolved),
         }
@@ -396,7 +393,7 @@ def load_design_spec(path) -> Dict[str, Any]:
     except json.JSONDecodeError as exc:
         return {
             "status": "error",
-            "errors": [{"code": "SPEC_JSON_INVALID", "message": f"JSON 解析失败: {exc}"}],
+            "errors": [{"code": "SPEC_JSON_INVALID", "message": f"JSON ayrıştırılamadı: {exc}"}],
             "warnings": [],
             "source_path": str(resolved),
         }
@@ -407,18 +404,17 @@ def load_design_spec(path) -> Dict[str, Any]:
 
 def compare_verification(actual: Dict[str, Any], expected: Dict[str, Any]) -> Dict[str, Any]:
     """
-    把构建后的实测几何与规格的 verify 段比对。
+    Compare measured geometry with the specification verify section.
 
-    参数:
-        actual: 构建后回读的结果，含 envelope_mm / hole_count / mass_g。
-        expected: 规格中归一化后的 verify 段。
+    Args:
+        actual: Read-back envelope_mm / hole_count / mass_g.
+        expected: Normalized verify section.
 
-    返回:
-        dict：status 为 "pass" | "warn" | "skipped"；checks 列出每项比对结论。
+    Returns:
+        Dictionary with pass/warn/skipped status and per-comparison checks.
 
-    说明:
-        比对失败返回 "warn" 而不是 "error"：几何不匹配可能来自设计变更而非执行
-        缺陷，必须交给工程师判断。绝不静默通过。
+    Mismatches return warn rather than error: they may reflect design changes
+    instead of execution defects and require engineering judgment. Never silently pass.
     """
     checks: List[Dict[str, Any]] = []
     tolerance = float(expected.get("tolerance_mm", 0.1) or 0.1)
@@ -446,7 +442,7 @@ def compare_verification(actual: Dict[str, Any], expected: Dict[str, Any]) -> Di
             "expected": list(expected_envelope),
             "actual": None,
             "passed": False,
-            "note": "未能回读包围盒，无法验证尺寸。",
+            "note": "Bounding box okunamadı; boyutlar doğrulanamıyor.",
         })
 
     if expected.get("hole_count") is not None:
@@ -475,7 +471,7 @@ def compare_verification(actual: Dict[str, Any], expected: Dict[str, Any]) -> Di
         })
 
     if not checks:
-        return {"status": "skipped", "checks": [], "note": "规格未提供 verify 段，跳过几何验证。"}
+        return {"status": "skipped", "checks": [], "note": "Spec verify bölümü içermiyor; geometri doğrulaması atlandı."}
 
     failed = [check for check in checks if not check["passed"]]
     return {

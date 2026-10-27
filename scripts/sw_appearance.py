@@ -1,8 +1,7 @@
 """
-SolidWorks 外观与材质工具。
+SOLIDWORKS appearance and material utilities.
 
-SolidWorks 的外观 API 在不同版本和对象类型上差异较多，本模块优先提供
-容错封装：同一颜色会依次尝试文档、特征、组件层级的常见接口。
+Appearance APIs vary by version and object type. These tolerant wrappers try common document, feature, and component interfaces in sequence for the same color.
 """
 import re
 
@@ -37,24 +36,20 @@ PRESET_COLORS = {
 
 def rgb01(color):
     """
-    将颜色转换为 0..1 RGB。
+    Convert a color to RGB in the range 0..1.
 
-    支持:
-        - 预设名，如 "iron_red"
-        - 十六进制，如 "#8A0E0E"
-        - 0..255 RGB 元组
-        - 0..1 RGB 元组
+    Supports preset names such as "iron_red", hexadecimal values such as "#8A0E0E", RGB tuples in 0..255, and RGB tuples in 0..1.
     """
     if isinstance(color, str):
         value = PRESET_COLORS.get(color, color).strip()
         match = re.fullmatch(r"#?([0-9a-fA-F]{6})", value)
         if not match:
-            raise ValueError(f"未知颜色: {color}")
+            raise ValueError(f"Bilinmeyen renk: {color}")
         hex_value = match.group(1)
         return tuple(int(hex_value[i:i + 2], 16) / 255.0 for i in (0, 2, 4))
 
     if len(color) != 3:
-        raise ValueError("RGB 颜色必须包含 3 个值")
+        raise ValueError("RGB rengi 3 değer içermeli")
     if max(color) > 1:
         return tuple(float(v) / 255.0 for v in color)
     return tuple(float(v) for v in color)
@@ -63,24 +58,23 @@ def rgb01(color):
 def material_values(color, ambient=0.35, diffuse=0.75, specular=0.45,
                     shininess=0.35, transparency=0.0, emission=0.0):
     """
-    生成 SolidWorks 材质属性数组。
+    Build a SOLIDWORKS material property array.
 
-    数组顺序为:
-        red, green, blue, ambient, diffuse, specular, shininess, transparency, emission
+    Order: red, green, blue, ambient, diffuse, specular, shininess, transparency, emission.
     """
     red, green, blue = rgb01(color)
     return [red, green, blue, ambient, diffuse, specular, shininess, transparency, emission]
 
 
 def material_variant(values):
-    """把九位材质数组封装为 COM SAFEARRAY(double)，防止 RGB 通道错位。"""
+    """Wrap the nine material values as COM SAFEARRAY(double) to prevent RGB channel misalignment."""
     if len(values) != 9:
-        raise ValueError("SolidWorks 材质数组必须包含 9 个值")
+        raise ValueError("SOLIDWORKS malzeme dizisi 9 değer içermeli")
     return VARIANT(pythoncom.VT_ARRAY | pythoncom.VT_R8, [float(v) for v in values])
 
 
 def _configuration_args(configuration):
-    """生成 SetMaterialPropertyValues2 的配置选项和名称参数。"""
+    """Build the configuration options and names for SetMaterialPropertyValues2."""
     if not configuration:
         return SW_THIS_CONFIGURATION, None
     names = VARIANT(pythoncom.VT_ARRAY | pythoncom.VT_BSTR, [str(configuration)])
@@ -88,7 +82,7 @@ def _configuration_args(configuration):
 
 
 def _try_set(target, attr_name, values, *args):
-    """尝试设置属性或调用方法；void 方法无异常即视为成功。"""
+    """Try setting a property or calling a method; a void method succeeds if it raises no exception."""
     try:
         member = getattr(target, attr_name)
         if callable(member):
@@ -102,7 +96,7 @@ def _try_set(target, attr_name, values, *args):
 
 
 def get_material_property_values(target):
-    """读取文档、特征或组件的九位材质数组，读取失败返回 None。"""
+    """Read the nine material values from a document, feature, or component; return None on failure."""
     readers = [
         lambda: target.MaterialPropertyValues,
         lambda: target.GetMaterialPropertyValues(),
@@ -118,7 +112,7 @@ def get_material_property_values(target):
 
 
 def verify_appearance(target, color, tolerance=0.01):
-    """回读并验证目标前三位 RGB，返回结构化结果。"""
+    """Read back and verify the first three RGB values, returning structured results."""
     expected = rgb01(color)
     actual_values = get_material_property_values(target)
     actual = actual_values[:3] if actual_values else None
@@ -133,10 +127,7 @@ def verify_appearance(target, color, tolerance=0.01):
 
 def set_document_appearance(model, color, configuration=""):
     """
-    设置文档级外观颜色。
-
-    返回:
-        bool 是否至少一个接口调用成功。
+    Set document appearance color. Return True if at least one interface call succeeds.
     """
     packed = material_variant(material_values(color))
     option, names = _configuration_args(configuration)
@@ -152,10 +143,7 @@ def set_document_appearance(model, color, configuration=""):
 
 def set_feature_appearance(feature, color, configuration=""):
     """
-    设置特征级外观颜色。
-
-    返回:
-        bool 是否至少一个接口调用成功。
+    Set feature appearance color. Return True if at least one interface call succeeds.
     """
     packed = material_variant(material_values(color))
     option, names = _configuration_args(configuration)
@@ -167,10 +155,7 @@ def set_feature_appearance(feature, color, configuration=""):
 
 def set_component_appearance(component, color, configuration=""):
     """
-    设置装配体组件外观颜色。
-
-    返回:
-        bool 是否至少一个接口调用成功。
+    Set assembly component appearance color. Return True if at least one interface call succeeds.
     """
     packed = material_variant(material_values(color))
     option, names = _configuration_args(configuration)
@@ -182,14 +167,14 @@ def set_component_appearance(component, color, configuration=""):
 
 def apply_component_palette(assignments, strict=True):
     """
-    批量设置组件颜色并逐项回读。
+    Set component colors in a batch and read each back.
 
-    参数:
-        assignments: ``[(component, color), ...]``
-        strict: True 时任何组件失败立即抛出 RuntimeError
+    Args:
+        assignments: [(component, color), ...].
+        strict: Raise RuntimeError immediately if any component fails when True.
 
-    返回:
-        list[dict]，包含 index、color、ok、expected_rgb、actual_rgb、max_error
+    Returns:
+        list[dict] with index, color, ok, expected_rgb, actual_rgb, and max_error.
     """
     reports = []
     for index, (component, color) in enumerate(assignments):
@@ -199,17 +184,17 @@ def apply_component_palette(assignments, strict=True):
         reports.append(report)
         if strict and not report["ok"]:
             raise RuntimeError(
-                f"组件 {index} 外观验证失败: 预期 {report['expected_rgb']}，"
-                f"实际 {report['actual_rgb']}"
+                f"Bileşen {index} görünüş doğrulaması başarısız: beklenen {report['expected_rgb']}, "
+                f"gerçek {report['actual_rgb']}"
             )
     return reports
 
 
 def apply_named_appearance(target, name):
     """
-    给任意常见对象应用预设外观。
+    Apply a preset appearance to a common object.
 
-    该函数会按文档、组件、特征的顺序尝试。
+    Try document, component, and feature interfaces in that order.
     """
     return (
         set_document_appearance(target, name)

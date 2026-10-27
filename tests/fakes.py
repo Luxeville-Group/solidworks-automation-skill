@@ -1,15 +1,15 @@
 """
-测试用的 SolidWorks COM 替身工厂。
+SolidWorks COM test-double factories.
 
-背景：此前每个测试文件各自手搓 Fake 类（``sys.modules["sw_connect"] = SimpleNamespace(...)``
-之类），导致同一个假体有七八份互不兼容的实现。本模块提供统一的替身，新增测试
-应当复用这里的类，而不是再写一份。
+Previously, each test file defined its own Fake classes, such as ``sys.modules["sw_connect"] = SimpleNamespace(...)``,
+creating seven or eight incompatible implementations of the same object. This module supplies shared doubles;
+new tests should reuse these classes instead of creating another set.
 
-设计原则：
-- 替身只实现被测代码**实际调用**的成员，其余情况显式抛错，避免"静默返回 None
-  让测试假通过"。
-- 记录调用序列（``calls``），便于断言"没有调用 SelectByID2"这类回归要求。
-- 单位一律按调用方传入处理，不做换算——单位换算本身是被测对象。
+Design principles:
+- Doubles implement only members **actually called** by the tested code and fail explicitly otherwise, preventing
+  silently returned None values from making tests pass incorrectly.
+- Record call sequences (``calls``) for regression assertions such as ensuring SelectByID2 was not called.
+- Preserve units supplied by callers without conversion: unit conversion is itself under test.
 """
 from __future__ import annotations
 
@@ -18,14 +18,14 @@ from typing import Any, Dict, List, Optional, Tuple
 
 
 class FakeVariant:
-    """VARIANT 占位类型，只记录构造参数。"""
+    """VARIANT placeholder that records constructor arguments only."""
 
     def __init__(self, *args):
         self.args = args
 
 
 class FakeEdge:
-    """边线替身。记录选择状态，支持 Select2/Select4。"""
+    """Edge double recording selection state and supporting Select2/Select4."""
 
     def __init__(self, index=0, length_m=0.01, start_m=(0.0, 0.0, 0.0), end_m=(0.0, 0.0, 0.01),
                  is_circle=False, diameter_m=None, selectable=True):
@@ -52,10 +52,10 @@ class FakeEdge:
         return FakeVertex(self.end_m)
 
     def GetCurveParams2(self):
-        # 圆： [圆心(3), 轴(3), 半径]
+        # Circle: [center(3), axis(3), radius]
         if self.is_circle:
             return [0.0, 0.0, 0.0, 0.0, 0.0, 1.0, self.diameter_m / 2.0 if self.diameter_m else 0.005]
-        # 直线：[起点(3), 终点(3), 方向(3)]
+        # Line: [start(3), end(3), direction(3)]
         direction = [self.end_m[axis] - self.start_m[axis] for axis in range(3)]
         return [*self.start_m, *self.end_m, *direction]
 
@@ -71,7 +71,7 @@ class FakeEdge:
 
 
 class FakeVertex:
-    """顶点替身。"""
+    """Vertex double."""
 
     def __init__(self, point_m):
         self.point_m = point_m
@@ -81,7 +81,7 @@ class FakeVertex:
 
 
 class FakeCurve:
-    """曲线替身。"""
+    """Curve double."""
 
     def __init__(self, is_circle=False, diameter_m=None):
         self.is_circle = is_circle
@@ -98,7 +98,7 @@ class FakeCurve:
 
 
 class FakeFace:
-    """面替身。"""
+    """Face double."""
 
     def __init__(self, edges=(), is_cylinder=False, cylinder_radius_m=None):
         self.edges = list(edges)
@@ -113,7 +113,7 @@ class FakeFace:
 
 
 class FakeSurface:
-    """曲面替身。"""
+    """Surface double."""
 
     def __init__(self, is_cylinder=False, radius_m=None):
         self.is_cylinder = is_cylinder
@@ -127,7 +127,7 @@ class FakeSurface:
 
 
 class FakeBody:
-    """实体替身。"""
+    """Body double."""
 
     def __init__(self, edges=(), faces=()):
         self.edges = list(edges)
@@ -141,16 +141,16 @@ class FakeBody:
 
 
 class FakeFeature:
-    """特征替身。"""
+    """Feature double."""
 
     def __init__(self, name="Feature1"):
         self.Name = name
 
 
 class FakeMassProperty:
-    """质量属性替身。
+    """Mass-properties double.
 
-    注意 Space 类型的成员（Status）通过 ``has_status=False`` 模拟缺失版本。
+    Space-style members such as Status simulate unavailable versions through ``has_status=False``.
     """
 
     def __init__(self, mass_kg=0.0, volume_m3=0.0, area_m2=0.0, center_m=(0.0, 0.0, 0.0),
@@ -185,12 +185,12 @@ class FakeMassProperty:
 
 class FakeModel:
     """
-    文档替身。
+    Document double.
 
-    参数:
-        title / path: 文档指纹。
-        box_m: GetPartBox(True) 的 6 个坐标（米）。None 表示未创建几何。
-        material: 已分配材料名；None 表示未分配。
+    Parameters:
+        title / path: document identity.
+        box_m: six GetPartBox(True) coordinates in meters; None means no geometry.
+        material: assigned material name; None means unassigned.
     """
 
     def __init__(self, title="Part1", path="", box_m=None, material=None,
@@ -209,7 +209,7 @@ class FakeModel:
         self.SketchManager = FakeSketchManager()
         self.FeatureManager = FakeFeatureManager(self)
 
-    # ---- 基本标识 ----
+    # ---- Basic identity ----
     def GetTitle(self):
         return self._title
 
@@ -219,12 +219,12 @@ class FakeModel:
     def GetType(self):
         return 1  # swDocPART
 
-    # ---- 几何 ----
+    # ---- Geometry ----
     def GetPartBox(self, use_system_units=True):
         self.calls.append(f"GetPartBox({use_system_units})")
         if self._box_m is None:
             raise RuntimeError("no geometry")
-        # 关键：GetPartBox(True) 返回米，GetPartBox(False) 返回毫米。
+        # Critical: GetPartBox(True) returns meters; GetPartBox(False) returns millimeters.
         if use_system_units:
             return list(self._box_m)
         return [value * 1000.0 for value in self._box_m]
@@ -246,7 +246,7 @@ class FakeModel:
 
 
 class FakeExtension:
-    """ModelDocExtension 替身。"""
+    """ModelDocExtension double."""
 
     def __init__(self, model: FakeModel):
         self._model = model
@@ -265,7 +265,7 @@ class FakeExtension:
 
 
 class FakeSketchManager:
-    """SketchManager 替身。"""
+    """SketchManager double."""
 
     def __init__(self):
         self.ActiveSketch = None
@@ -275,7 +275,7 @@ class FakeSketchManager:
 
 
 class FakeFeatureManager:
-    """FeatureManager 替身。记录每次特征创建的参数。"""
+    """FeatureManager double recording each feature-creation argument list."""
 
     def __init__(self, model: FakeModel):
         self._model = model
@@ -289,13 +289,13 @@ class FakeFeatureManager:
     def FeatureFillet(self, *args):
         self.fillet_calls.append(args)
         if self._model.selection_count <= 0:
-            raise RuntimeError("非选择性的参数")
+            raise RuntimeError("Parameter not optional")
         return self.fillet_result
 
     def InsertFeatureChamfer(self, *args):
         self.chamfer_calls.append(args)
         if self._model.selection_count <= 0:
-            raise RuntimeError("非选择性的参数")
+            raise RuntimeError("Parameter not optional")
         return self.chamfer_result
 
     def FeatureExtrusion3(self, *args):
@@ -308,7 +308,7 @@ class FakeFeatureManager:
 
 
 class FakeSolidWorks:
-    """ISldWorks 替身：管理文档列表、新建与关闭。"""
+    """ISldWorks double managing document lists, creation, and closing."""
 
     def __init__(self, documents=(), template_ok=True):
         self.documents = list(documents)
@@ -353,11 +353,11 @@ class FakeSolidWorks:
 
 def install_com_stubs(monkeypatch=None):
     """
-    为 ``scripts`` 包注入 COM 替身，使被测模块可以离线导入。
+    Inject COM doubles for the ``scripts`` package so tested modules can import offline.
 
-    返回一个命名空间，便于测试断言。
+    Return a namespace for test assertions.
 
-    用法::
+    Usage::
 
         stubs = install_com_stubs()
         from scripts import sw_measure

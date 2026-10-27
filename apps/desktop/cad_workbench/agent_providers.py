@@ -1,4 +1,4 @@
-"""@brief CAD Studio 多 Agent CLI Provider 发现、命令构建与结果归一化。"""
+"""@brief Discover Agent CLI providers, construct commands, and normalize results."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ REQUIRED_RESULT_FIELDS = {"summary", "changedFiles", "verification", "risks", "n
 
 @dataclass(frozen=True)
 class AgentProvider:
-    """@brief 一个本地 Agent CLI 的静态能力描述。"""
+    """@brief Describe static capabilities of a local Agent CLI."""
 
     id: str
     name: str
@@ -26,12 +26,12 @@ class AgentProvider:
     command: tuple[str, ...]
 
     def to_dict(self) -> dict[str, Any]:
-        """@brief 返回可写入健康检查或任务日志的字典。"""
+        """@brief Return a dictionary for health checks or job logs."""
         return asdict(self)
 
 
 def _node_command(script: Path) -> tuple[str, ...] | None:
-    """@brief 使用 node 直接运行 npm CLI，避免 Windows cmd/PowerShell 二次解析 prompt。"""
+    """@brief Launch an npm CLI directly through Node to avoid cmd/PowerShell prompt reparsing."""
     if not script.is_file():
         return None
     npm_root = next((parent for parent in script.parents if parent.name.lower() == "npm"), None)
@@ -41,7 +41,7 @@ def _node_command(script: Path) -> tuple[str, ...] | None:
 
 
 def _first_executable(candidates: Sequence[str | Path]) -> tuple[str, ...] | None:
-    """@brief 从显式路径和 PATH 名称中返回首个可执行入口。"""
+    """@brief Return the first executable entrypoint found in explicit paths and PATH names."""
     for raw in candidates:
         text = str(raw)
         path = Path(text).expanduser()
@@ -54,10 +54,10 @@ def _first_executable(candidates: Sequence[str | Path]) -> tuple[str, ...] | Non
 
 
 def resolve_provider(provider_id: str) -> AgentProvider:
-    """@brief 解析本机 Agent CLI；不存在时抛出可读错误。"""
+    """@brief Resolve the local Agent CLI and raise a readable error if it is absent."""
     provider_id = str(provider_id or "codex").strip().lower()
     if provider_id not in SUPPORTED_PROVIDER_IDS:
-        raise ValueError(f"不支持的 Agent Provider: {provider_id}")
+        raise ValueError(f"Desteklenmeyen  Agent Provider: {provider_id}")
 
     appdata = Path(os.environ.get("APPDATA", "")) if os.environ.get("APPDATA") else None
     home = Path.home()
@@ -90,7 +90,7 @@ def resolve_provider(provider_id: str) -> AgentProvider:
 
     if command is None:
         env_name = f"{provider_id.upper()}_BIN"
-        raise FileNotFoundError(f"没有找到 {metadata[0]} CLI。请安装后加入 PATH，或通过 {env_name} 指定入口。")
+        raise FileNotFoundError(f"Bulunamadı {metadata[0]} CLI.Kurulumdan sonra ekleyin:  PATH,  veya  {env_name}  specified entrypoint.")
     return AgentProvider(provider_id, metadata[0], metadata[1], metadata[2], metadata[3], command)
 
 
@@ -103,7 +103,7 @@ def build_provider_command(
     sandbox: str,
     model: str | None = None,
 ) -> list[str]:
-    """@brief 把统一任务协议编译成目标 CLI 的非交互命令。"""
+    """@brief Compile the unified job protocol into the target CLI's noninteractive command."""
     model = str(model or "").strip()
     command = list(provider.command)
     if provider.id == "codex":
@@ -159,7 +159,7 @@ def build_provider_command(
 
 
 def _result_from_value(value: Any) -> dict[str, Any] | None:
-    """@brief 从不同 Provider 的 JSON 包装层递归寻找统一结果对象。"""
+    """@brief Recursively locate the unified result object inside provider-specific JSON wrappers."""
     if isinstance(value, dict):
         if REQUIRED_RESULT_FIELDS.issubset(value):
             return value
@@ -183,7 +183,7 @@ def _result_from_value(value: Any) -> dict[str, Any] | None:
 
 
 def _result_from_text(text: str) -> dict[str, Any] | None:
-    """@brief 从普通文本或 Markdown 代码块中提取首个符合协议的 JSON 对象。"""
+    """@brief Extract the first protocol-compliant JSON object from plain text or Markdown code blocks."""
     decoder = json.JSONDecoder()
     for index, character in enumerate(text):
         if character != "{":
@@ -199,7 +199,7 @@ def _result_from_text(text: str) -> dict[str, Any] | None:
 
 
 def _normalise_unified_result(value: dict[str, Any]) -> dict[str, Any]:
-    """@brief 归一化 Provider 常见字段别名，再交给统一契约严格校验。"""
+    """@brief Normalize common provider field aliases, then strictly validate the unified contract."""
     result = dict(value)
     verification = result.get("verification")
     if isinstance(verification, list):
@@ -229,14 +229,14 @@ def _normalise_unified_result(value: dict[str, Any]) -> dict[str, Any]:
 
 
 def parse_provider_result(provider: AgentProvider, stdout: str, output_path: Path) -> dict[str, Any]:
-    """@brief 将 Provider 原生输出归一化为统一 Agent 结果对象。"""
+    """@brief Normalize native provider output into a unified Agent result object."""
     if provider.id == "codex":
         if not output_path.is_file():
-            raise RuntimeError(f"Codex 未生成结构化结果文件: {output_path}")
+            raise RuntimeError(f"Codex Yapılandırılmış sonuç dosyası üretilmedi: {output_path}")
         try:
             value = json.loads(output_path.read_text(encoding="utf-8"))
         except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
-            raise RuntimeError(f"Codex 结构化结果无效: {output_path}: {exc}") from exc
+            raise RuntimeError(f"Codex Geçersiz yapılandırılmış sonuç: {output_path}: {exc}") from exc
         found = _result_from_value(value)
     else:
         found = None
@@ -253,7 +253,7 @@ def parse_provider_result(provider: AgentProvider, stdout: str, output_path: Pat
                         continue
                 found = _result_from_value(events) or _result_from_text(stripped)
     if found is None:
-        raise RuntimeError(f"{provider.name} 未返回符合统一 Agent 协议的结构化结果")
+        raise RuntimeError(f"{provider.name} Unified result not returned:  Agent  protocol-compliant structured result")
     found = _normalise_unified_result(found)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(found, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -266,7 +266,7 @@ def probe_provider(
     cwd: Path,
     timeout_seconds: int = 10,
 ) -> dict[str, Any]:
-    """@brief 低成本探测 Provider 版本，不发送模型请求。"""
+    """@brief Probe the provider version without sending model requests."""
     try:
         provider = resolve_provider(provider_id)
         completed = runner([*provider.command, "--version"], cwd, timeout_seconds)

@@ -1,4 +1,4 @@
-"""@brief 注塑声明型规则、单位和入口一致性，不声称真实模具认证。"""
+"""Injection-molding declarative rules, units, and entrypoint consistency without claiming actual mold certification."""
 import json
 from pathlib import Path
 import sys
@@ -10,7 +10,7 @@ from scripts.dfm_review import build_dfm_report
 
 
 def source(path, **changes):
-    """@brief 声明型测试输入，明确与 B-Rep 事实区分。"""
+    """Declarative test input is explicitly distinct from B-Rep facts."""
     manufacturing = {"process": "injection_molding", "material": "ABS", "wallThickness": 2,
         "draftAngleDeg": 2, "minimumDraftAngleDeg": 1.5,
         "ribThickness": 1, "maximumRibWallRatio": .6, "maxWallThickness": 2.2,
@@ -67,7 +67,7 @@ def test_mcp_accepts_the_same_process_name(tmp_path):
 
 
 def test_cli_emits_injection_report_and_preserves_manual_review(tmp_path):
-    """@brief 真实 CLI 接受同一工艺，落盘报告保留工程复核门禁。"""
+    """The real CLI accepts the same process and retains the engineering-review gate in saved reports."""
     root = Path(__file__).resolve().parents[1]
     path = source(tmp_path / "part.cadstudio.json")
     output = tmp_path / "report.json"

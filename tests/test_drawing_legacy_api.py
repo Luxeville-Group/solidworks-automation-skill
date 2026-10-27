@@ -1,4 +1,4 @@
-"""@brief 旧版接口独立替身验证，不能代替 SW2020 真机兼容矩阵。"""
+"""Independent legacy-interface test doubles do not replace a native SW2020 compatibility matrix."""
 import sys
 from pathlib import Path
 
@@ -9,7 +9,7 @@ import sw_drawing
 
 
 def test_old_position_setter_requires_typed_safearray(monkeypatch):
-    """@brief 普通 tuple 会被旧接口忽略，必须传 VT_ARRAY|VT_R8。"""
+    """Legacy APIs ignore ordinary tuples; pass VT_ARRAY|VT_R8."""
     class Array:
         def __init__(self, code, values):
             self.code, self.values = code, values

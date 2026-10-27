@@ -1,4 +1,4 @@
-"""@brief 固定来源请求拒绝与读取上限，全部使用受控替身。"""
+"""@brief Fixed-origin rejection and bounded reads using controlled test doubles."""
 import io
 import urllib.error
 import urllib.request
@@ -32,5 +32,5 @@ def test_response_limit_handles_declared_and_chunked_size(monkeypatch, headers, 
     response = Response(body)
     response.headers = headers
     monkeypatch.setattr(urllib.request, "build_opener", lambda *_: SimpleNamespace(open=lambda *_args, **_kwargs: response))
-    with pytest.raises(ValueError, match="大小上限"):
+    with pytest.raises(ValueError, match="boyut sınır"):
         http_boundary.read_https_response(urllib.request.Request("https://api.github.com/graphql"), allowed_host="api.github.com", max_bytes=4)

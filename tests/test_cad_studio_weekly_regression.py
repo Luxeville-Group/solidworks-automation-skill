@@ -10,6 +10,6 @@ _SPEC.loader.exec_module(_MODULE)
 
 
 def test_weekly_regression_decodes_python_and_autocad_output():
-    assert _MODULE._decode_output("测试通过".encode("utf-8")) == "测试通过"
-    assert _MODULE._decode_output("中文输出".encode("gb18030")) == "中文输出"
-    assert _MODULE._decode_output("未知命令".encode("utf-16")) == "未知命令"
+    assert _MODULE._decode_output("Test passed".encode("utf-8")) == "Test passed"
+    assert _MODULE._decode_output("Türkçe çıktı".encode("gb18030")) == "Türkçe çıktı"
+    assert _MODULE._decode_output("Unknown command".encode("utf-16")) == "Unknown command"

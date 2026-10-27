@@ -1,4 +1,4 @@
-"""@brief 原始文件位码、警告语义与 Core 分类一致性。"""
+'Raw file bitmasks, warning semantics and Core classification consistency.'
 from scripts.sw_file_load import SolidWorksDocumentOpenError, classify_sw_file_load_errors, classify_sw_file_load_warnings
 from scripts.core.recovery import classify_error, ErrorKind
 

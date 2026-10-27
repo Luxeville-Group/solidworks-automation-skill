@@ -5,7 +5,7 @@ export type UpdateProgress = {
 };
 
 /**
- * @brief 合并更新下载事件并计算稳定的百分比，防止超范围和除零。
+ * @brief Combine update download events into a stable percentage, preventing overflow and division by zero.
  */
 export function updateDownloadProgress(
   current: UpdateProgress,
